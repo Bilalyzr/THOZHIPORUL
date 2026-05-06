@@ -9,20 +9,25 @@ const { requireRole } = require('./auth');
 router.get('/', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
         const userRole = req.user.role;
-        // Industry sees only their own; admin/govt see all
-        // const query = userRole === 'industry'
-        //   ? 'SELECT sr.*, ip.company_name FROM service_requests sr JOIN industry_profiles ip ON sr.industry_id = ip.id WHERE sr.industry_id = $1'
-        //   : 'SELECT sr.*, ip.company_name FROM service_requests sr JOIN industry_profiles ip ON sr.industry_id = ip.id';
+        const profileId = req.user.profile_id;
 
-        const mockRequests = [
-            { id: 1, reference_number: 'SR-2026-0045', service_type: 'noc_fire', company_name: 'ABC Industries', current_status: 'field_inspection', priority: 'normal', applied_date: '2026-03-15', expected_completion: '2026-04-30', assigned_officer: 'Mr. Kumar' },
-            { id: 2, reference_number: 'SR-2026-0044', service_type: 'land_allotment', company_name: 'ABC Industries', current_status: 'document_review', priority: 'high', applied_date: '2026-03-10', expected_completion: '2026-05-15', assigned_officer: 'Ms. Priya' },
-            { id: 3, reference_number: 'SR-2026-0043', service_type: 'water_connection', company_name: 'XYZ Manufacturing', current_status: 'completed', priority: 'normal', applied_date: '2026-02-20', expected_completion: '2026-03-20', actual_completion: '2026-03-18', assigned_officer: 'Mr. Rajan' },
-            { id: 4, reference_number: 'SR-2026-0042', service_type: 'power_connection', company_name: 'LMN Textiles', current_status: 'pending_approval', priority: 'urgent', applied_date: '2026-02-01', expected_completion: '2026-03-15', assigned_officer: 'Mr. Kumar' },
-            { id: 5, reference_number: 'SR-2026-0041', service_type: 'lease_renewal', company_name: 'PQR Auto Parts', current_status: 'approved', priority: 'normal', applied_date: '2026-01-15', expected_completion: '2026-02-28', actual_completion: '2026-02-25', assigned_officer: 'Ms. Priya' },
-        ];
+        let queryText = `
+            SELECT sr.*, ip.company_name, p.name as park_name 
+            FROM service_requests sr 
+            JOIN industry_profiles ip ON sr.industry_id = ip.id
+            LEFT JOIN industrial_parks p ON sr.park_id = p.id
+        `;
+        let params = [];
 
-        res.json(mockRequests);
+        if (userRole === 'industry') {
+            queryText += ' WHERE sr.industry_id = $1';
+            params.push(profileId);
+        }
+
+        queryText += ' ORDER BY sr.applied_date DESC';
+
+        const { rows } = await db.query(queryText, params);
+        res.json(rows);
     } catch (err) {
         console.error('Fetch Services Error:', err.message);
         res.status(500).send('Server Error');
@@ -34,14 +39,27 @@ router.get('/', requireRole(['admin', 'govt', 'industry']), async (req, res) => 
 // @access  Private (Industry)
 router.post('/', requireRole(['industry']), async (req, res) => {
     try {
-        const { serviceType, priority, remarks } = req.body;
-        const industryId = req.user.profile_id || 101;
+        const { serviceType, priority, remarks, parkId, requestedArea } = req.body;
+        const industryId = req.user.profile_id;
+
+        if (!industryId) {
+            return res.status(400).json({ error: 'Industry profile not found' });
+        }
 
         // Generate reference number
-        const refNumber = `SR-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
+        const refNumber = `SR-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 8999))}`;
 
-        console.log(`[DB Mock] Service request ${refNumber} created: ${serviceType} by industry ${industryId}`);
-        res.status(201).json({ msg: 'Service request submitted successfully', reference_number: refNumber });
+        const queryText = `
+            INSERT INTO service_requests (industry_id, park_id, service_type, reference_number, requested_area_acres, priority, remarks)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+        `;
+        
+        const { rows } = await db.query(queryText, [
+            industryId, parkId || null, serviceType, refNumber, requestedArea || null, priority || 'normal', remarks || ''
+        ]);
+
+        res.status(201).json({ msg: 'Service request submitted successfully', request: rows[0] });
     } catch (err) {
         console.error('Create Service Error:', err.message);
         res.status(500).send('Server Error');
@@ -49,31 +67,22 @@ router.post('/', requireRole(['industry']), async (req, res) => {
 });
 
 // @route   GET /api/services/:id
-// @desc    Get request detail with milestones
+// @desc    Get request detail
 // @access  Private
 router.get('/:id', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
-        const mockDetail = {
-            id: parseInt(req.params.id),
-            reference_number: 'SR-2026-0045',
-            service_type: 'noc_fire',
-            company_name: 'ABC Industries',
-            current_status: 'field_inspection',
-            priority: 'normal',
-            applied_date: '2026-03-15',
-            expected_completion: '2026-04-30',
-            assigned_officer: 'Mr. Kumar',
-            remarks: 'New unit expansion requires updated fire safety NOC',
-            milestones: [
-                { id: 1, stage_name: 'Application Received', status: 'completed', started_at: '2026-03-15', completed_at: '2026-03-15', sort_order: 1 },
-                { id: 2, stage_name: 'Document Review', status: 'completed', started_at: '2026-03-16', completed_at: '2026-03-18', sort_order: 2 },
-                { id: 3, stage_name: 'Field Inspection', status: 'in_progress', started_at: '2026-03-20', completed_at: null, sort_order: 3 },
-                { id: 4, stage_name: 'Pending Approval', status: 'pending', started_at: null, completed_at: null, sort_order: 4 },
-                { id: 5, stage_name: 'NOC Issued', status: 'pending', started_at: null, completed_at: null, sort_order: 5 },
-            ]
-        };
+        const requestId = parseInt(req.params.id);
+        const { rows } = await db.query(`
+            SELECT sr.*, ip.company_name, p.name as park_name 
+            FROM service_requests sr 
+            JOIN industry_profiles ip ON sr.industry_id = ip.id
+            LEFT JOIN industrial_parks p ON sr.park_id = p.id
+            WHERE sr.id = $1
+        `, [requestId]);
 
-        res.json(mockDetail);
+        if (rows.length === 0) return res.status(404).json({ error: 'Request not found' });
+        
+        res.json(rows[0]);
     } catch (err) {
         console.error('Service Detail Error:', err.message);
         res.status(500).send('Server Error');
@@ -86,7 +95,13 @@ router.get('/:id', requireRole(['admin', 'govt', 'industry']), async (req, res) 
 router.put('/:id/status', requireRole(['admin', 'govt']), async (req, res) => {
     try {
         const { status, remarks } = req.body;
-        console.log(`[DB Mock] Service ${req.params.id} status updated to: ${status}`);
+        const requestId = req.params.id;
+
+        await db.query(
+            'UPDATE service_requests SET current_status = $1, remarks = COALESCE($2, remarks), updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+            [status, remarks, requestId]
+        );
+
         res.json({ msg: 'Service request status updated' });
     } catch (err) {
         console.error('Update Service Error:', err.message);
@@ -94,18 +109,48 @@ router.put('/:id/status', requireRole(['admin', 'govt']), async (req, res) => {
     }
 });
 
-// @route   GET /api/services/bottlenecks
-// @desc    Get overdue service requests
-// @access  Private (Admin, Govt)
-router.get('/bottlenecks', requireRole(['admin', 'govt']), async (req, res) => {
+// @route   POST /api/services/:id/allot
+// @desc    Approve and Allot Plot (Admin only)
+// @access  Private (Admin)
+router.post('/:id/allot', requireRole(['admin']), async (req, res) => {
+    const client = await db.pool.connect();
     try {
-        const mockBottlenecks = [
-            { id: 4, reference_number: 'SR-2026-0042', service_type: 'power_connection', company_name: 'LMN Textiles', days_overdue: 28, current_status: 'pending_approval', assigned_officer: 'Mr. Kumar' },
-        ];
-        res.json(mockBottlenecks);
+        const { plotId } = req.body;
+        const requestId = req.params.id;
+
+        await client.query('BEGIN');
+
+        // 1. Get request and industry details
+        const reqResult = await client.query('SELECT * FROM service_requests WHERE id = $1', [requestId]);
+        if (reqResult.rows.length === 0) throw new Error('Request not found');
+        const serviceReq = reqResult.rows[0];
+
+        // 2. Update Plot
+        await client.query(
+            'UPDATE park_plots SET status = \'allotted\', allottee_industry_id = $1, allotment_date = CURRENT_DATE WHERE id = $2',
+            [serviceReq.industry_id, plotId]
+        );
+
+        // 3. Update Request Status
+        await client.query(
+            'UPDATE service_requests SET current_status = \'completed\', remarks = $1, actual_completion = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [`Plot Allotted (Plot ID: ${plotId})`, requestId]
+        );
+
+        // 4. Update Industry Profile
+        await client.query(
+            'UPDATE industry_profiles SET plot_id = $1, park_id = (SELECT park_id FROM park_plots WHERE id = $1) WHERE id = $2',
+            [plotId, serviceReq.industry_id]
+        );
+
+        await client.query('COMMIT');
+        res.json({ msg: 'Plot successfully allotted and request completed' });
     } catch (err) {
-        console.error('Bottleneck Error:', err.message);
-        res.status(500).send('Server Error');
+        await client.query('ROLLBACK');
+        console.error('Allotment Error:', err.message);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, Button,
   ToggleButton, ToggleButtonGroup, Table, TableBody, TableCell,
@@ -10,8 +11,9 @@ import {
 import {
   Add, ViewKanban, Timeline, TableChart, Visibility,
   Schedule, Person, Flag, CheckCircle, HourglassEmpty,
-  Assignment, Warning, Download
+  Assignment, Warning, Download, Map as MapIcon, SquareFoot
 } from '@mui/icons-material';
+import { serviceRequestService, parkService } from '../services/api';
 
 const STATUS_FLOW = ['applied', 'document_review', 'field_inspection', 'pending_approval', 'approved', 'completed'];
 const STATUS_LABELS = {
@@ -36,36 +38,73 @@ const INITIAL_REQUESTS = [
   { id: 5, reference_number: 'SR-2026-0041', service_type: 'lease_renewal', company_name: 'PQR Auto Parts', current_status: 'approved', priority: 'normal', applied_date: '2026-01-15', expected_completion: '2026-02-28', assigned_officer: 'Ms. Priya', remarks: 'Routine 5-year lease renewal' },
 ];
 
-// Load from localStorage or fall back to defaults
-function loadState(key, fallback) {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : fallback;
-  } catch { return fallback; }
-}
+
 
 export default function ServicesTracker() {
   const [view, setView] = useState('kanban');
-  const [requests, setRequests] = useState(() => loadState('sipcot_service_requests', INITIAL_REQUESTS));
+  const [requests, setRequests] = useState([]);
+  const [parks, setParks] = useState([]);
+  const [availablePlots, setAvailablePlots] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const role = localStorage.getItem('role') || 'industry';
+  const location = useLocation();
 
-  // Persist requests to localStorage on every change
   useEffect(() => {
-    localStorage.setItem('sipcot_service_requests', JSON.stringify(requests));
-  }, [requests]);
+    fetchData();
+    if (location.state) {
+      if (location.state.serviceType) setNewServiceType(location.state.serviceType);
+      if (location.state.parkId) setNewParkId(location.state.parkId);
+      setNewDialogOpen(true);
+    }
+  }, [location]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [reqs, pks] = await Promise.all([
+        serviceRequestService.getAll(),
+        parkService.getAll()
+      ]);
+      setRequests(reqs.data);
+      setParks(pks.data);
+    } catch (err) {
+      console.error('Fetch Data Error:', err);
+      setSnackbar({ open: true, message: 'Error loading data from server.', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // New request form state
   const [newServiceType, setNewServiceType] = useState('');
+  const [newParkId, setNewParkId] = useState('');
+  const [newRequestedArea, setNewRequestedArea] = useState('');
   const [newPriority, setNewPriority] = useState('normal');
   const [newRemarks, setNewRemarks] = useState('');
 
   // Status update form state
   const [updateStatus, setUpdateStatus] = useState('');
+  const [selectedPlotId, setSelectedPlotId] = useState('');
   const [updateRemarks, setUpdateRemarks] = useState('');
+
+  useEffect(() => {
+    if (statusDialogOpen && selectedRequest?.service_type === 'land_allotment' && selectedRequest.park_id) {
+      fetchPlots(selectedRequest.park_id);
+    }
+  }, [statusDialogOpen, selectedRequest]);
+
+  const fetchPlots = async (parkId) => {
+    try {
+      const res = await parkService.getPlots(parkId);
+      setAvailablePlots(res.data.filter(p => p.status === 'available'));
+    } catch (err) {
+      console.error('Fetch Plots Error:', err);
+    }
+  };
 
   const getMilestones = (req) => {
     const statusIdx = STATUS_FLOW.indexOf(req.current_status);
@@ -81,49 +120,73 @@ export default function ServicesTracker() {
   }, {});
 
   // CREATE new service request
-  const handleCreateRequest = () => {
+  const handleCreateRequest = async () => {
     if (!newServiceType) {
       setSnackbar({ open: true, message: 'Please select a service type.', severity: 'error' });
       return;
     }
-    const refNum = `SR-2026-${String(Math.floor(1000 + Math.random() * 9000))}`;
-    const today = new Date().toISOString().split('T')[0];
-    const expected = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const newReq = {
-      id: Date.now(),
-      reference_number: refNum,
-      service_type: newServiceType,
-      company_name: 'ABC Industries',
-      current_status: 'applied',
-      priority: newPriority,
-      applied_date: today,
-      expected_completion: expected,
-      assigned_officer: 'Pending Assignment',
-      remarks: newRemarks,
-    };
-    setRequests([newReq, ...requests]);
-    setNewDialogOpen(false);
-    setNewServiceType('');
-    setNewPriority('normal');
-    setNewRemarks('');
-    setSnackbar({ open: true, message: `Service request ${refNum} submitted successfully!`, severity: 'success' });
+    if (newServiceType === 'land_allotment' && (!newParkId || !newRequestedArea)) {
+      setSnackbar({ open: true, message: 'Park and Requested Area are required for Land Allotment.', severity: 'error' });
+      return;
+    }
+
+    try {
+      await serviceRequestService.create({
+        serviceType: newServiceType,
+        parkId: newParkId,
+        requestedArea: newRequestedArea,
+        priority: newPriority,
+        remarks: newRemarks
+      });
+      
+      fetchData();
+      setNewDialogOpen(false);
+      resetNewForm();
+      setSnackbar({ open: true, message: 'Service request submitted successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to submit request.', severity: 'error' });
+    }
   };
 
-  // UPDATE status (admin/govt)
-  const handleUpdateStatus = () => {
+  const resetNewForm = () => {
+    setNewServiceType('');
+    setNewParkId('');
+    setNewRequestedArea('');
+    setNewPriority('normal');
+    setNewRemarks('');
+  };
+
+  // UPDATE status or ALLOT plot (admin/govt)
+  const handleUpdateStatus = async () => {
     if (!updateStatus) {
       setSnackbar({ open: true, message: 'Please select a new status.', severity: 'error' });
       return;
     }
-    setRequests(requests.map(r =>
-      r.id === selectedRequest.id ? { ...r, current_status: updateStatus, remarks: updateRemarks || r.remarks } : r
-    ));
-    const label = STATUS_LABELS[updateStatus];
-    setStatusDialogOpen(false);
-    setSelectedRequest(null);
-    setUpdateStatus('');
-    setUpdateRemarks('');
-    setSnackbar({ open: true, message: `Request updated to "${label}" successfully!`, severity: 'success' });
+
+    try {
+      if (updateStatus === 'approved' && selectedRequest.service_type === 'land_allotment') {
+        if (!selectedPlotId) {
+          setSnackbar({ open: true, message: 'Please select a plot to allot.', severity: 'error' });
+          return;
+        }
+        await serviceRequestService.allotPlot(selectedRequest.id, selectedPlotId);
+      } else {
+        await serviceRequestService.updateStatus(selectedRequest.id, {
+          status: updateStatus,
+          remarks: updateRemarks
+        });
+      }
+
+      fetchData();
+      setStatusDialogOpen(false);
+      setSelectedRequest(null);
+      setUpdateStatus('');
+      setSelectedPlotId('');
+      setUpdateRemarks('');
+      setSnackbar({ open: true, message: 'Request updated successfully!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to update request.', severity: 'error' });
+    }
   };
 
   // WITHDRAW request (industry)
@@ -162,7 +225,13 @@ export default function ServicesTracker() {
           <Card key={req.id} sx={{ mb: 1, cursor: 'pointer', '&:hover': { boxShadow: 3 }, borderLeft: `3px solid ${STATUS_COLORS[req.current_status]}` }} onClick={() => setSelectedRequest(req)}>
             <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
               <Typography variant="body2" fontWeight={600}>{SERVICE_LABELS[req.service_type]}</Typography>
-              <Typography variant="caption" color="text.secondary">{req.reference_number}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{req.reference_number}</Typography>
+              {req.requested_area_acres && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                  <SquareFoot sx={{ fontSize: 14, color: 'text.secondary' }} />
+                  <Typography variant="caption" fontWeight={700}>{req.requested_area_acres} Acres</Typography>
+                </Box>
+              )}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                 <Typography variant="caption">{req.company_name}</Typography>
                 {req.priority === 'urgent' && <Chip label="Urgent" size="small" color="error" sx={{ height: 18, fontSize: '0.65rem' }} />}
@@ -236,13 +305,13 @@ export default function ServicesTracker() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Reference</TableCell>
+                   <TableCell>Reference</TableCell>
                   <TableCell>Type</TableCell>
+                  <TableCell>Area</TableCell>
                   <TableCell>Company</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Priority</TableCell>
                   <TableCell>Applied</TableCell>
-                  <TableCell>Expected</TableCell>
                   <TableCell>Officer</TableCell>
                   <TableCell>Action</TableCell>
                 </TableRow>
@@ -250,17 +319,17 @@ export default function ServicesTracker() {
               <TableBody>
                 {requests.map((req) => (
                   <TableRow key={req.id} hover>
-                    <TableCell><Typography variant="body2" fontWeight={600}>{req.reference_number}</Typography></TableCell>
+                     <TableCell><Typography variant="body2" fontWeight={600}>{req.reference_number}</Typography></TableCell>
                     <TableCell>{SERVICE_LABELS[req.service_type]}</TableCell>
+                    <TableCell>{req.requested_area_acres ? `${req.requested_area_acres} Ac` : '-'}</TableCell>
                     <TableCell>{req.company_name}</TableCell>
                     <TableCell><Chip label={STATUS_LABELS[req.current_status]} size="small" sx={{ bgcolor: STATUS_COLORS[req.current_status], color: 'white' }} /></TableCell>
                     <TableCell>
                       <Chip label={req.priority} size="small"
                         color={req.priority === 'urgent' ? 'error' : req.priority === 'high' ? 'warning' : 'default'} variant="outlined" />
                     </TableCell>
-                    <TableCell>{req.applied_date}</TableCell>
-                    <TableCell>{req.expected_completion}</TableCell>
-                    <TableCell>{req.assigned_officer}</TableCell>
+                    <TableCell>{new Date(req.applied_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{req.assigned_officer || 'Pending'}</TableCell>
                     <TableCell>
                       <IconButton size="small" onClick={() => setSelectedRequest(req)}><Visibility /></IconButton>
                     </TableCell>
@@ -284,21 +353,21 @@ export default function ServicesTracker() {
             </DialogTitle>
             <DialogContent>
               <Grid container spacing={2} sx={{ mb: 3, mt: 0 }}>
-                <Grid size={{ xs: 6, sm: 3 }}>
+                 <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" color="text.secondary">Company</Typography>
                   <Typography variant="body2" fontWeight={600}>{selectedRequest.company_name}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" color="text.secondary">Applied</Typography>
-                  <Typography variant="body2" fontWeight={600}>{selectedRequest.applied_date}</Typography>
+                  <Typography variant="body2" fontWeight={600}>{new Date(selectedRequest.applied_date).toLocaleDateString()}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography variant="caption" color="text.secondary">Expected</Typography>
-                  <Typography variant="body2" fontWeight={600}>{selectedRequest.expected_completion}</Typography>
+                  <Typography variant="caption" color="text.secondary">Requested Area</Typography>
+                  <Typography variant="body2" fontWeight={600}>{selectedRequest.requested_area_acres ? `${selectedRequest.requested_area_acres} Acres` : 'N/A'}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <Typography variant="caption" color="text.secondary">Officer</Typography>
-                  <Typography variant="body2" fontWeight={600}>{selectedRequest.assigned_officer}</Typography>
+                  <Typography variant="caption" color="text.secondary">Target Park</Typography>
+                  <Typography variant="body2" fontWeight={600}>{selectedRequest.park_name || 'Not Specified'}</Typography>
                 </Grid>
               </Grid>
 
@@ -356,7 +425,7 @@ export default function ServicesTracker() {
                 <Typography variant="body2"><strong>Type:</strong> {SERVICE_LABELS[selectedRequest.service_type]}</Typography>
                 <Typography variant="body2"><strong>Current Status:</strong> {STATUS_LABELS[selectedRequest.current_status]}</Typography>
               </Box>
-              <FormControl fullWidth sx={{ mb: 2 }}>
+               <FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel>New Status</InputLabel>
                 <Select value={updateStatus} label="New Status" onChange={(e) => setUpdateStatus(e.target.value)}>
                   {STATUS_FLOW.map((s) => (
@@ -367,14 +436,32 @@ export default function ServicesTracker() {
                       </Box>
                     </MenuItem>
                   ))}
-                  <MenuItem value="rejected">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: STATUS_COLORS.rejected }} />
-                      Rejected
-                    </Box>
-                  </MenuItem>
                 </Select>
               </FormControl>
+
+              {updateStatus === 'approved' && selectedRequest.service_type === 'land_allotment' && (
+                <Box sx={{ mb: 2, p: 2, bgcolor: '#e8f5e9', borderRadius: 2, border: '1px solid #c8e6c9' }}>
+                  <Typography variant="subtitle2" fontWeight={700} color="success.main" gutterBottom>
+                    Select Plot for Allotment
+                  </Typography>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Available Plots in {selectedRequest.park_name}</InputLabel>
+                    <Select 
+                      value={selectedPlotId} 
+                      label={`Available Plots in ${selectedRequest.park_name}`}
+                      onChange={(e) => setSelectedPlotId(e.target.value)}
+                    >
+                      {availablePlots.map(plot => (
+                        <MenuItem key={plot.id} value={plot.id}>
+                          Plot {plot.plot_number} ({plot.area_acres} Acres)
+                        </MenuItem>
+                      ))}
+                      {availablePlots.length === 0 && <MenuItem disabled>No available plots found</MenuItem>}
+                    </Select>
+                  </FormControl>
+                </Box>
+              )}
+
               <TextField fullWidth multiline rows={3} label="Officer Remarks (optional)" value={updateRemarks} onChange={(e) => setUpdateRemarks(e.target.value)} />
             </Box>
           )}
@@ -389,7 +476,7 @@ export default function ServicesTracker() {
       <Dialog open={newDialogOpen} onClose={() => setNewDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>New Service Request</DialogTitle>
         <DialogContent>
-          <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
+           <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
             <InputLabel>Service Type *</InputLabel>
             <Select value={newServiceType} label="Service Type *" onChange={(e) => setNewServiceType(e.target.value)}>
               {Object.entries(SERVICE_LABELS).map(([key, label]) => (
@@ -397,6 +484,26 @@ export default function ServicesTracker() {
               ))}
             </Select>
           </FormControl>
+
+          {newServiceType === 'land_allotment' && (
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Target Industrial Park *</InputLabel>
+                  <Select value={newParkId} label="Target Industrial Park *" onChange={(e) => setNewParkId(e.target.value)}>
+                    {parks.map(park => (
+                      <MenuItem key={park.id} value={park.id}>{park.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField fullWidth label="Required Area (Acres) *" type="number" value={newRequestedArea} onChange={(e) => setNewRequestedArea(e.target.value)} 
+                  InputProps={{ startAdornment: <SquareFoot sx={{ mr: 1, color: 'text.secondary' }} /> }} />
+              </Grid>
+            </Grid>
+          )}
+
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Priority</InputLabel>
             <Select value={newPriority} label="Priority" onChange={(e) => setNewPriority(e.target.value)}>

@@ -19,6 +19,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import LandscapeIcon from '@mui/icons-material/Landscape';
 import CloseIcon from '@mui/icons-material/Close';
 import logoTransparent from '../assets/logo-transparent.png';
+import LoadingScreen from '../components/LoadingScreen';
 
 // Animations
 const float = keyframes`
@@ -76,19 +77,32 @@ export default function Home() {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [isIntroLoading, setIsIntroLoading] = useState(true);
   const trigger = useScrollTrigger({ disableHysteresis: true, threshold: 0 });
 
-  useEffect(() => { setIsVisible(true); }, []);
+  useEffect(() => { 
+    if (isIntroLoading) {
+      const timer = setTimeout(() => {
+        setIsIntroLoading(false);
+        setIsVisible(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(true); 
+    }
+  }, [isIntroLoading]);
 
   const navItems = [
-    { label: 'About THOZHIPORUL', path: '/about' },
+    { label: 'About THOZHIRPORUL', path: '/about' },
     { label: 'Capabilities', path: '/features' },
     { label: 'Industrial Parks', path: '/parks' },
     { label: 'Support', path: '/contact' },
   ];
 
   return (
-    <Box sx={{ overflowX: 'hidden', bgcolor: '#f8fafc' }}>
+    <>
+      {isIntroLoading && <LoadingScreen message="Initializing THOZHIRPORUL..." />}
+      <Box sx={{ overflowX: 'hidden', bgcolor: '#f8fafc' }}>
       {/* NAVBAR */}
       <ElevationScroll>
         <AppBar position="fixed" color="default" sx={{ zIndex: 1100 }}>
@@ -109,7 +123,7 @@ export default function Home() {
                     WebkitBackgroundClip: trigger ? 'text' : 'unset',
                     WebkitTextFillColor: trigger ? 'transparent' : 'unset',
                   }}>
-                    THOZHIPORUL
+                    THOZHIRPORUL
                   </Typography>
                   <Typography variant="caption" sx={{ fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.1em', color: trigger ? 'text.secondary' : 'rgba(255,255,255,0.7)', lineHeight: 1 }}>
                     BY NEXORA
@@ -134,7 +148,7 @@ export default function Home() {
                     backdropFilter: 'blur(10px)',
                     '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 6px 20px rgba(31,78,121,0.3)' }
                   }}>
-                  Login to THOZHIPORUL
+                  Login to THOZHIRPORUL
                 </Button>
               </Stack>
 
@@ -149,7 +163,7 @@ export default function Home() {
       {/* Mobile Drawer */}
       <Drawer anchor="right" open={mobileMenu} onClose={() => setMobileMenu(false)} PaperProps={{ sx: { width: 280 } }}>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography fontWeight={800} color="primary">THOZHIPORUL</Typography>
+          <Typography fontWeight={800} color="primary">THOZHIRPORUL</Typography>
           <IconButton onClick={() => setMobileMenu(false)}><CloseIcon /></IconButton>
         </Box>
         <Divider />
@@ -161,7 +175,7 @@ export default function Home() {
           ))}
           <ListItemButton onClick={() => { navigate('/role-selection'); setMobileMenu(false); }}
             sx={{ mx: 2, mt: 2, bgcolor: 'primary.main', color: 'white', borderRadius: 2, '&:hover': { bgcolor: 'primary.dark' } }}>
-            <ListItemText primary="Login to THOZHIPORUL" primaryTypographyProps={{ fontWeight: 700, textAlign: 'center' }} />
+            <ListItemText primary="Login to THOZHIRPORUL" primaryTypographyProps={{ fontWeight: 700, textAlign: 'center' }} />
           </ListItemButton>
         </List>
       </Drawer>
@@ -198,7 +212,7 @@ export default function Home() {
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2, textAlign: 'center', color: 'white', py: { xs: 4, md: 8 } }}>
           <Fade in={isVisible} timeout={800}>
             <Box>
-              {/* THOZHIPORUL Badge */}
+              {/* THOZHIRPORUL Badge */}
               <Chip label="SMART INDUSTRIAL MONITORING SYSTEM" sx={{
                 mb: 4, bgcolor: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)',
                 fontWeight: 700, letterSpacing: '0.15em', fontSize: '0.7rem', py: 2.5, px: 1,
@@ -217,7 +231,7 @@ export default function Home() {
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                   animation: `${shimmer} 3s linear infinite`,
                 }}>
-                  THOZHIPORUL
+                  THOZHIRPORUL
                 </Box>
               </Typography>
 
@@ -241,7 +255,7 @@ export default function Home() {
                     '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 40px rgba(46,125,50,0.5)' },
                     transition: 'all 0.3s ease',
                   }}>
-                  Launch THOZHIPORUL Portal
+                  Launch THOZHIRPORUL Portal
                 </Button>
                 <Button variant="outlined" size="large" onClick={() => navigate('/parks')}
                   sx={{
@@ -313,7 +327,7 @@ export default function Home() {
               <Box component="span" sx={{ color: 'secondary.main' }}>Governance</Box>
             </Typography>
             <Typography variant="h6" color="text.secondary" maxWidth={700} sx={{ mx: 'auto', fontWeight: 400, lineHeight: 1.7 }}>
-              THOZHIPORUL integrates industrial datasets into a single source of truth, enabling agile decision-making and sustainable growth.
+              THOZHIRPORUL integrates industrial datasets into a single source of truth, enabling agile decision-making and sustainable growth.
             </Typography>
           </Box>
 
@@ -389,7 +403,7 @@ export default function Home() {
             <Box component="span" sx={{
               background: 'linear-gradient(90deg, #4CAF50, #81C784)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            }}>THOZHIPORUL</Box>?
+            }}>THOZHIRPORUL</Box>?
           </Typography>
           <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)', mb: 6, fontWeight: 300, fontSize: '1.2rem' }}>
             Sign in with your official credentials to access your role-based dashboard.
@@ -397,7 +411,7 @@ export default function Home() {
           <Button variant="contained" size="large" onClick={() => navigate('/role-selection')}
             endIcon={<ArrowForwardIcon />}
             sx={{ px: 8, py: 2, fontSize: '1.2rem', fontWeight: 900, borderRadius: 4, background: 'linear-gradient(135deg, #2E7D32, #4CAF50)', boxShadow: '0 8px 32px rgba(46,125,50,0.4)' }}>
-            Go to THOZHIPORUL Portal
+            Go to THOZHIRPORUL Portal
           </Button>
         </Container>
       </Box>
@@ -417,7 +431,7 @@ export default function Home() {
                     background: 'linear-gradient(90deg, #1F4E79, #2E7D32)',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                   }}>
-                    THOZHIPORUL
+                    THOZHIRPORUL
                   </Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em' }}>
                     BY NEXORA
@@ -455,7 +469,7 @@ export default function Home() {
           </Grid>
           <Divider sx={{ mb: 4 }} />
           <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="caption" color="text.disabled">&copy; 2026 NEXORA, Government of Tamil Nadu. THOZHIPORUL Platform.</Typography>
+            <Typography variant="caption" color="text.disabled">&copy; 2026 NEXORA, Government of Tamil Nadu. THOZHIRPORUL Platform.</Typography>
             <Stack direction="row" spacing={3}>
               <Link onClick={() => navigate('/about')} sx={{ cursor: 'pointer', color: 'text.disabled', textDecoration: 'none', fontSize: '0.75rem', '&:hover': { color: 'text.primary' } }}>Privacy Policy</Link>
               <Link onClick={() => navigate('/about')} sx={{ cursor: 'pointer', color: 'text.disabled', textDecoration: 'none', fontSize: '0.75rem', '&:hover': { color: 'text.primary' } }}>Terms of Service</Link>
@@ -464,5 +478,6 @@ export default function Home() {
         </Container>
       </Box>
     </Box>
+    </>
   );
 }

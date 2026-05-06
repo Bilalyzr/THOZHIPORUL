@@ -3,19 +3,9 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'sipcot_sims_super_secret_key_2026';
+const db = require('../db');
 
-// ============================================================
-// IN-MEMORY USER STORE (replaces DB until PostgreSQL is connected)
-// Persists for the lifetime of the server process
-// ============================================================
-let nextId = 100;
-const registeredUsers = [
-    // Default demo accounts
-    { id: 1, email: 'admin@sipcot.com', password_hash: '$demo$', role: 'admin', name: 'SIMS Admin', status: 'Active' },
-    { id: 2, email: 'industry@abc.com', password_hash: '$demo$', role: 'industry', name: 'ABC Industries', status: 'Active', profile_id: 101 },
-    { id: 3, email: 'govt@tn.gov.in', password_hash: '$demo$', role: 'govt', name: 'Govt Officer', status: 'Active' },
-];
+const JWT_SECRET = process.env.JWT_SECRET || 'sipcot_sims_fallback_secret_2026';
 
 // ============================================================
 // REGISTER - Industry
@@ -24,8 +14,9 @@ router.post('/register/industry', async (req, res) => {
     const { companyName, industryType, location, contactPerson, phoneNumber, email, password } = req.body;
 
     try {
-        // Check if email already exists
-        if (registeredUsers.find(u => u.email === email)) {
+        // Check if email already exists in DB
+        const userExists = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (userExists.rows.length > 0) {
             return res.status(400).json({ error: 'An account with this email already exists.' });
         }
 
@@ -38,20 +29,29 @@ router.post('/register/industry', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
-        const newUser = {
-            id: ++nextId,
-            email,
-            password_hash,
-            role: 'industry',
-            name: companyName,
-            status: 'Active',
-            profile_id: nextId,
-            profile: { companyName, industryType, location, contactPerson, phoneNumber }
-        };
+        // Get a client from the pool for a transaction
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const userInsert = await client.query(
+                'INSERT INTO users(email, password_hash, role, status) VALUES($1, $2, $3, $4) RETURNING id',
+                [email, password_hash, 'industry', 'Active']
+            );
+            const userId = userInsert.rows[0].id;
 
-        registeredUsers.push(newUser);
+            await client.query(
+                'INSERT INTO industry_profiles(user_id, company_name, industry_type, location, contact_person, phone_number) VALUES($1, $2, $3, $4, $5, $6)',
+                [userId, companyName, industryType, location, contactPerson, phoneNumber]
+            );
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+
         console.log(`[REGISTER] New industry: ${companyName} (${email})`);
-        console.log(`[USERS] Total registered: ${registeredUsers.length}`);
 
         res.status(201).json({ msg: 'Industry registered successfully! You can now log in.', email });
     } catch (err) {
@@ -67,7 +67,8 @@ router.post('/register/govt', async (req, res) => {
     const { officerName, designation, department, jurisdiction, officialEmail, phoneNumber, employeeId, password } = req.body;
 
     try {
-        if (registeredUsers.find(u => u.email === officialEmail)) {
+        const userExists = await db.query('SELECT * FROM users WHERE email = $1', [officialEmail]);
+        if (userExists.rows.length > 0) {
             return res.status(400).json({ error: 'An account with this email already exists.' });
         }
 
@@ -78,19 +79,29 @@ router.post('/register/govt', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
-        const newUser = {
-            id: ++nextId,
-            email: officialEmail,
-            password_hash,
-            role: 'govt',
-            name: officerName,
-            status: 'Active',
-            profile: { designation, department, jurisdiction, phoneNumber, employeeId }
-        };
+        // Get a client for the transaction
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const userInsert = await client.query(
+                'INSERT INTO users(email, password_hash, role, status) VALUES($1, $2, $3, $4) RETURNING id',
+                [officialEmail, password_hash, 'govt', 'Active']
+            );
+            const userId = userInsert.rows[0].id;
 
-        registeredUsers.push(newUser);
+            await client.query(
+                'INSERT INTO govt_profiles(user_id, officer_name, designation, department, jurisdiction) VALUES($1, $2, $3, $4, $5)',
+                [userId, officerName, designation, department, jurisdiction]
+            );
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+
         console.log(`[REGISTER] New govt officer: ${officerName} (${officialEmail})`);
-        console.log(`[USERS] Total registered: ${registeredUsers.length}`);
 
         res.status(201).json({ msg: 'Government officer registered successfully! You can now log in.', email: officialEmail });
     } catch (err) {
@@ -106,8 +117,16 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        // Find user in registered store
-        const user = registeredUsers.find(u => u.email === email);
+        // Find user in DB
+        const result = await db.query(
+            `SELECT u.*, ip.id as profile_id, ip.company_name, gp.id as govt_profile_id, gp.officer_name 
+             FROM users u 
+             LEFT JOIN industry_profiles ip ON u.id = ip.user_id 
+             LEFT JOIN govt_profiles gp ON u.id = gp.user_id 
+             WHERE u.email = $1`, 
+            [email]
+        );
+        const user = result.rows[0];
 
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials. No account found with this email.' });
@@ -128,19 +147,22 @@ router.post('/login', async (req, res) => {
         }
 
         // Create JWT
+        const name = user.role === 'industry' ? user.company_name : 
+                    user.role === 'govt' ? user.officer_name : 'Admin';
+        
         const payload = {
             user: {
                 id: user.id,
                 role: user.role,
-                name: user.name,
+                name: name,
                 ...(user.profile_id && { profile_id: user.profile_id })
             }
         };
 
         jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' }, (err, token) => {
             if (err) throw err;
-            console.log(`[AUDIT] Login: ${user.email} | Role: ${user.role} | Name: ${user.name}`);
-            res.json({ token, role: user.role, name: user.name, email: user.email });
+            console.log(`[AUDIT] Login: ${user.email} | Role: ${user.role} | Name: ${name}`);
+            res.json({ token, role: user.role, name: name, email: user.email });
         });
 
     } catch (err) {

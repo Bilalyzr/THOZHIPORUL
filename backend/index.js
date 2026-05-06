@@ -33,6 +33,12 @@ app.use('/api/command', require('./routes/command'));
 app.use('/api/compliance', require('./routes/compliance'));
 app.use('/api/workspace', require('./routes/workspace'));
 
+// Advanced / Integrations
+app.use('/api/ai-decisions', require('./routes/ai-decisions'));
+app.use('/api/integrations', require('./routes/integrations'));
+app.use('/api/grievances', require('./routes/grievances'));
+app.use('/api/sipcot-sync', require('./routes/sipcot-sync'));
+
 // Protected Test Route Ensure RBAC System is functional
 app.get('/api/admin-test', auth.requireRole(['admin']), (req, res) => {
     res.json({ message: "Admin Access Granted" });

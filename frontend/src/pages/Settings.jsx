@@ -130,7 +130,7 @@ function Settings() {
             <Divider sx={{ my: 2 }} />
             <List dense>
               <ListItem>
-                <ListItemText primary="Software Version" secondary="THOZHIPORUL v1.0.4-production" />
+                <ListItemText primary="Software Version" secondary="THOZHIRPORUL v1.0.4-production" />
               </ListItem>
               <ListItem>
                 <ListItemText primary="Build Date" secondary="March 16, 2026" />

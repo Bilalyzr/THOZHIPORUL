@@ -84,8 +84,10 @@ CREATE TABLE park_infrastructure_metrics (
 CREATE TABLE service_requests (
     id SERIAL PRIMARY KEY,
     industry_id INTEGER REFERENCES industry_profiles(id) ON DELETE CASCADE,
+    park_id INTEGER REFERENCES industrial_parks(id),
     service_type service_type NOT NULL,
     reference_number VARCHAR(50) UNIQUE NOT NULL,
+    requested_area_acres DECIMAL(10,2),
     current_status service_status DEFAULT 'applied',
     priority VARCHAR(20) DEFAULT 'normal',
     applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

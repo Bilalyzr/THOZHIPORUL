@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: sims_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sipcot_sims
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./backend/schema_v2.sql:/docker-entrypoint-initdb.d/2-schema_v2.sql
+
+  backend:
+    build: ./backend
+    container_name: sims_backend
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=sipcot_sims
+      - DB_HOST=db
+      - DB_PORT=5432
+      - JWT_SECRET=sipcot_sims_super_secret_key_2026
+    depends_on:
+      - db
+
+volumes:
+  db_data:

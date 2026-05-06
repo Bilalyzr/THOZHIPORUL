@@ -20,6 +20,7 @@ export default function IndustryWorkspace() {
   const navigate = useNavigate();
   const [leaseDialogOpen, setLeaseDialogOpen] = useState(false);
   const [uploadSnack, setUploadSnack] = useState(false);
+  
   const overview = {
     company: { name: 'ABC Industries', park: 'Oragadam Industrial Park', plot: 'A-101', since: 2019, industry_type: 'Auto Components' },
     compliance_score: { overall: 78, submission: 90, environmental: 72, financial: 85, safety: 65 },

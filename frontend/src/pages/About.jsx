@@ -30,12 +30,12 @@ export default function About() {
       }}>
         <Box sx={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: `radial-gradient(circle, white 1px, transparent 1px)`, backgroundSize: '30px 30px' }} />
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
-          <Chip label="ABOUT THOZHIPORUL" sx={{ mb: 3, bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 800, letterSpacing: '0.15em', py: 2.5, px: 1, border: '1px solid rgba(255,255,255,0.2)' }} />
+          <Chip label="ABOUT THOZHIRPORUL" sx={{ mb: 3, bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 800, letterSpacing: '0.15em', py: 2.5, px: 1, border: '1px solid rgba(255,255,255,0.2)' }} />
           <Typography variant="h2" fontWeight={900} sx={{ mb: 3, letterSpacing: '-0.03em', animation: `${fadeIn} 0.8s ease-out`, fontSize: { xs: '2.2rem', md: '3.5rem' } }}>
             The Intelligence Behind Tamil Nadu's Industrial Growth
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 300, opacity: 0.85, lineHeight: 1.8, maxWidth: 700, mx: 'auto', animation: `${fadeIn} 1s ease-out` }}>
-            THOZHIPORUL transforms how government monitors, industries report, and stakeholders collaborate - all through one unified digital platform by NEXORA.
+            THOZHIRPORUL transforms how government monitors, industries report, and stakeholders collaborate - all through one unified digital platform by NEXORA.
           </Typography>
         </Container>
       </Box>
@@ -50,16 +50,16 @@ export default function About() {
               <Box component="span" sx={{ color: 'secondary.main' }}>Industrial Excellence</Box>
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 2, fontSize: '1.05rem' }}>
-              The Smart Industrial Monitoring System (THOZHIPORUL) is NEXORA's flagship digital initiative to replace fragmented
+              The Smart Industrial Monitoring System (THOZHIRPORUL) is NEXORA's flagship digital initiative to replace fragmented
               manual reporting with a real-time, data-driven industrial operating system.
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, lineHeight: 2, fontSize: '1.05rem' }}>
               Built for government officers who need state-wide visibility, and industry allottees who need compliance clarity -
-              THOZHIPORUL bridges the information gap that has historically slowed industrial governance in Tamil Nadu.
+              THOZHIRPORUL bridges the information gap that has historically slowed industrial governance in Tamil Nadu.
             </Typography>
             <Button variant="contained" size="large" onClick={() => navigate('/role-selection')} endIcon={<ArrowForwardIcon />}
               sx={{ borderRadius: 3, px: 4, py: 1.5, fontWeight: 700 }}>
-              Access THOZHIPORUL Portal
+              Access THOZHIRPORUL Portal
             </Button>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -83,12 +83,12 @@ export default function About() {
       <Box sx={{ bgcolor: 'white', py: { xs: 8, md: 14 } }}>
         <Container maxWidth="lg">
           <Box textAlign="center" sx={{ mb: 8 }}>
-            <Typography variant="h3" fontWeight={900} sx={{ mb: 2 }}>What Makes THOZHIPORUL Different</Typography>
+            <Typography variant="h3" fontWeight={900} sx={{ mb: 2 }}>What Makes THOZHIRPORUL Different</Typography>
             <Typography variant="h6" color="text.secondary" fontWeight={400}>Three pillars that define our platform</Typography>
           </Box>
           <Grid container spacing={4}>
             {[
-              { icon: <SpeedIcon sx={{ fontSize: 48 }} />, title: 'What is THOZHIPORUL?', desc: 'A centralized monitoring platform that tracks investment, employment, resource usage, and compliance across all NEXORA industrial parks in real-time. One dashboard for the entire state.', color: '#1F4E79' },
+              { icon: <SpeedIcon sx={{ fontSize: 48 }} />, title: 'What is THOZHIRPORUL?', desc: 'A centralized monitoring platform that tracks investment, employment, resource usage, and compliance across all NEXORA industrial parks in real-time. One dashboard for the entire state.', color: '#1F4E79' },
               { icon: <SecurityIcon sx={{ fontSize: 48 }} />, title: 'Security & Transparency', desc: 'JWT-based authentication with role-based access control. Every action is audit-logged. Government-grade encryption ensures data sovereignty and accountability.', color: '#2E7D32' },
               { icon: <TrendingUpIcon sx={{ fontSize: 48 }} />, title: 'Economic Impact', desc: 'Track Rs. 24,500+ Cr in industrial investment, 145,000+ jobs, and 8 parks - all from a single command center. Predictive models project future growth trajectories.', color: '#F57C00' },
             ].map((pillar, idx) => (
@@ -110,7 +110,7 @@ export default function About() {
       {/* CTA */}
       <Box sx={{ py: 12, background: 'linear-gradient(135deg, #0f172a, #1F4E79)', textAlign: 'center' }}>
         <Container maxWidth="sm">
-          <Typography variant="h3" color="white" fontWeight={900} sx={{ mb: 3 }}>Join the THOZHIPORUL Ecosystem</Typography>
+          <Typography variant="h3" color="white" fontWeight={900} sx={{ mb: 3 }}>Join the THOZHIRPORUL Ecosystem</Typography>
           <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.7)', mb: 5, fontWeight: 300 }}>
             Register your industry and start reporting through Tamil Nadu's most advanced industrial platform.
           </Typography>

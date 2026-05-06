@@ -252,7 +252,7 @@ function DataSubmission() {
         ) : activeStep > steps.length ? (
             <Box sx={{ textAlign: 'center', py: 5 }}>
                 <Typography variant="h5" color="success.main" gutterBottom>🎉 Submission Successful!</Typography>
-                <Typography variant="body1" sx={{ mb: 4 }}>Your report has been received and logged under Transaction ID: THOZHIPORUL-{Date.now()}.</Typography>
+                <Typography variant="body1" sx={{ mb: 4 }}>Your report has been received and logged under Transaction ID: THOZHIRPORUL-{Date.now()}.</Typography>
                 <Button variant="outlined" onClick={handleReset}>Initiate New Submission</Button>
             </Box>
         ) : (

@@ -31,6 +31,7 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import logoTransparent from '../assets/logo-transparent.png';
+import LoadingScreen from '../components/LoadingScreen';
 
 const drawerWidth = 260;
 const miniDrawerWidth = 72;
@@ -40,6 +41,7 @@ function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [notifAnchorEl, setNotifAnchorEl] = useState(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
   // Route guard: redirect to home if not logged in
@@ -80,8 +82,11 @@ function MainLayout() {
   };
 
   const handleLogout = () => {
-    authService.logout();
-    navigate('/home');
+    setIsLoggingOut(true);
+    setTimeout(() => {
+      authService.logout();
+      navigate('/home');
+    }, 1500);
   };
 
   const currentWidth = collapsed ? miniDrawerWidth : drawerWidth;
@@ -143,7 +148,7 @@ function MainLayout() {
         </Box>
         <Box>
           <Typography variant="h6" noWrap sx={{ fontWeight: 900, fontSize: '1.2rem', lineHeight: 1.1, background: 'linear-gradient(90deg, #1F4E79, #2E7D32)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            THOZHIPORUL
+            THOZHIRPORUL
           </Typography>
           <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.08em' }}>BY NEXORA</Typography>
         </Box>
@@ -204,7 +209,7 @@ function MainLayout() {
         {!collapsed && (
           <Box>
             <Typography variant="h6" noWrap sx={{ fontWeight: 900, fontSize: '1.2rem', lineHeight: 1.1, background: 'linear-gradient(90deg, #1F4E79, #2E7D32)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              THOZHIPORUL
+              THOZHIRPORUL
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.08em' }}>BY NEXORA</Typography>
           </Box>
@@ -309,10 +314,12 @@ function MainLayout() {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
+    <>
+      {isLoggingOut && <LoadingScreen message="Securely logging out..." />}
+      <Box sx={{ display: 'flex' }}>
+        <CssBaseline />
 
-      {/* Top Header */}
+        {/* Top Header */}
       <AppBar
         position="fixed"
         sx={{
@@ -421,6 +428,7 @@ function MainLayout() {
         <Outlet />
       </Box>
     </Box>
+    </>
   );
 }
 

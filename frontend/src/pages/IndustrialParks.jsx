@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Container, Typography, Grid, Card, CardContent, Button, Chip,
   Paper, TextField, InputAdornment, ToggleButton, ToggleButtonGroup,
@@ -439,7 +439,7 @@ export default function IndustrialParks() {
 
                       <Divider sx={{ my: 2 }} />
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Button variant="contained" size="small" fullWidth onClick={() => navigate('/services')}>Apply for Plot</Button>
+                        <Button variant="contained" size="small" fullWidth onClick={() => navigate('/services', { state: { parkId: selectedPark.id, serviceType: 'land_allotment' } })}>Apply for Plot</Button>
                         <Button variant="outlined" size="small" fullWidth onClick={() => navigate('/report-center')}>Full Analytics</Button>
                       </Box>
                     </>
@@ -454,7 +454,7 @@ export default function IndustrialParks() {
                         </Typography>
                         <Button variant="contained" size="small" fullWidth onClick={() => navigate('/role-selection')}
                           sx={{ borderRadius: 2 }}>
-                          Login to THOZHIPORUL
+                          Login to THOZHIRPORUL
                         </Button>
                       </Paper>
                     </>

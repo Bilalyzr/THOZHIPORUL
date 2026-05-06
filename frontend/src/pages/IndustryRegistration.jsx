@@ -83,7 +83,7 @@ export default function IndustryRegistration() {
                 Industry Registration
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Create your THOZHIPORUL account to start submitting industrial data.
+                Create your THOZHIRPORUL account to start submitting industrial data.
               </Typography>
             </Box>
           </Box>
@@ -136,7 +136,7 @@ export default function IndustryRegistration() {
               <Grid size={{ xs: 12 }}>
                 <TextField required fullWidth label="Email Address" name="email" type="email"
                   value={formData.email} onChange={handleChange}
-                  helperText="This email will be your THOZHIPORUL login username." />
+                  helperText="This email will be your THOZHIRPORUL login username." />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField required fullWidth label="Password" name="password"
@@ -179,7 +179,7 @@ export default function IndustryRegistration() {
         </Paper>
 
         <Typography variant="caption" display="block" textAlign="center" color="text.disabled" sx={{ mt: 3 }}>
-          &copy; 2026 NEXORA | THOZHIPORUL Platform | Government of Tamil Nadu
+          &copy; 2026 NEXORA | THOZHIRPORUL Platform | Government of Tamil Nadu
         </Typography>
       </Container>
 

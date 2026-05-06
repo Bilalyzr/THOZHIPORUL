@@ -14,10 +14,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LockIcon from '@mui/icons-material/Lock';
 import { authService } from '../services/api';
 import logoTransparent from '../assets/logo-transparent.png';
+import LoadingScreen from '../components/LoadingScreen';
 
 const ROLE_CONFIG = {
   admin: {
-    title: 'THOZHIPORUL Admin',
+    title: 'THOZHIRPORUL Admin',
     subtitle: 'System monitoring, compliance & user management',
     color: '#1F4E79',
     gradient: 'linear-gradient(135deg, #1F4E79, #3A74A7)',
@@ -76,7 +77,9 @@ export default function Login() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex' }}>
+    <>
+      {loading && <LoadingScreen message="Authenticating credentials..." />}
+      <Box sx={{ minHeight: '100vh', display: 'flex' }}>
       {/* Left decorative panel */}
       <Box sx={{
         display: { xs: 'none', md: 'flex' }, width: '42%', flexDirection: 'column',
@@ -93,9 +96,9 @@ export default function Login() {
             width: 80, height: 80, mx: 'auto', mb: 3,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <img src={logoTransparent} alt="THOZHIPORUL Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img src={logoTransparent} alt="THOZHIRPORUL Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </Box>
-          <Typography variant="h3" fontWeight={900} sx={{ mb: 2, letterSpacing: '-0.02em' }}>THOZHIPORUL</Typography>
+          <Typography variant="h3" fontWeight={900} sx={{ mb: 2, letterSpacing: '-0.02em' }}>THOZHIRPORUL</Typography>
           <Typography variant="body1" sx={{ opacity: 0.7, mb: 4, lineHeight: 1.8 }}>
             Smart Industrial Monitoring System
           </Typography>
@@ -182,14 +185,14 @@ export default function Login() {
                   background: config.gradient, boxShadow: `0 4px 16px ${config.color}30`,
                   '&:hover': { boxShadow: `0 8px 24px ${config.color}40` },
                 }}>
-                {loading ? 'Signing in...' : 'Sign In to THOZHIPORUL'}
+                {loading ? 'Signing in...' : 'Sign In to THOZHIRPORUL'}
               </Button>
             </form>
 
             {(role === 'industry' || role === 'govt') && (
               <Box sx={{ textAlign: 'center', mt: 3, pt: 3, borderTop: '1px solid #E2E8F0' }}>
                 <Typography variant="body2" color="text.secondary">
-                  New to THOZHIPORUL?{' '}
+                  New to THOZHIRPORUL?{' '}
                   <Link component="button" type="button" underline="hover"
                     onClick={() => navigate(role === 'industry' ? '/registration' : '/govt-registration')}
                     sx={{ color: config.color, fontWeight: 700 }}>
@@ -202,14 +205,16 @@ export default function Login() {
 
           <Box sx={{ textAlign: 'center', mt: 3 }}>
             <Button size="small" onClick={() => navigate('/home')} sx={{ color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}>
-              Return to THOZHIPORUL Home
+              Return to THOZHIRPORUL Home
             </Button>
           </Box>
           <Typography variant="caption" display="block" textAlign="center" color="text.disabled" sx={{ mt: 1 }}>
-            &copy; 2026 NEXORA | THOZHIPORUL Platform | Government of Tamil Nadu
+            &copy; 2026 NEXORA | THOZHIRPORUL Platform | Government of Tamil Nadu
           </Typography>
         </Container>
       </Box>
     </Box>
+    </>
   );
 }
+

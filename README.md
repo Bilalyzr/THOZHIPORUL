@@ -1,9 +1,9 @@
-# THOZHIPORUL BY NEXORA
+# THOZHIRPORUL BY NEXORA
 
 Smart Industrial Monitoring System (SIMS) - Unified digital platform powering industrial transformation through real-time monitoring, compliance tracking, and data-driven governance.
 
 ## Overview
-THOZHIPORUL integrates industrial datasets into a single source of truth, enabling agile decision-making and sustainable growth for industrial parks and unit owners.
+THOZHIRPORUL integrates industrial datasets into a single source of truth, enabling agile decision-making and sustainable growth for industrial parks and unit owners.
 
 ## Key Features
 - **Real-time Monitoring**: Live surveillance of resource consumption and operational status.

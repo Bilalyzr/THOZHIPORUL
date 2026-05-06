@@ -67,12 +67,12 @@ export default function Features() {
         backgroundSize: 'cover', backgroundPosition: 'center', color: 'white',
       }}>
         <Container maxWidth="md">
-          <Chip label="THOZHIPORUL CAPABILITIES" sx={{ mb: 3, bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 800, letterSpacing: '0.15em', py: 2.5, border: '1px solid rgba(255,255,255,0.2)' }} />
+          <Chip label="THOZHIRPORUL CAPABILITIES" sx={{ mb: 3, bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 800, letterSpacing: '0.15em', py: 2.5, border: '1px solid rgba(255,255,255,0.2)' }} />
           <Typography variant="h2" fontWeight={900} sx={{ mb: 3, letterSpacing: '-0.03em', animation: `${fadeIn} 0.8s ease-out`, fontSize: { xs: '2.2rem', md: '3.5rem' } }}>
             Platform Features & Modules
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 300, opacity: 0.85, lineHeight: 1.8, maxWidth: 650, mx: 'auto' }}>
-            Every feature in THOZHIPORUL is designed to solve a specific pain point in industrial governance - from data collection to executive decision-making.
+            Every feature in THOZHIRPORUL is designed to solve a specific pain point in industrial governance - from data collection to executive decision-making.
           </Typography>
         </Container>
       </Box>
@@ -128,7 +128,7 @@ export default function Features() {
               Specialized{' '}
               <Box component="span" sx={{ color: 'secondary.main' }}>Modules</Box>
             </Typography>
-            <Typography variant="h6" color="text.secondary" fontWeight={400}>Purpose-built tools that extend the THOZHIPORUL platform</Typography>
+            <Typography variant="h6" color="text.secondary" fontWeight={400}>Purpose-built tools that extend the THOZHIRPORUL platform</Typography>
           </Box>
           <Grid container spacing={4}>
             {extraModules.map((mod, idx) => (
@@ -152,7 +152,7 @@ export default function Features() {
       <Box sx={{ py: 10, background: 'linear-gradient(135deg, #0f172a, #1F4E79)' }}>
         <Container maxWidth="md" sx={{ textAlign: 'center' }}>
           <Typography variant="h4" color="white" fontWeight={300} sx={{ fontStyle: 'italic', lineHeight: 1.8, mb: 4 }}>
-            "THOZHIPORUL represents the future of industrial governance - transparent, data-driven, and accessible to every stakeholder in the ecosystem."
+            "THOZHIRPORUL represents the future of industrial governance - transparent, data-driven, and accessible to every stakeholder in the ecosystem."
           </Typography>
           <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
             - Department of Industrial Policy & Promotion, Government of Tamil Nadu

@@ -19,7 +19,7 @@ const fadeIn = keyframes`
 const portalOptions = [
   {
     role: 'admin',
-    title: 'THOZHIPORUL Admin',
+    title: 'THOZHIRPORUL Admin',
     description: 'Full system control - monitoring, compliance, user management, and analytics.',
     icon: <AdminPanelSettingsIcon sx={{ fontSize: 48 }} />,
     color: '#1F4E79',
@@ -62,14 +62,14 @@ export default function RoleSelection() {
             <Box sx={{
               width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <img src={logoTransparent} alt="THOZHIPORUL Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img src={logoTransparent} alt="THOZHIRPORUL Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </Box>
           </Box>
           <Typography variant="h3" fontWeight={900} sx={{
             background: 'linear-gradient(90deg, #1F4E79, #2E7D32)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
-            Welcome to THOZHIPORUL
+            Welcome to THOZHIRPORUL
           </Typography>
           <Typography variant="h6" color="text.secondary" fontWeight={400}>
             Select your portal to access the Smart Industrial Monitoring System
@@ -108,7 +108,7 @@ export default function RoleSelection() {
         </Grid>
 
         <Typography variant="body2" color="text.disabled" textAlign="center" sx={{ mt: { xs: 4, md: 8 } }}>
-          &copy; 2026 NEXORA | THOZHIPORUL Platform | Government of Tamil Nadu
+          &copy; 2026 NEXORA | THOZHIRPORUL Platform | Government of Tamil Nadu
         </Typography>
       </Container>
     </Box>

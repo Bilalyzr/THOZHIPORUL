@@ -28,7 +28,6 @@ export default function ReportExportCenter() {
     csr_spend: false, compliance: true, turnover: false,
   });
 
-  const role = localStorage.getItem('role') || 'admin';
 
   const reportTypes = [
     { value: 'investment', label: 'Investment Summary' },

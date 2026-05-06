@@ -84,6 +84,7 @@ export const serviceRequestService = {
   getById: (id) => api.get(`/services/${id}`),
   create: (data) => api.post('/services', data),
   updateStatus: (id, data) => api.put(`/services/${id}/status`, data),
+  allotPlot: (id, plotId) => api.post(`/services/${id}/allot`, { plotId }),
   getBottlenecks: () => api.get('/services/bottlenecks'),
 };
 

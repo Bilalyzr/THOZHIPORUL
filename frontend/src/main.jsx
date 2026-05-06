@@ -3,9 +3,11 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import theme from './theme';
+import './index.css';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
+import AIChatbot from './components/AIChatbot';
 
 // Auth Pages
 import Login from './pages/Login';
@@ -17,6 +19,7 @@ import About from './pages/About';
 import Features from './pages/Features';
 import IndustrialParks from './pages/IndustrialParks';
 import Contact from './pages/Contact';
+import PublicGrievance from './pages/PublicGrievance';
 
 // Legacy Pages (kept for backward compatibility)
 import IndustryDashboard from './pages/IndustryDashboard';
@@ -38,6 +41,8 @@ import UnifiedDataSubmission from './pages/UnifiedDataSubmission';
 import ComplianceEngine from './pages/ComplianceEngine';
 import ReportExportCenter from './pages/ReportExportCenter';
 import GovRegistration from './pages/GovRegistration';
+import AuditLogViewer from './pages/AuditLogViewer';
+import MobileInspection from './pages/MobileInspection';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -69,6 +74,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             {/* Govt/Admin Pages */}
             <Route path="/command-center" element={<GovCommandCenter />} />
             <Route path="/compliance-engine" element={<ComplianceEngine />} />
+            <Route path="/audit-logs" element={<AuditLogViewer />} />
+            <Route path="/mobile-inspection" element={<MobileInspection />} />
 
             {/* Industry Pages */}
             <Route path="/workspace" element={<IndustryWorkspace />} />
@@ -86,10 +93,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/features" element={<Features />} />
           <Route path="/parks" element={<IndustrialParks />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/grievance" element={<PublicGrievance />} />
 
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
+        <AIChatbot />
       </BrowserRouter>
     </ThemeProvider>
   </React.StrictMode>

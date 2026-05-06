@@ -28,7 +28,7 @@ export default function SubPageNav() {
             <Box sx={{
               width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <img src={logoTransparent} alt="THOZHIPORUL Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img src={logoTransparent} alt="THOZHIRPORUL Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </Box>
             <Box sx={{ cursor: 'pointer' }} onClick={() => navigate('/home')}>
               <Typography variant="subtitle1" fontWeight={900} sx={{
@@ -36,7 +36,7 @@ export default function SubPageNav() {
                 color: trigger ? 'text.primary' : 'white',
                 transition: 'color 0.3s',
               }}>
-                THOZHIPORUL
+                THOZHIRPORUL
               </Typography>
               <Typography variant="caption" sx={{ fontSize: '0.5rem', fontWeight: 600, letterSpacing: '0.08em', color: trigger ? 'text.secondary' : 'rgba(255,255,255,0.6)' }}>
                 BY NEXORA
@@ -52,6 +52,7 @@ export default function SubPageNav() {
               { label: 'Features', path: '/features' },
               { label: 'Parks', path: '/parks' },
               { label: 'Contact', path: '/contact' },
+              { label: 'Grievance', path: '/grievance' },
             ].map((item) => (
               <Button key={item.label} size="small" onClick={() => navigate(item.path)}
                 startIcon={item.icon || null}

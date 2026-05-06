@@ -88,7 +88,7 @@ export default function GovRegistration() {
                 Government Officer Registration
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Create your THOZHIPORUL account for state industrial monitoring access.
+                Create your THOZHIRPORUL account for state industrial monitoring access.
               </Typography>
             </Box>
           </Box>
@@ -138,7 +138,7 @@ export default function GovRegistration() {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField required fullWidth label="Official Email" name="officialEmail" type="email"
                   value={formData.officialEmail} onChange={handleChange}
-                  helperText="This email will be your THOZHIPORUL login username." />
+                  helperText="This email will be your THOZHIRPORUL login username." />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField required fullWidth label="Official Phone Number" name="phoneNumber" type="tel"
@@ -189,7 +189,7 @@ export default function GovRegistration() {
         </Paper>
 
         <Typography variant="caption" display="block" textAlign="center" color="text.disabled" sx={{ mt: 3 }}>
-          &copy; 2026 NEXORA | THOZHIPORUL Platform | Government of Tamil Nadu
+          &copy; 2026 NEXORA | THOZHIRPORUL Platform | Government of Tamil Nadu
         </Typography>
       </Container>
 

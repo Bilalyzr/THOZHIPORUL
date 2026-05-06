@@ -46,9 +46,9 @@ export default function Contact() {
         backgroundSize: 'cover', backgroundPosition: 'center', color: 'white',
       }}>
         <Container maxWidth="md">
-          <Chip label="THOZHIPORUL SUPPORT" sx={{ mb: 3, bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 800, letterSpacing: '0.15em', py: 2.5, border: '1px solid rgba(255,255,255,0.2)' }} />
+          <Chip label="THOZHIRPORUL SUPPORT" sx={{ mb: 3, bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 800, letterSpacing: '0.15em', py: 2.5, border: '1px solid rgba(255,255,255,0.2)' }} />
           <Typography variant="h2" fontWeight={900} sx={{ mb: 3, letterSpacing: '-0.03em', animation: `${fadeIn} 0.8s ease-out`, fontSize: { xs: '2.2rem', md: '3.5rem' } }}>
-            Get in Touch with THOZHIPORUL Support
+            Get in Touch with THOZHIRPORUL Support
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 300, opacity: 0.85, lineHeight: 1.8, maxWidth: 650, mx: 'auto' }}>
             Technical queries, data submission issues, or platform assistance - our dedicated team is here to help.
@@ -61,7 +61,7 @@ export default function Contact() {
           {/* Contact Cards */}
           <Grid size={{ xs: 12, md: 5 }}>
             <Typography variant="h4" fontWeight={800} gutterBottom sx={{ mb: 1 }}>
-              THOZHIPORUL <Box component="span" sx={{ color: 'primary.main' }}>Helpdesk</Box>
+              THOZHIRPORUL <Box component="span" sx={{ color: 'primary.main' }}>Helpdesk</Box>
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4, lineHeight: 1.8 }}>
               For industry-specific data queries or technical platform issues, reach out through any channel below.
@@ -143,7 +143,7 @@ export default function Contact() {
 
       <Snackbar open={submitted} autoHideDuration={5000} onClose={() => setSubmitted(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={() => setSubmitted(false)} severity="success" variant="filled">
-          Your support request has been submitted! Our THOZHIPORUL team will respond within 4-6 business hours.
+          Your support request has been submitted! Our THOZHIRPORUL team will respond within 4-6 business hours.
         </Alert>
       </Snackbar>
     </Box>

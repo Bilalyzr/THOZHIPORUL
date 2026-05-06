@@ -3,12 +3,14 @@ import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow,
   ToggleButton, ToggleButtonGroup, List, ListItem, ListItemIcon,
-  ListItemText, Divider, Button, Select, MenuItem, FormControl, InputLabel
+  ListItemText, Divider, Button, Select, MenuItem, FormControl, InputLabel,
+  Switch, FormControlLabel
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, Warning, Error as ErrorIcon,
   Info, CheckCircle, Assessment, Map as MapIcon,
-  Flag, Business, People, CurrencyRupee, NotificationsActive
+  Flag, Business, People, CurrencyRupee, NotificationsActive,
+  SmartToy, ElectricBolt, Opacity
 } from '@mui/icons-material';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -32,6 +34,57 @@ const ALERT_ICONS = {
 export default function GovCommandCenter() {
   const [trendMetric, setTrendMetric] = useState('investment');
   const [sortBy, setSortBy] = useState('infrastructure_score');
+  const [autoActionsEnabled, setAutoActionsEnabled] = useState(() => {
+    return localStorage.getItem('autoActionsEnabled') === 'true';
+  });
+
+  const [aiTasks, setAiTasks] = useState(() => {
+    const saved = localStorage.getItem('aiTasks');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 1, type: 'critical', title: 'Critical Issue: Oragadam Water Usage', desc: 'Multiple industries reported >200% water usage spike.', actions: ['Schedule Inspection', 'Issue Warning'] },
+      { id: 2, type: 'success', title: 'Low Risk: 12 Lease Renewals', desc: 'Consistent high compliance scores for these industries.', actions: ['Auto-Approve Batch'] }
+    ];
+  });
+
+  const handleToggleAutoActions = (e) => {
+    const isChecked = e.target.checked;
+    setAutoActionsEnabled(isChecked);
+    localStorage.setItem('autoActionsEnabled', isChecked);
+  };
+
+  const handleAiAction = (taskId, actionName) => {
+    const newTasks = aiTasks.filter(t => t.id !== taskId);
+    setAiTasks(newTasks);
+    localStorage.setItem('aiTasks', JSON.stringify(newTasks));
+    alert(`AI Action Executed: ${actionName}`);
+  };
+
+  const [electricityFlow, setElectricityFlow] = useState(450.5); // MW
+  const [waterFlow, setWaterFlow] = useState(125.2); // ML/d
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElectricityFlow(prev => {
+        const change = (Math.random() - 0.5) * 5;
+        return Math.max(0, Number((prev + change).toFixed(2)));
+      });
+      setWaterFlow(prev => {
+        const change = (Math.random() - 0.5) * 1.5;
+        return Math.max(0, Number((prev + change).toFixed(2)));
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const govElectricityRate = 7.50; // ₹ per kWh (unit)
+  const govWaterRate = 45.00; // ₹ per kL
+
+  // 1 MW = 1000 kW -> per hour it's 1000 kWh. Cost per hr = flow(MW) * 1000 * rate
+  const currentElectricityCostPerHour = electricityFlow * 1000 * govElectricityRate;
+  
+  // 1 ML = 1000 kL. Cost per day = flow(ML) * 1000 * rate
+  const currentWaterCostPerDay = waterFlow * 1000 * govWaterRate;
 
   // Mock data
   const kpis = {
@@ -200,6 +253,128 @@ export default function GovCommandCenter() {
               </Table>
             </TableContainer>
           </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Real-time Utility Tariffs & Flow */}
+      <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, height: '100%', borderTop: '4px solid #F57C00' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <ElectricBolt sx={{ mr: 1, color: '#F57C00' }} />
+              <Typography variant="h6" fontWeight={600}>Electricity - Real-Time Flow & Tariffs</Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="body2" color="text.secondary">Gov Allotted Charge</Typography>
+                <Typography variant="h5" fontWeight={700} color="primary.main">₹ {govElectricityRate.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">/ unit (kWh)</Typography></Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="body2" color="text.secondary">Current Grid Flow</Typography>
+                <Typography variant="h5" fontWeight={700} color="warning.main">{electricityFlow.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">MW</Typography></Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" fontWeight={600}>Estimated Run Rate</Typography>
+                  <Typography variant="subtitle1" fontWeight={700} color="error.main">₹ {(currentElectricityCostPerHour / 100000).toFixed(2)} Lakhs / hr</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, height: '100%', borderTop: '4px solid #0288d1' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Opacity sx={{ mr: 1, color: '#0288d1' }} />
+              <Typography variant="h6" fontWeight={600}>Water - Real-Time Flow & Tariffs</Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="body2" color="text.secondary">Gov Allotted Charge</Typography>
+                <Typography variant="h5" fontWeight={700} color="primary.main">₹ {govWaterRate.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">/ kL</Typography></Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="body2" color="text.secondary">Current Water Flow</Typography>
+                <Typography variant="h5" fontWeight={700} color="info.main">{waterFlow.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">ML/d</Typography></Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" fontWeight={600}>Estimated Run Rate</Typography>
+                  <Typography variant="subtitle1" fontWeight={700} color="error.main">₹ {(currentWaterCostPerDay / 100000).toFixed(2)} Lakhs / day</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* AI Decision Support & Workflow Engine */}
+      <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, height: '100%', borderTop: '4px solid #9c27b0' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <SmartToy sx={{ mr: 1, color: '#9c27b0' }} />
+                <Typography variant="h6" fontWeight={600}>AI Decision Support</Typography>
+              </Box>
+              <Chip label="Beta" size="small" color="secondary" variant="outlined" />
+            </Box>
+            <List dense>
+              {aiTasks.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>No pending AI actions.</Typography>
+              ) : (
+                aiTasks.map(task => (
+                  <ListItem key={task.id} sx={{ bgcolor: 'action.hover', borderRadius: 1, mb: 1, flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <Typography variant="subtitle2" fontWeight={600} color={task.type === 'critical' ? 'error' : 'success.main'}>{task.title}</Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>{task.desc}</Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      {task.actions.map(action => (
+                        <Button 
+                          key={action} 
+                          variant={action.includes('Warning') ? 'outlined' : 'contained'} 
+                          color={task.type === 'critical' ? (action.includes('Warning') ? 'error' : 'primary') : 'success'} 
+                          size="small"
+                          onClick={() => handleAiAction(task.id, action)}
+                          disabled={task.type === 'success' && autoActionsEnabled}
+                        >
+                          {action}
+                        </Button>
+                      ))}
+                    </Box>
+                  </ListItem>
+                ))
+              )}
+            </List>
+          </Paper>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+           <Paper sx={{ p: { xs: 2, sm: 3 }, height: '100%', borderTop: '4px solid #00acc1' }}>
+             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+               <ElectricBolt sx={{ mr: 1, color: '#00acc1' }} />
+               <Typography variant="h6" fontWeight={600}>Workflow Automation Engine</Typography>
+             </Box>
+             <Typography variant="body2" color="text.secondary" paragraph>
+               Enable the rules-engine to automatically approve low-risk data submissions and escalate delayed requests.
+             </Typography>
+             
+             <FormControlLabel 
+                control={<Switch checked={autoActionsEnabled} onChange={handleToggleAutoActions} color="info" />} 
+                label={autoActionsEnabled ? "Automated Actions: ENABLED" : "Automated Actions: PAUSED"} 
+             />
+             
+             {autoActionsEnabled && (
+                <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.light', color: 'info.contrastText', borderRadius: 1 }}>
+                   <Typography variant="body2">
+                      <CheckCircle fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+                      Auto-approving NOCs for industries with compliance score &gt; 90.
+                   </Typography>
+                </Box>
+             )}
+           </Paper>
         </Grid>
       </Grid>
 
