@@ -44,7 +44,18 @@ app.get('/api/admin-test', auth.requireRole(['admin']), (req, res) => {
     res.json({ message: "Admin Access Granted" });
 });
 
+// ============================================================
+// GLOBAL ERROR HANDLER
+// ============================================================
+app.use((err, req, res, next) => {
+    console.error('[SERVER] Unhandled Error:', err);
+    res.status(500).json({ 
+        error: 'Something went wrong on our end!',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
 // Start Server
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`[SERVER] Sipcot SIMS Backend running on port ${PORT}`);
 });

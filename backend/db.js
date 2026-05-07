@@ -3,25 +3,28 @@ const { Pool } = require('pg');
 // Create a new pool using environment variables
 // Make sure your PostgreSQL server is running
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'db',
+  database: process.env.DB_NAME || 'sipcot_sims',
+  password: process.env.DB_PASSWORD || 'postgres',
   port: process.env.DB_PORT || 5432,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
 
-// Test connection
-pool.connect((err, client, release) => {
+// Testing the connection
+pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    return console.error('Error acquiring client', err.stack);
+    console.error(`[DB] Failed to connect to database at ${pool.options.host}:${pool.options.port}`);
+    console.error(`[DB] Error details:`, err.message);
+  } else {
+    console.log(`[DB] Successfully connected to database at ${pool.options.host}:${pool.options.port}`);
   }
-  console.log('Successfully connected to PostgreSQL database');
-  release();
 });
 
 pool.on('error', (err, client) => {
-  console.error('Unexpected database error on idle client', err);
-  process.exit(-1);
+  console.error('[DB] Unexpected database error on idle client:', err.message);
 });
 
 // Helper function for quick querying

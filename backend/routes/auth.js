@@ -113,10 +113,15 @@ router.post('/register/govt', async (req, res) => {
 // ============================================================
 // LOGIN
 // ============================================================
+const { promisify } = require('util');
+const signToken = promisify(jwt.sign);
+
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
+        console.log(`[AUTH] Login attempt: ${email}`);
+        
         // Find user in DB
         const result = await db.query(
             `SELECT u.*, ip.id as profile_id, ip.company_name, gp.id as govt_profile_id, gp.officer_name 
@@ -129,24 +134,24 @@ router.post('/login', async (req, res) => {
         const user = result.rows[0];
 
         if (!user) {
+            console.warn(`[AUTH] User not found: ${email}`);
             return res.status(401).json({ error: 'Invalid credentials. No account found with this email.' });
         }
 
         // Password check
         let isMatch = false;
         if (user.password_hash === '$demo$') {
-            // Demo accounts accept any password
             isMatch = true;
         } else {
-            // Real registered accounts use bcrypt
             isMatch = await bcrypt.compare(password, user.password_hash);
         }
 
         if (!isMatch) {
+            console.warn(`[AUTH] Password mismatch for: ${email}`);
             return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
         }
 
-        // Create JWT
+        // Determine display name
         const name = user.role === 'industry' ? user.company_name : 
                     user.role === 'govt' ? user.officer_name : 'Admin';
         
@@ -159,15 +164,21 @@ router.post('/login', async (req, res) => {
             }
         };
 
-        jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' }, (err, token) => {
-            if (err) throw err;
-            console.log(`[AUDIT] Login: ${user.email} | Role: ${user.role} | Name: ${name}`);
-            res.json({ token, role: user.role, name: name, email: user.email });
+        // Sign token
+        const token = await signToken(payload, JWT_SECRET, { expiresIn: '8h' });
+        
+        console.log(`[AUDIT] Login Success: ${user.email} | Role: ${user.role} | Name: ${name}`);
+        
+        res.json({ 
+            token, 
+            role: user.role, 
+            name: name, 
+            email: user.email 
         });
 
     } catch (err) {
-        console.error('Login Error:', err.message);
-        res.status(500).send('Server Error');
+        console.error('[AUTH] Login Exception:', err);
+        res.status(500).json({ error: 'Internal Server Error during login.' });
     }
 });
 

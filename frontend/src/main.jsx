@@ -54,6 +54,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/login" element={<RoleSelection />} />
           <Route path="/login/:role" element={<Login />} />
           <Route path="/role-selection" element={<RoleSelection />} />
+          <Route path="/registration" element={<IndustryRegistration />} />
           <Route path="/govt-registration" element={<GovRegistration />} />
 
           {/* Main App Routes - Protected with Layout */}
@@ -61,7 +62,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             {/* Legacy routes (preserved for backward compatibility) */}
             <Route path="/industry-dashboard" element={<IndustryDashboard />} />
             <Route path="/admin-dashboard" element={<AdminDashboard />} />
-            <Route path="/registration" element={<IndustryRegistration />} />
             <Route path="/data-submission" element={<DataSubmission />} />
             <Route path="/compliance" element={<ComplianceMonitoring />} />
             <Route path="/reports" element={<ReportsDashboard />} />

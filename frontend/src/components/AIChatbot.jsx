@@ -70,12 +70,39 @@ const SITE_KNOWLEDGE = {
     'AI Decision Support system helps admins prioritize critical actions',
     'Compliance engine auto-detects violations based on 8 predefined rules',
     'Services Tracker supports Kanban board and Table views',
+  ],
+  interactionGuide: {
+    title: 'How to get the best from VazhiPorul AI',
+    tips: [
+      '**Be Specific**: Instead of "help", try "How do I apply for a plot?"',
+      '**Use Page Names**: Mention pages like "Compliance Engine" or "Parks Explorer"',
+      '**Ask for Workflows**: Ask "What is the process for registration?"',
+      '**Role-based info**: Ask "What can an Industry user do?"',
+    ]
+  },
+  supportProcess: {
+    title: 'How to Solve Doubts & Get Support',
+    channels: [
+      { type: 'AI Chatbot', desc: 'Ask me for instant navigation, workflow guides, and platform information.' },
+      { type: 'Grievance System', desc: 'For formal complaints or issues, use the Public Grievance portal.' },
+      { type: 'Contact Page', desc: 'Find official SIPCOT phone numbers and emails for technical or policy support.' },
+      { type: 'Helpdesk Form', desc: 'Submit a support ticket directly through the Contact page form.' },
+    ]
+  },
+  domainKnowledge: [
+    { category: 'Land & Allotment', keywords: ['land','allotment','acre','plot','lease','cost','rate'], desc: 'SIPCOT provides industrial land on a 99-year lease basis. Allotment is done through an online application process. Rates vary by Industrial Park (e.g., Siruseri, Oragadam, Hosur). Incentives like back-ended capital subsidies may apply.' },
+    { category: 'Infrastructure', keywords: ['road','water','power','electricity','drain','infrastructure'], desc: 'SIPCOT parks feature world-class infrastructure including wide internal roads, high-tension power supply from TANGEDCO, dedicated water supply from local bodies/desalination, and integrated storm water drainage systems.' },
+    { category: 'Environmental Support', keywords: ['stp','etp','waste','environment','pollution','green belt'], desc: 'SIPCOT is committed to sustainable industrialization. Large parks feature Common Effluent Treatment Plants (CETPs) and Sewage Treatment Plants (STPs). Industries must maintain 10-15% green belt area within their plots.' },
+    { category: 'Incentives & Policies', keywords: ['subsidy','incentive','policy','investment','grant'], desc: 'The Tamil Nadu Industrial Policy (TNIP) provides various incentives: Capital Subsidies, Payroll Incentives, Quality Certification Grants, and Electricity Tax Exemptions for eligible industries.' },
+    { category: 'Utilities Monitoring', keywords: ['meter','flow','consumption','tariff','bill'], desc: 'THOZHIRPORUL provides real-time monitoring of utility consumption. Admins can track electricity and water flow across the park, identify leaks, and verify billing against government tariff rates.' },
   ]
 };
 
-function findBestResponse(input, isLoggedIn, currentPath) {
+function findBestResponse(input, isLoggedIn, currentPath, userName) {
   const q = input.toLowerCase().trim();
   const nav = (path) => ({ path });
+
+  const greetingName = userName ? ` **${userName}**` : '';
 
   // Current Page Context
   if (/(tell me about (this )?page|where am i|what is this page|explain this page)/.test(q)) {
@@ -92,7 +119,12 @@ function findBestResponse(input, isLoggedIn, currentPath) {
 
   // Greetings
   if (/^(hi|hello|hey|greetings|good\s?(morning|evening|afternoon))/.test(q)) {
-    return { text: `Hello! 👋 I'm **VazhiPorul AI**, your intelligent assistant for the THOZHIRPORUL platform. I can help you:\n\n• Navigate to any page\n• Explain features & workflows\n• Guide you through processes\n• Answer questions about the platform\n\nWhat would you like to know?`, suggestions: ['How to apply for a plot?', 'Show me industrial parks', 'What is this platform?'] };
+    return { text: `Hello${greetingName}! 👋 I'm **VazhiPorul AI**, your intelligent assistant for the THOZHIRPORUL platform. I can help you:\n\n• Navigate to any page\n• Explain features & workflows\n• Guide you through processes\n• Answer questions about the platform\n\nWhat would you like to know?`, suggestions: ['How to apply for a plot?', 'Show me industrial parks', 'What is this platform?'] };
+  }
+
+  // Name query
+  if (/what is (your name|the ai name|this ai)|who are you/.test(q)) {
+    return { text: `I am **VazhiPorul AI**, your intelligent assistant for the THOZHIRPORUL platform.`, suggestions: ['What can you do?', 'What is this platform?'] };
   }
 
   // What is this platform
@@ -188,9 +220,25 @@ function findBestResponse(input, isLoggedIn, currentPath) {
     return { text: `**Getting Started with THOZHIRPORUL:**\n\n1. Visit the **Home** page to learn about the platform\n2. Go to **Portal Selection** to choose your role\n3. **Register** if you're new, or **Login** with existing credentials\n4. Access your role-specific dashboard\n5. Use the sidebar to navigate between features\n\n*Non-registered users can still explore Industrial Parks, Features, and file Grievances!*`, suggestions: ['How to register?', 'Show me parks', 'Login'] };
   }
 
-  // Help
-  if (/help|what can you do|how.*work|assist/.test(q)) {
-    return { text: `I can help you with:\n\n🗺️ **Navigate** — "Take me to Parks Explorer"\n📋 **Explain** — "What is the Compliance Engine?"\n🔄 **Workflows** — "How to apply for a plot?"\n👥 **Roles** — "What can an admin do?"\n📊 **Facts** — "Tell me a fact"\n🔗 **Quick Links** — "Show me all pages"\n\nJust type naturally and I'll understand!`, suggestions: ['How to apply for a plot?', 'Show all pages', 'What roles exist?'] };
+  // Domain Knowledge Search
+  for (const info of SITE_KNOWLEDGE.domainKnowledge) {
+    if (info.keywords.some(kw => q.includes(kw))) {
+      return { 
+        text: `🔍 **SIPCOT Domain Knowledge: ${info.category}**\n\n${info.desc}`, 
+        suggestions: ['How to apply?', 'Show parks explorer', 'Contact Support'] 
+      };
+    }
+  }
+
+  // Help / Solve Doubts / Provide Inputs
+  if (/help|what can you do|how.*work|assist|doubt|problem|issue|solve|provide.*input/.test(q)) {
+    const tips = SITE_KNOWLEDGE.interactionGuide.tips.map(t => `• ${t}`).join('\n');
+    const support = SITE_KNOWLEDGE.supportProcess.channels.map(c => `• **${c.type}**: ${c.desc}`).join('\n');
+    
+    return { 
+      text: `I am here to help you solve doubts and navigate the platform! 🛠️\n\n**To get the best information, try these input tips:**\n${tips}\n\n**Ways to solve your doubts:**\n${support}\n\nWhat specific process or information are you looking for?`, 
+      suggestions: ['How to apply for a plot?', 'Show all pages', 'Contact Support'] 
+    };
   }
 
   // Fallback
@@ -199,15 +247,32 @@ function findBestResponse(input, isLoggedIn, currentPath) {
 
 export default function AIChatbot() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: 'ai', text: "Hi! I'm **VazhiPorul AI** 🤖\n\nI'm your intelligent guide for the THOZHIRPORUL platform. Ask me anything — I can navigate you to any page, explain workflows, or answer your questions!", suggestions: ['What is this platform?', 'How to apply for a plot?', 'Show industrial parks'] }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Initialize greeting on mount or whenever login state might change
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const name = localStorage.getItem('userName');
+    
+    const initialText = (token && name) 
+      ? `Hi **${name}**! I'm **VazhiPorul AI** 🤖\n\nI'm your intelligent guide for the THOZHIRPORUL platform. Ask me anything!`
+      : `Hi! I'm **VazhiPorul AI** 🤖\n\nI'm your intelligent guide for the THOZHIRPORUL platform. Ask me anything — I can navigate you to any page, explain workflows, or answer your questions!`;
+
+    setMessages([
+      { 
+        role: 'ai', 
+        text: initialText, 
+        suggestions: ['What is this platform?', 'How to apply for a plot?', 'Show industrial parks'] 
+      }
+    ]);
+  }, [open]); // Refresh greeting when chat is opened
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -226,7 +291,12 @@ export default function AIChatbot() {
     setIsTyping(true);
 
     setTimeout(() => {
-      const response = findBestResponse(userMsg, !!localStorage.getItem('token'), location.pathname);
+      const response = findBestResponse(
+        userMsg, 
+        !!localStorage.getItem('token'), 
+        location.pathname,
+        localStorage.getItem('userName')
+      );
       setMessages(prev => [...prev, { role: 'ai', ...response }]);
       setIsTyping(false);
 

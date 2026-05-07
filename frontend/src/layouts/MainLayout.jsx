@@ -46,14 +46,18 @@ function MainLayout() {
 
   // Route guard: redirect to home if not logged in
   const token = localStorage.getItem('token');
+  const userRole = localStorage.getItem('role');
+  
   useEffect(() => {
     if (!token) {
       navigate('/home', { replace: true });
     }
   }, [token, navigate]);
+
   const location = useLocation();
 
-  const userRole = localStorage.getItem('role') || 'admin';
+  if (!token) return null;
+
   const isIndustry = userRole === 'industry';
 
   useEffect(() => {
