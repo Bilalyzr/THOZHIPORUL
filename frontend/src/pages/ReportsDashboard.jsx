@@ -24,6 +24,8 @@ function ReportsDashboard() {
   const [generated, setGenerated] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
+
+
   const reportTypes = [
     'Investment Report',
     'Employment Growth Tracking',
@@ -152,6 +154,8 @@ function ReportsDashboard() {
           </Paper>
         </Grid>
       </Grid>
+
+
 
       <Snackbar 
         open={snackbar.open} 

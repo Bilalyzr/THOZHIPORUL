@@ -171,38 +171,7 @@ export default function IndustryWorkspace() {
         </Grid>
       </Grid>
 
-      {/* Document Vault */}
-      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 } }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Document Vault</Typography>
-          <Button variant="contained" size="small" startIcon={<UploadFile />} onClick={() => setUploadSnack(true)}>Upload Document</Button>
-        </Box>
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Category</TableCell>
-                <TableCell>File</TableCell>
-                <TableCell>Expiry</TableCell>
-                <TableCell>Status</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {documents.map((doc) => (
-                <TableRow key={doc.id} hover>
-                  <TableCell>{doc.category}</TableCell>
-                  <TableCell><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Description fontSize="small" color="action" />{doc.file_name}</Box></TableCell>
-                  <TableCell>{doc.expiry_date || '-'}</TableCell>
-                  <TableCell>
-                    <Chip label={doc.status} size="small"
-                      color={doc.status === 'Valid' || doc.status === 'Active' ? 'success' : 'warning'} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+
 
       {/* Service Request Status */}
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>

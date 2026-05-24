@@ -11,9 +11,19 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
+    // Extract only allowed fields to prevent mass assignment vulnerability
+    const { title, location, name, description } = req.body;
+
+    if (!title || !location) {
+        return res.status(400).json({ error: 'Title and location are required' });
+    }
+
     const newGrievance = {
         id: mockGrievances.length + 1,
-        ...req.body,
+        title,
+        location,
+        name: name || 'Anonymous',
+        description: description || '',
         status: "Open",
         submitted_at: new Date().toISOString().split('T')[0]
     };

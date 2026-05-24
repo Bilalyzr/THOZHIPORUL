@@ -43,6 +43,8 @@ import ReportExportCenter from './pages/ReportExportCenter';
 import GovRegistration from './pages/GovRegistration';
 import AuditLogViewer from './pages/AuditLogViewer';
 import MobileInspection from './pages/MobileInspection';
+import SecureVault from './pages/SecureVault';
+import SubscriptionPlans from './pages/SubscriptionPlans';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -80,6 +82,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             {/* Industry Pages */}
             <Route path="/workspace" element={<IndustryWorkspace />} />
             <Route path="/submit-data" element={<UnifiedDataSubmission />} />
+            <Route path="/secure-vault" element={<SecureVault />} />
 
             {/* Shared Pages (content adapts to role) */}
             <Route path="/services" element={<ServicesTracker />} />
@@ -93,6 +96,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/features" element={<Features />} />
           <Route path="/parks" element={<IndustrialParks />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/subscriptions" element={<SubscriptionPlans />} />
           <Route path="/grievance" element={<PublicGrievance />} />
 
           <Route path="/" element={<Navigate to="/home" replace />} />

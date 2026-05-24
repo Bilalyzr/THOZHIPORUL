@@ -28,6 +28,9 @@ import {
 } from 'recharts';
 
 function IndustryDashboard() {
+  // Get user's company name from localStorage or use default
+  const companyName = localStorage.getItem('companyName') || localStorage.getItem('userName') || 'My Company';
+
   // Mock Data for the Industry Layout
   const complianceStatus = "Compliant";
   
@@ -46,7 +49,7 @@ function IndustryDashboard() {
       {/* Header Area */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 2, md: 4 }, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h4" color="primary.main" fontWeight="bold" sx={{ fontSize: { xs: '1.4rem', sm: '1.75rem', md: '2.125rem' } }}>
-          ABC Industries Dashboard
+          {companyName} Dashboard
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body1" color="text.secondary">Compliance Status:</Typography>
@@ -66,10 +69,23 @@ function IndustryDashboard() {
           { title: "Water Usage", value: "850 KL", change: "+4%", icon: <WaterDropIcon color="info" fontSize="large" />, color: "info.main" }
         ].map((kpi, index) => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
-            <Card elevation={2}>
+            <Card
+              elevation={2}
+              sx={{
+                height: '100%',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)',
+                backdropFilter: 'blur(10px)',
+                borderTop: `4px solid ${kpi.color}`,
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: `0 16px 40px ${kpi.color}25`,
+                },
+              }}
+            >
               <CardContent sx={{ display: 'flex', alignItems: 'center', p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={600}>
                     {kpi.title}
                   </Typography>
                   <Typography variant="h5" component="div" fontWeight="bold" color="text.primary">
@@ -79,13 +95,19 @@ function IndustryDashboard() {
                     {kpi.change} this quarter
                   </Typography>
                 </Box>
-                <Box sx={{ 
-                  bgcolor: `${kpi.color}15`, 
-                  p: 1.5, 
-                  borderRadius: 2,
+                <Box sx={{
+                  bgcolor: `${kpi.color}12`,
+                  p: 1.8,
+                  borderRadius: 2.5,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.1) rotate(5deg)',
+                    bgcolor: kpi.color,
+                    '& svg': { color: 'white' },
+                  },
                 }}>
                   {kpi.icon}
                 </Box>

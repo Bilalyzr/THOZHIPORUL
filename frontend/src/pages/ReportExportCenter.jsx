@@ -5,7 +5,8 @@ import {
   Select, MenuItem, InputLabel, Checkbox, FormGroup,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, Divider, LinearProgress, Alert, Snackbar, Dialog, DialogTitle,
-  DialogContent, DialogActions, List, ListItem, ListItemText
+  DialogContent, DialogActions, List, ListItem, ListItemIcon, ListItemText,
+  Avatar, TextField, IconButton
 } from '@mui/material';
 import {
   PictureAsPdf, TableChart, DataObject, Download,
@@ -27,6 +28,8 @@ export default function ReportExportCenter() {
     location: true, water_usage: false, power_usage: false,
     csr_spend: false, compliance: true, turnover: false,
   });
+
+
 
 
   const reportTypes = [
@@ -265,6 +268,8 @@ export default function ReportExportCenter() {
         </TableContainer>
       </Paper>
 
+
+
       {/* Saved Reports Dialog */}
       <Dialog open={savedDialogOpen} onClose={() => setSavedDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Saved Report Configurations</DialogTitle>
@@ -273,17 +278,41 @@ export default function ReportExportCenter() {
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Your saved report configurations:</Typography>
               <Paper variant="outlined" sx={{ p: 2 }}>
-                {(() => { const cfg = JSON.parse(localStorage.getItem('savedReportConfig')); return (
-                  <List dense>
-                    <ListItem><ListItemText primary="Report Type" secondary={cfg.reportType} /></ListItem>
-                    <ListItem><ListItemText primary="Format" secondary={cfg.format} /></ListItem>
-                    <ListItem><ListItemText primary="Park" secondary={cfg.park} /></ListItem>
-                    <ListItem><ListItemText primary="Period" secondary={cfg.period} /></ListItem>
-                    <ListItem><ListItemText primary="Quarter" secondary={cfg.quarter} /></ListItem>
-                  </List>
-                ); })()}
+                {(() => {
+                  try {
+                    const cfg = JSON.parse(localStorage.getItem('savedReportConfig'));
+                    return (
+                      <List dense>
+                        <ListItem><ListItemText primary="Report Type" secondary={cfg.reportType} /></ListItem>
+                        <ListItem><ListItemText primary="Format" secondary={cfg.format} /></ListItem>
+                        <ListItem><ListItemText primary="Park" secondary={cfg.park} /></ListItem>
+                        <ListItem><ListItemText primary="Period" secondary={cfg.period} /></ListItem>
+                        <ListItem><ListItemText primary="Quarter" secondary={cfg.quarter} /></ListItem>
+                      </List>
+                    );
+                  } catch (e) {
+                    return <Typography color="error">Invalid saved configuration</Typography>;
+                  }
+                })()}
               </Paper>
-              <Button variant="contained" sx={{ mt: 2 }} onClick={() => { const cfg = JSON.parse(localStorage.getItem('savedReportConfig')); setReportType(cfg.reportType); setFormat(cfg.format); setPark(cfg.park); setPeriod(cfg.period); setQuarter(cfg.quarter); setSavedDialogOpen(false); setSnackbar({ open: true, message: 'Report configuration loaded!', severity: 'success' }); }}>Load Configuration</Button>
+              <Button
+                variant="contained"
+                sx={{ mt: 2 }}
+                onClick={() => {
+                  try {
+                    const cfg = JSON.parse(localStorage.getItem('savedReportConfig'));
+                    setReportType(cfg.reportType);
+                    setFormat(cfg.format);
+                    setPark(cfg.park);
+                    setPeriod(cfg.period);
+                    setQuarter(cfg.quarter);
+                    setSavedDialogOpen(false);
+                    setSnackbar({ open: true, message: 'Report configuration loaded!', severity: 'success' });
+                  } catch (e) {
+                    setSnackbar({ open: true, message: 'Failed to load configuration', severity: 'error' });
+                  }
+                }}
+              >Load Configuration</Button>
             </Box>
           ) : (
             <Typography variant="body2" color="text.secondary">No saved configurations yet. Use "Save Configuration" to save your current report settings.</Typography>

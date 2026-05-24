@@ -43,7 +43,19 @@ router.post('/', requireRole(['industry']), async (req, res) => {
         const industryId = req.user.profile_id;
 
         if (!industryId) {
-            return res.status(400).json({ error: 'Industry profile not found' });
+            return res.status(400).json({ error: 'Industry profile not found. Please complete your profile first.' });
+        }
+
+        if (!serviceType) {
+            return res.status(400).json({ error: 'Service type is required' });
+        }
+
+        // Validate parkId if provided
+        if (parkId) {
+            const parkCheck = await db.query('SELECT id FROM industrial_parks WHERE id = $1', [parkId]);
+            if (parkCheck.rows.length === 0) {
+                return res.status(400).json({ error: 'Invalid park selected' });
+            }
         }
 
         // Generate reference number
@@ -54,15 +66,31 @@ router.post('/', requireRole(['industry']), async (req, res) => {
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
         `;
-        
+
         const { rows } = await db.query(queryText, [
             industryId, parkId || null, serviceType, refNumber, requestedArea || null, priority || 'normal', remarks || ''
         ]);
 
         res.status(201).json({ msg: 'Service request submitted successfully', request: rows[0] });
     } catch (err) {
-        console.error('Create Service Error:', err.message);
-        res.status(500).send('Server Error');
+        console.error('Create Service Error:', err);
+        console.error('Error details:', err.message, err.stack);
+
+        // Handle specific database errors
+        if (err.code === '23505') {
+            return res.status(400).json({ error: 'Reference number conflict. Please try again.' });
+        }
+        if (err.code === '23503') {
+            return res.status(400).json({ error: 'Invalid reference: park or industry not found' });
+        }
+        if (err.code === '23502') {
+            return res.status(400).json({ error: 'Missing required field: ' + err.column });
+        }
+        if (err.code === '22P02') {
+            return res.status(400).json({ error: 'Invalid data format for a field' });
+        }
+
+        res.status(500).json({ error: err.message || 'Failed to submit service request. Please try again.' });
     }
 });
 

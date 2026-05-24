@@ -12,17 +12,17 @@ export default function MobileInspection() {
       <Paper sx={{ p: 2, mt: 2, borderTop: '4px solid #1976d2' }}>
         <Typography variant="subtitle1" fontWeight={600} gutterBottom>Inspection Report</Typography>
         <Grid container spacing={2}>
-           <Grid item xs={12}>
+           <Grid size={{ xs: 12 }}>
              <TextField fullWidth label="Industry / Unit Name" size="small" />
            </Grid>
-           <Grid item xs={12}>
+           <Grid size={{ xs: 12 }}>
              <TextField fullWidth select label="Inspection Type" size="small" SelectProps={{ native: true }}>
                <option>Environmental</option>
                <option>Safety & Fire</option>
                <option>Construction</option>
              </TextField>
            </Grid>
-           <Grid item xs={12}>
+           <Grid size={{ xs: 12 }}>
              <TextField fullWidth label="Inspector Notes" multiline rows={4} size="small" />
            </Grid>
         </Grid>

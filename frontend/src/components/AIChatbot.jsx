@@ -18,13 +18,27 @@ const pulse = keyframes`0%,100%{transform:scale(1)}50%{transform:scale(1.08)}`;
 const typing = keyframes`0%{opacity:.2}20%{opacity:1}100%{opacity:.2}`;
 const float = keyframes`0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.03)}`;
 
-// ─── FULL SITE KNOWLEDGE BASE ───
+// ═══════════════════════════════════════════════════════════════════════════════
+// VAZHIPORUL AI - COMPREHENSIVE SIPCOT KNOWLEDGE BASE v2.0
+// ═══════════════════════════════════════════════════════════════════════════════
 const SITE_KNOWLEDGE = {
   platform: {
     name: 'THOZHIRPORUL',
+    tamilName: 'தொழில்புரள்',
     fullName: 'Smart Industrial Monitoring System (SIMS)',
     by: 'NEXORA, Government of Tamil Nadu',
+    govtBody: 'SIPCOT (State Industries Promotion Corporation of Tamil Nadu)',
+    established: '1971',
     desc: 'THOZHIRPORUL is the unified digital platform powering Tamil Nadu\'s industrial transformation through real-time monitoring, compliance tracking, and data-driven governance. It connects industries, government officers, and SIPCOT administrators on a single platform.',
+    vision: 'To digitize and modernize Tamil Nadu\'s industrial park governance, enabling transparency, efficiency, and data-driven decision-making.',
+    achievements: [
+      'Service delivery reduced from 15-30 days to less than 7 days',
+      'Compliance reporting increased from 60% to 95%',
+      '90% of service requests now digital',
+      'Managing 1,250+ industries across 6 major industrial parks',
+      'Administrative overhead reduced by 40%',
+      'Paper usage reduced by 2,00,000 pages per month'
+    ]
   },
   roles: [
     { name: 'Admin', desc: 'Full system access — dashboards, user management, compliance engine, services tracker, analytics, parks explorer, reports, and settings.', loginPath: '/login/admin' },
@@ -89,20 +103,576 @@ const SITE_KNOWLEDGE = {
       { type: 'Helpdesk Form', desc: 'Submit a support ticket directly through the Contact page form.' },
     ]
   },
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // INDUSTRIAL PARKS - COMPREHENSIVE INFORMATION
+  // ═══════════════════════════════════════════════════════════════════════════════
+  industrialParks: [
+    {
+      name: 'Oragadam',
+      code: 'ORGDM',
+      district: 'Kancheepuram',
+      specialty: 'Asia\'s Largest Automotive Hub',
+      description: 'Oragadam is SIPCOT\'s flagship industrial park, home to major automotive companies including Renault-Nissan, Daimler, and Apollo Tyres. It spans over 2,000 acres with excellent connectivity via GST Road and ORR.',
+      industries: ['Automotive', 'Auto Components', 'Manufacturing'],
+      infrastructure: {
+        power: 'TANGEDCO 110KV Substation',
+        water: 'Chennai Metro Water + Groundwater',
+        roads: '60m/40m Internal Roads',
+        connectivity: 'GST Road, Outer Ring Road'
+      },
+      investment: '₹15,000+ Crores',
+      employment: '45,000+ Direct Jobs'
+    },
+    {
+      name: 'Sriperumbudur',
+      code: 'SRPBR',
+      district: 'Kancheepuram',
+      specialty: 'Electronics & Manufacturing Hub',
+      description: 'Sriperumbudur is known as the "Detroit of South India" with focus on electronics, telecom, and heavy manufacturing. Home to Samsung, Foxconn, and Motorola.',
+      industries: ['Electronics', 'Telecom', 'Heavy Machinery'],
+      infrastructure: {
+        power: '220KV Feeder from TANGEDCO',
+        water: 'PWD Supply + Industrial Water Supply',
+        roads: 'Multilane Internal Roads',
+        connectivity: 'NH-4, Chennai-Bangalore Highway'
+      },
+      investment: '₹12,000+ Crores',
+      employment: '38,000+ Direct Jobs'
+    },
+    {
+      name: 'Hosur',
+      code: 'HOSUR',
+      district: 'Krishnagiri',
+      specialty: 'Multi-Sector Industrial Hub',
+      description: 'Hosur Industrial Area is located on the Karnataka-Tamil Nadu border, ideal for industries targeting both states. Known for automobile, textile, and food processing industries.',
+      industries: ['Automotive', 'Textiles', 'Food Processing', 'Pharmaceuticals'],
+      infrastructure: {
+        power: '230KV Substation',
+        water: 'Cauvery River + Borewells',
+        roads: 'Well-connected Internal Network',
+        connectivity: 'NH-44, Bangalore Highway'
+      },
+      investment: '₹8,500+ Crores',
+      employment: '32,000+ Direct Jobs'
+    },
+    {
+      name: 'Cheyyar',
+      code: 'CHYYR',
+      district: 'Thiruvannamalai',
+      specialty: 'Manufacturing & Engineering',
+      description: 'Cheyyar SIPCOT Industrial Park is strategically located between Chennai and Bangalore, focusing on engineering, manufacturing, and ancillary industries.',
+      industries: ['Engineering', 'Manufacturing', 'Auto Ancillaries'],
+      infrastructure: {
+        power: '110KV Substation',
+        water: 'Palar River + PWD Supply',
+        roads: '30m/20m Internal Roads',
+        connectivity: 'NH-48, Chennai-Bangalore Corridor'
+      },
+      investment: '₹3,200+ Crores',
+      employment: '15,000+ Direct Jobs'
+    },
+    {
+      name: 'Thoothukudi',
+      code: 'THOOT',
+      district: 'Thoothukudi',
+      specialty: 'Special Economic Zone (SEZ)',
+      description: 'Thoothukudi SEZ is strategically located near the port, ideal for export-oriented industries. Focus on marine, chemical, and wind energy equipment manufacturing.',
+      industries: ['Marine Products', 'Chemicals', 'Wind Energy', 'Export Units'],
+      infrastructure: {
+        power: 'TANGEDCO Supply + Wind Farm Integration',
+        water: 'Desalination Plant',
+        roads: 'Port-connected Roads',
+        connectivity: 'V.O. Chidambaranar Port (5km)'
+      },
+      investment: '₹2,800+ Crores',
+      employment: '12,000+ Direct Jobs'
+    },
+    {
+      name: 'Gangaikondan',
+      code: 'GNGKN',
+      district: 'Tirunelveli',
+      specialty: 'Textiles & Manufacturing',
+      description: 'Gangaikondan SIPCOT Park serves Southern Tamil Nadu with focus on textiles, manufacturing, and agro-based industries. Well-connected to Tamil Nadu\'s southern districts.',
+      industries: ['Textiles', 'Spinning Mills', 'Manufacturing', 'Agro-based'],
+      infrastructure: {
+        power: '110KV Substation',
+        water: 'Tamirabarani River',
+        roads: 'Industrial Grade Roads',
+        connectivity: 'NH-44, Southern Railway'
+      },
+      investment: '₹1,500+ Crores',
+      employment: '8,000+ Direct Jobs'
+    }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // SERVICES - DETAILED SERVICE CATALOG
+  // ═══════════════════════════════════════════════════════════════════════════════
+  services: [
+    {
+      name: 'NOC - Fire Safety',
+      code: 'NOC_FIRE',
+      description: 'No Objection Certificate from Fire Department for new buildings, renovations, or change of building use.',
+      requiredDocuments: ['Building Plan', 'Fire Safety Layout', 'Equipment List', 'Owner ID Proof'],
+      processingTime: '7 days',
+      authority: 'District Fire Officer',
+      fees: 'Based on building area'
+    },
+    {
+      name: 'NOC - Pollution Control',
+      code: 'NOC_POLLUTION',
+      description: 'Consent to Establish/Operate from Tamil Nadu Pollution Control Board (TNPCB).',
+      requiredDocuments: ['Site Plan', 'Process Flow Chart', 'Water Balance Statement', 'Hazardous Waste Management Plan'],
+      processingTime: '10 days',
+      authority: 'TNPCB Regional Office',
+      fees: 'Based on pollution category'
+    },
+    {
+      name: 'NOC - Building Plan',
+      code: 'NOC_BUILDING',
+      description: 'Approval for building construction plans within industrial park limits.',
+      requiredDocuments: ['Architectural Drawings', 'Structural Certificate', 'Land Documents', 'Foundation Plan'],
+      processingTime: '14 days',
+      authority: 'SIPCOT Town Planning',
+      fees: '0.5% of construction cost'
+    },
+    {
+      name: 'Land Allotment / Plot',
+      code: 'LAND_ALLOT',
+      description: 'Allocation of industrial land/plots in SIPCOT parks on 99-year lease basis.',
+      requiredDocuments: ['Project Report', 'Capacity Statement', 'Financial Proofs', 'Company Registration', 'PAN Card'],
+      processingTime: '30 days',
+      authority: 'SIPCOT Managing Director',
+      leaseTerms: '99-year lease, with 5% annual escalation'
+    },
+    {
+      name: 'Lease Renewal',
+      code: 'LEASE_RENEW',
+      description: 'Renewal of existing industrial land lease. Auto-approved for industries with compliance >90%.',
+      requiredDocuments: ['Existing Lease Document', 'Compliance Certificate', 'Up-to-date Payment Receipts'],
+      processingTime: '5 days',
+      authority: 'Regional SIPCOT Manager',
+      autoApproval: true
+    },
+    {
+      name: 'Transfer Request',
+      code: 'TRANSFER',
+      description: 'Transfer of plot ownership/lease from one industry to another.',
+      requiredDocuments: ['No-objection from Allottee', 'Buyer Financial Proofs', 'Clearance Certificate', 'Board Resolution'],
+      processingTime: '21 days',
+      authority: 'SIPCOT Managing Director',
+      transferFee: '2% of current land value'
+    },
+    {
+      name: 'Water Connection',
+      code: 'WATER_CONN',
+      description: 'New water connection or capacity enhancement for industrial use.',
+      requiredDocuments: ['Application Form', 'Water Requirement Assessment', 'Existing Connection Details', 'Plumbing Certificate'],
+      processingTime: '7 days',
+      authority: 'TWAD Board / Local Body',
+      tariff: 'Industrial water rates apply'
+    },
+    {
+      name: 'Power Connection',
+      code: 'POWER_CONN',
+      description: 'High-tension power connection for industrial operations.',
+      requiredDocuments: ['Load Requirement', 'Transformer Capacity Details', 'Sanctioned Plan', 'Electrical Contractor License'],
+      processingTime: '10 days',
+      authority: 'TANGEDCO',
+      tariff: 'HT Industrial Tariff - ₹6.50/unit avg'
+    }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // COMPLIANCE FRAMEWORK
+  // ═══════════════════════════════════════════════════════════════════════════════
+  compliance: {
+    categories: [
+      {
+        name: 'Environmental Compliance',
+        weight: 30,
+        description: 'Adherence to environmental regulations and pollution control norms.',
+        checks: [
+          'Air pollution monitoring (stack emissions)',
+          'Water effluent treatment standards',
+          'Hazardous waste disposal documentation',
+          'Green belt maintenance (10-15% of plot)',
+          'Environmental clearance validity'
+        ],
+        authorities: ['TNPCB', 'CPCB', 'MoEFCC'],
+        consequences: 'Violation can result in plant shutdown and penalties up to ₹5 lakhs'
+      },
+      {
+        name: 'Safety Compliance',
+        weight: 25,
+        description: 'Workplace safety standards and fire safety measures.',
+        checks: [
+          'Fire safety NOC validity',
+          'Emergency evacuation plan',
+          'Safety equipment maintenance',
+          'Employee safety training records',
+          'Mock drill documentation (twice yearly)'
+        ],
+        authorities: ['Directorate of Industrial Safety', 'Fire & Rescue Services'],
+        consequences: 'Non-compliance attracts closure notice and prosecution'
+      },
+      {
+        name: 'Financial Compliance',
+        weight: 20,
+        description: 'Timely payment of dues and financial reporting.',
+        checks: [
+          'Land lease payment (annual)',
+          'Water charges payment',
+          'Property tax payment',
+          'Statutory returns (GST, PF, ESI)',
+          'Financial statement submission'
+        ],
+        authorities: ['SIPCOT Accounts', 'Commercial Taxes', 'Labour Department'],
+        consequences: 'Interest @18% p.a. on delayed payments'
+      },
+      {
+        name: 'Operational Compliance',
+        weight: 25,
+        description: 'Operational reporting and documentation maintenance.',
+        checks: [
+          'Quarterly production reporting',
+          'Employment details submission',
+          'Power consumption reporting',
+          'Water consumption reporting',
+          'Annual capacity utilization report'
+        ],
+        authorities: ['SIPCOT Regional Office', 'DIC'],
+        consequences: 'Warning notice followed by lease cancellation for persistent default'
+      }
+    ],
+    scoring: {
+      excellent: '90-100: Compliant (Green) - Eligible for auto-approvals and incentives',
+      good: '70-89: Warning (Yellow) - Monitoring required, some restrictions apply',
+      poor: 'Below 70: Non-Compliant (Red) - Inspection mandatory, action initiated'
+    },
+    violations: [
+      { severity: 'Critical', description: 'Operating without valid environmental clearance', action: 'Immediate Shutdown Notice' },
+      { severity: 'Critical', description: 'Water/air pollution beyond permissible limits', action: 'Stop Work Notice + Penalty' },
+      { severity: 'High', description: 'Missed submission deadline >30 days', action: 'Show Cause Notice' },
+      { severity: 'High', description: 'Fire safety NOC expired', action: 'Warning + Inspection' },
+      { severity: 'Medium', description: 'Lease payment delay >15 days', action: 'Interest Charge + Reminder' },
+      { severity: 'Medium', description: 'Green belt area below 10%', action: 'Compliance Direction' },
+      { severity: 'Low', description: 'Reporting delay <7 days', action: 'Automated Reminder' }
+    ]
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // GOVERNMENT SCHEMES & INCENTIVES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  schemes: [
+    {
+      name: 'Tamil Nadu Industrial Policy 2021',
+      description: 'Flagship policy attracting investments with comprehensive incentives.',
+      incentives: [
+        'Capital Subsidy: Up to 20% of investment (max ₹50 crores)',
+        'Payroll Incentive: 30% of EPF/ESI contribution for 5 years',
+        'Electricity Tax Exemption: 100% for 5 years',
+        'Stamp Duty Concession: 100% on land registration',
+        'Quality Certification Grant: ₹50 lakhs for ISO/other certifications'
+      ],
+      eligibility: 'New investments in manufacturing, minimum investment ₹50 crores',
+      applyThrough: 'SIPCOT → TN Guidance Bureau'
+    },
+    {
+      name: 'PLI Scheme (Production Linked Incentive)',
+      description: 'Central government scheme for specific sectors including electronics, pharma, and auto components.',
+      incentives: [
+        'Incentive of 4-6% on incremental sales',
+        'Duration: 5 years',
+        'Minimum investment threshold varies by sector'
+      ],
+      eligibleSectors: ['Automobiles', 'Auto Components', 'Pharmaceuticals', 'Telecom', 'Textiles'],
+      applyThrough: 'PIYush Portal → Ministry of Commerce'
+    },
+    {
+      name: 'Startup Tamil Nadu',
+      description: 'Support for startups and MSMEs in the state.',
+      incentives: [
+        'Seed funding up to ₹20 lakhs',
+        'Rental subsidy for incubation space',
+        'Patent filing reimbursement',
+        'Mentorship and networking support'
+      ],
+      eligibility: 'Incorporated within 10 years, turnover <₹100 crores',
+      applyThrough: 'StartupTN Portal → SIPCOT for space allotment'
+    },
+    {
+      name: 'Electricty Tariff Subsidy',
+      description: 'Concessional power tariff for eligible industries.',
+      incentives: [
+        '30% subsidy on HT industrial tariff',
+        'Applicable for first 5 years of operation',
+        'For industries in backward blocks'
+      ],
+      eligibility: 'New expansions, minimum employment creation'
+    }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // INDUSTRY TYPES & SECTORS
+  // ═══════════════════════════════════════════════════════════════════════════════
+  industrySectors: [
+    { name: 'Automotive', examples: 'Car manufacturers, Auto parts, Tyres', parks: ['Oragadam', 'Hosur', 'Chengalpattu'] },
+    { name: 'Electronics', examples: 'Consumer electronics, Components, Telecom', parks: ['Sriperumbudur', 'Oragadam'] },
+    { name: 'Textiles', examples: 'Spinning mills, Garments, Dyeing', parks: ['Gangaikondan', 'Tiruppur', 'Erode'] },
+    { name: 'Pharmaceuticals', examples: 'Drug manufacturing, Bulk drugs', parks: ['Hosur', 'Chengalpattu'] },
+    { name: 'Food Processing', examples: 'Processed foods, Beverages, Dairy', parks: ['Hosur', 'Cheyyar'] },
+    { name: 'Engineering', examples: 'Machine tools, Castings, Forgings', parks: ['Cheyyar', 'Puducherry'] },
+    { name: 'Chemicals', examples: 'Petrochemicals, Fertilizers, Paints', parks: ['Thoothukudi SEZ', 'Manali'] },
+    { name: 'Leather', examples: 'Tanneries, Footwear, Goods', parks: ['Ambattur', 'Vaniyambadi'] },
+    { name: 'Renewable Energy', examples: 'Solar manufacturing, Wind equipment', parks: ['Thoothukudi', 'Hosur'] }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CONTACT & SUPPORT INFORMATION
+  // ═══════════════════════════════════════════════════════════════════════════════
+  contacts: {
+    sipcotHeadquarters: {
+      address: 'SIPCOT Ltd., "SIPCOT Industrial Complex",',
+      location: '150, Periyar Path, Kancheepuram - 631 502',
+      phone: '044-27253123',
+      email: 'cmd@sipcot.com',
+      website: 'www.sipcot.tn.gov.in'
+    },
+    regionalOffices: [
+      { region: 'Chennai', phone: '044-25304567' },
+      { region: 'Coimbatore', phone: '0422-2341234' },
+      { region: 'Madurai', phone: '0452-2534567' },
+      { region: 'Tirunelveli', phone: '0462-2567890' }
+    ],
+    supportChannels: [
+      { channel: 'Helpline', number: '1800-425-2211', timing: 'Mon-Fri, 9 AM - 6 PM' },
+      { channel: 'Email Support', id: 'support@thozhirporul.tn.gov.in', timing: '24-48 hour response' },
+      { channel: 'Grievance Portal', url: '/grievance', timing: 'Track online' },
+      { channel: 'AI Chatbot', name: 'VazhiPorul AI', timing: '24/7 Available' }
+    ],
+    importantAuthorities: [
+      { name: 'TNPCB', purpose: 'Pollution Control NOC', phone: '044-22540003' },
+      { name: 'TANGEDCO', purpose: 'Power Connection', phone: '1912' },
+      { name: 'TWAD Board', purpose: 'Water Connection', phone: '044-25301021' },
+      { name: 'Fire Department', purpose: 'Fire Safety NOC', phone: '101' }
+    ]
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // UPDATED DOMAIN KNOWLEDGE
+  // ═══════════════════════════════════════════════════════════════════════════════
   domainKnowledge: [
-    { category: 'Land & Allotment', keywords: ['land','allotment','acre','plot','lease','cost','rate'], desc: 'SIPCOT provides industrial land on a 99-year lease basis. Allotment is done through an online application process. Rates vary by Industrial Park (e.g., Siruseri, Oragadam, Hosur). Incentives like back-ended capital subsidies may apply.' },
-    { category: 'Infrastructure', keywords: ['road','water','power','electricity','drain','infrastructure'], desc: 'SIPCOT parks feature world-class infrastructure including wide internal roads, high-tension power supply from TANGEDCO, dedicated water supply from local bodies/desalination, and integrated storm water drainage systems.' },
-    { category: 'Environmental Support', keywords: ['stp','etp','waste','environment','pollution','green belt'], desc: 'SIPCOT is committed to sustainable industrialization. Large parks feature Common Effluent Treatment Plants (CETPs) and Sewage Treatment Plants (STPs). Industries must maintain 10-15% green belt area within their plots.' },
-    { category: 'Incentives & Policies', keywords: ['subsidy','incentive','policy','investment','grant'], desc: 'The Tamil Nadu Industrial Policy (TNIP) provides various incentives: Capital Subsidies, Payroll Incentives, Quality Certification Grants, and Electricity Tax Exemptions for eligible industries.' },
-    { category: 'Utilities Monitoring', keywords: ['meter','flow','consumption','tariff','bill'], desc: 'THOZHIRPORUL provides real-time monitoring of utility consumption. Admins can track electricity and water flow across the park, identify leaks, and verify billing against government tariff rates.' },
+    { category: 'Land & Allotment', keywords: ['land','allotment','acre','plot','lease','cost','rate','price','buy','rent'], desc: 'SIPCOT provides industrial land on 99-year lease. Rates: Oragadam ₹1.5-2.5 Cr/acre, Sriperumbudur ₹2-3 Cr/acre, Hosur ₹80-120 Lakhs/acre, Cheyyar ₹60-80 Lakhs/acre. Application process: Submit project report → Site verification → Allotment order → Agreement execution → Possession.' },
+    { category: 'Infrastructure', keywords: ['road','water','power','electricity','drain','infrastructure','facility','amenity'], desc: 'SIPCOT parks feature: 60ft/40ft internal roads, 110KV/230KV substations, dedicated water supply (TWAD/Chennai Metro), STP/CETP for effluent treatment, underground drainage, telecom connectivity, and green belt development.' },
+    { category: 'Environmental Support', keywords: ['stp','etp','waste','environment','pollution','green belt','effluent'], desc: 'Large parks have Common Effluent Treatment Plants (CETP) and Sewage Treatment Plants (STP). Industries must maintain 10-15% green belt, obtain TNPCB consent, manage hazardous waste authorized dealers, and submit half-yearly environmental compliance reports.' },
+    { category: 'Incentives & Policies', keywords: ['subsidy','incentive','policy','investment','grant','support','scheme'], desc: 'TN Industrial Policy 2021: 20% capital subsidy (max ₹50 Cr), 30% PF reimbursement for 5 years, 100% electricity tax exemption, 100% stamp duty concession. Additional schemes: PLI (4-6% on sales), StartupTN seed funding, and MSME support.' },
+    { category: 'Utilities Monitoring', keywords: ['meter','flow','consumption','tariff','bill','reading','usage'], desc: 'THOZHIRPORUL tracks real-time electricity (TANGEDCO HT tariff: ₹6.50/unit avg) and water consumption. Anomaly alerts for usage spikes >200%, cost run rate calculations, and tariff verification against government rates.' },
+    { category: 'Compliance & Violations', keywords: ['compliance','violation','penalty','fine','notice','default','rule'], desc: 'Compliance Score: Environmental (30%), Safety (25%), Financial (20%), Operational (25%). Score >90: Compliant (green, auto-approvals). 70-89: Warning (yellow, monitoring). <70: Non-Compliant (red, inspection). Critical violations trigger shutdown notices.' },
+    { category: 'Service Requests', keywords: ['noc','certificate','approval','permit','request','application'], desc: 'Services: Fire NOC (7 days), Pollution NOC (10 days), Building NOC (14 days), Land Allotment (30 days), Lease Renewal (5 days, auto-approve if compliance >90%), Water Connection (7 days), Power Connection (10 days). Track status in Services Tracker.' },
+    { category: 'Investment & Employment', keywords: ['investment','employment','jobs','capex','revenue','create jobs'], desc: 'Total SIPCOT: ₹24,500 Cr investment, 89,000 direct jobs, 56,000 indirect jobs. Oragadam leads with ₹15,000 Cr, Sriperumbudur ₹12,000 Cr. Employment: 1 job per ₹15-20 lakhs investment in manufacturing.' },
+    { category: 'Registration Process', keywords: ['register','registration','sign up','new account','create account','join'], desc: 'Industry Registration: Company name, Industry type, Location/Park preference, Contact person details, Phone, Email, Password. Documents required: Company incorporation certificate, PAN, Address proof. Account activated after verification.' },
+    { category: 'Data Submission', keywords: ['submit','data','quarterly','annual','report','filing'], desc: 'Quarterly submission: Financial (revenue, investment), Employment (direct/indirect), Resources (power/water consumption, waste generation), CSR activities. Due dates: Q1 (Oct 15), Q2 (Jan 15), Q3 (Apr 15), Q4 (July 15). Late submission: -10 points to compliance score.' }
+  ],
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // FAQ & QUICK ANSWERS
+  // ═══════════════════════════════════════════════════════════════════════════════
+  faqs: [
+    { q: 'How to apply for industrial plot?', a: '1. Register as Industry user → 2. Go to Parks Explorer → 3. Click "Apply for Plot" → 4. Fill required area, park, industry type → 5. Submit → 6. Track in Services Tracker' },
+    { q: 'What documents required for land allotment?', a: 'Project Report, Capacity Statement, Financial Capacity Proof, Company Registration Certificate, PAN Card, Address Proof, Board Resolution' },
+    { q: 'How much does SIPCOT land cost?', a: 'Varies by park: Oragadam ₹1.5-2.5 Cr/acre, Sriperumbudur ₹2-3 Cr/acre, Hosur ₹80-120 Lakhs/acre, Cheyyar ₹60-80 Lakhs/acre' },
+    { q: 'What is compliance score?', a: 'Score 0-100 based on Environmental (30%), Safety (25%), Financial (20%), Operational (25%). >90: Compliant, 70-89: Warning, <70: Non-Compliant' },
+    { q: 'How long for NOC approvals?', a: 'Fire NOC: 7 days, Pollution NOC: 10 days, Building NOC: 14 days. Delays possible if documents incomplete or site inspection needed' },
+    { q: 'What incentives are available?', a: 'TN Industrial Policy: 20% capital subsidy, 30% PF reimbursement, 100% electricity tax exemption, 100% stamp duty concession. PLI scheme: 4-6% on sales' },
+    { q: 'How to check compliance status?', a: 'Login → Workspace (for Industry) or Compliance Engine (for Admin/Govt) → View score, category breakdown, violations, and submission history' },
+    { q: 'What to do for missed submission deadline?', a: 'Submit immediately with late reason. Penalty: -10 points to compliance score. Critical: >30 days delay triggers Show Cause Notice' },
+    { q: 'How to contact SIPCOT?', a: 'HQ: 044-27253123, Email: cmd@sipcot.com. Helpline: 1800-425-2211. Or use Contact page form / Grievance portal' },
+    { q: 'Can I transfer my plot?', a: 'Yes, submit Transfer Request. Documents: NOC from buyer, buyer financial proof, clearance certificate. Processing: 21 days. Transfer fee: 2% of current land value' }
   ]
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// INTELLIGENT RESPONSE ENGINE
+// ═══════════════════════════════════════════════════════════════════════════════
 function findBestResponse(input, isLoggedIn, currentPath, userName) {
   const q = input.toLowerCase().trim();
   const nav = (path) => ({ path });
 
   const greetingName = userName ? ` **${userName}**` : '';
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // INDUSTRIAL PARKS QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/park|industrial park|which park|parks in|park list|park information|oragadam|hosur|sriperumbudur|cheyyar|thoothukudi|gangaikondan/.test(q)) {
+    for (const park of SITE_KNOWLEDGE.industrialParks) {
+      if (q.includes(park.name.toLowerCase()) || q.includes(park.code.toLowerCase())) {
+        return {
+          text: `🏭 **${park.name} Industrial Park (${park.code})**\n\n` +
+                `📍 *${park.district} District*\n` +
+                `🏷️ **Specialty:** ${park.specialty}\n\n` +
+                `📖 **About:** ${park.description}\n\n` +
+                `🏗️ **Industries:** ${park.industries.join(', ')}\n` +
+                `💰 **Investment:** ${park.investment}\n` +
+                `👷 **Employment:** ${park.employment}\n\n` +
+                `⚡ **Power:** ${park.infrastructure.power}\n` +
+                `💧 **Water:** ${park.infrastructure.water}\n` +
+                `🛣️ **Connectivity:** ${park.infrastructure.connectivity}`,
+          suggestions: ['Show all parks', 'Apply for plot here', 'How to reach?']
+        };
+      }
+    }
+    // All parks list
+    const parkList = SITE_KNOWLEDGE.industrialParks.map(p => `• **${p.name}** (${p.code}) - ${p.specialty}`).join('\n');
+    return {
+      text: `🏭 **SIPCOT Industrial Parks in Tamil Nadu**\n\n${parkList}\n\n📊 **Total:** ${SITE_KNOWLEDGE.industrialParks.length} Major Parks\n💰 **Combined Investment:** ₹43,000+ Crores\n👷 **Total Employment:** 1,50,000+ Jobs`,
+      suggestions: ['Tell me about Oragadam', 'Sriperumbudur details', 'Apply for plot']
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // SERVICES & NOC QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/noc|service|certificate|approval|what service|how to.*approval|how to.*noc/.test(q)) {
+    for (const service of SITE_KNOWLEDGE.services) {
+      if (q.includes(service.name.toLowerCase()) || q.includes(service.code.toLowerCase()) || (q.includes('noc') && service.name.includes('NOC'))) {
+        return {
+          text: `📋 **${service.name}** (${service.code})\n\n` +
+                `📝 **Description:** ${service.description}\n\n` +
+                `📄 **Required Documents:**\n${service.requiredDocuments.map(d => `• ${d}`).join('\n')}\n\n` +
+                `⏱️ **Processing Time:** ${service.processingTime}\n` +
+                `🏢 **Authority:** ${service.authority}\n` +
+                `${service.fees ? `💰 **Fees:** ${service.fees}\n` : ''}` +
+                `${service.autoApproval ? `✨ **Note:** Auto-approved for industries with compliance score >90%` : ''}`,
+          suggestions: ['Apply now', 'Track service status', 'What is compliance score?']
+        };
+      }
+    }
+    const serviceList = SITE_KNOWLEDGE.services.map(s => `• **${s.name}** - ${s.processingTime}`).join('\n');
+    return {
+      text: `📋 **SIPCOT Services Available**\n\n${serviceList}\n\n✨ **Auto-Approval:** Lease renewals auto-approved for compliant industries (score >90)\n\n💡 *Tip: Login and go to Services Tracker to apply or track requests*`,
+      suggestions: ['Fire NOC details', 'How to apply for plot?', 'Service status']
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // COMPLIANCE QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/compliance|score|violation|penalty|fine|environment|safety|pollution/.test(q)) {
+    const categories = SITE_KNOWLEDGE.compliance.categories.map(c =>
+      `**${c.name}** (${c.weight}%)\n${c.checks.slice(0, 2).map(ch => `• ${ch}`).join('\n')}`
+    ).join('\n\n');
+
+    return {
+      text: `📊 **SIPCOT Compliance Framework**\n\n` +
+            `Compliance Score (0-100) determines industry status:\n` +
+            `🟢 **90-100:** Compliant - Auto-approvals, incentives eligible\n` +
+            `🟡 **70-89:** Warning - Monitoring required\n` +
+            `🔴 **Below 70:** Non-Compliant - Inspection, action initiated\n\n` +
+            `**Categories:**\n${categories}\n\n` +
+            `**Consequences:**\n${SITE_KNOWLEDGE.compliance.violations.slice(0, 3).map(v => `• ${v.severity}: ${v.description} → ${v.action}`).join('\n')}`,
+      suggestions: ['Check my compliance', 'How to improve score?', 'Violation details']
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // SCHEMES & INCENTIVES QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/scheme|incentive|subsidy|policy|support|grant|funding|pli/.test(q)) {
+    const scheme = SITE_KNOWLEDGE.schemes.find(s =>
+      q.includes(s.name.toLowerCase().split(' ')[0]) || q.includes(s.description.toLowerCase().split(' ')[0])
+    );
+
+    if (scheme) {
+      return {
+        text: `🎁 **${scheme.name}**\n\n` +
+              `📝 **Description:** ${scheme.description}\n\n` +
+              `💰 **Incentives:**\n${scheme.incentives.map(i => `• ${i}`).join('\n')}\n\n` +
+              `✅ **Eligibility:** ${scheme.eligibility}\n` +
+              `📮 **Apply Through:** ${scheme.applyThrough}`,
+        suggestions: ['How to apply?', 'Other schemes', 'Am I eligible?']
+      };
+    }
+
+    const schemeList = SITE_KNOWLEDGE.schemes.map(s => `• **${s.name}**`).join('\n');
+    return {
+      text: `🎁 **Government Schemes & Incentives**\n\n${schemeList}\n\n📞 *Contact SIPCOT or DIC for detailed application assistance*`,
+      suggestions: ['TN Industrial Policy details', 'PLI Scheme', 'Startup support']
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // SECTOR/INDUSTRY TYPE QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/sector|industry type|automotive|textile|electronic|pharma|chemical|manufacturing/.test(q)) {
+    const sector = SITE_KNOWLEDGE.industrySectors.find(s => q.includes(s.name.toLowerCase()));
+
+    if (sector) {
+      return {
+        text: `🏭 **${sector.name} Sector**\n\n` +
+              `📦 **Examples:** ${sector.examples}\n` +
+              `📍 **Best Parks:** ${sector.parks.join(', ')}`,
+        suggestions: ['Other sectors', 'Park details', 'Apply for plot']
+      };
+    }
+
+    const sectorList = SITE_KNOWLEDGE.industrySectors.map(s => `• **${s.name}** - ${s.examples}`).join('\n');
+    return {
+      text: `🏭 **Industry Sectors in SIPCOT Parks**\n\n${sectorList}`,
+      suggestions: ['Automotive details', 'Textile parks', 'Electronics hubs']
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CONTACT & SUPPORT QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/contact|phone|email|support|helpdesk|address|office|call|reach/.test(q)) {
+    const contacts = SITE_KNOWLEDGE.contacts;
+    return {
+      text: `📞 **Contact & Support Information**\n\n` +
+            `**SIPCOT Headquarters:**\n📍 ${contacts.sipcotHeadquarters.address}\n📞 ${contacts.sipcotHeadquarters.phone}\n📧 ${contacts.sipcotHeadquarters.email}\n🌐 ${contacts.sipcotHeadquarters.website}\n\n` +
+            `**Support Channels:**\n${contacts.supportChannels.map(c => `• **${c.channel}:** ${c.name || c.number || c.id} (${c.timing})`).join('\n')}\n\n` +
+            `**Important Authorities:**\n${contacts.importantAuthorities.map(a => `• **${a.name}:** ${a.purpose} - ${a.phone}`).join('\n')}`,
+      suggestions: ['File grievance', 'Regional offices', 'Working hours']
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // COST/RATE/PRICE QUERIES
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/cost|rate|price|how much|charges|fee|expensive|cheap|tariff/.test(q)) {
+    return {
+      text: `💰 **SIPCOT Land Rates (Approximate per acre)**\n\n` +
+            `• **Oragadam:** ₹1.5 - 2.5 Crores\n` +
+            `• **Sriperumbudur:** ₹2 - 3 Crores\n` +
+            `• **Hosur:** ₹80 - 120 Lakhs\n` +
+            `• **Cheyyar:** ₹60 - 80 Lakhs\n` +
+            `• **Thoothukudi SEZ:** ₹70 - 90 Lakhs\n` +
+            `• **Gangaikondan:** ₹40 - 60 Lakhs\n\n` +
+            `**Lease Terms:** 99-year lease with 5% annual escalation\n\n` +
+            `**Utility Tariffs:**\n` +
+            `• HT Power: ~₹6.50/unit\n` +
+            `• Industrial Water: ~₹25-35/KL\n\n` +
+            `💡 *Rates are indicative. Contact SIPCOT for current rates*`,
+      suggestions: ['Apply for plot', 'Payment schedule', 'Subsidy available?']
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // FAQ MATCHING
+  // ═══════════════════════════════════════════════════════════════════════════════
+  for (const faq of SITE_KNOWLEDGE.faqs) {
+    if (q.includes(faq.q.toLowerCase().replace(/how to|what|how much/g, '').trim()) || faq.q.toLowerCase().includes(q)) {
+      return {
+        text: `❓ **${faq.q}**\n\n✅ ${faq.a}`,
+        suggestions: ['More FAQs', 'Related services', 'Contact support']
+      };
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ORIGINAL RESPONSE LOGIC (preserved below)
+  // ═══════════════════════════════════════════════════════════════════════════════
 
   // Current Page Context
   if (/(tell me about (this )?page|where am i|what is this page|explain this page)/.test(q)) {
@@ -119,7 +689,17 @@ function findBestResponse(input, isLoggedIn, currentPath, userName) {
 
   // Greetings
   if (/^(hi|hello|hey|greetings|good\s?(morning|evening|afternoon))/.test(q)) {
-    return { text: `Hello${greetingName}! 👋 I'm **VazhiPorul AI**, your intelligent assistant for the THOZHIRPORUL platform. I can help you:\n\n• Navigate to any page\n• Explain features & workflows\n• Guide you through processes\n• Answer questions about the platform\n\nWhat would you like to know?`, suggestions: ['How to apply for a plot?', 'Show me industrial parks', 'What is this platform?'] };
+    return {
+      text: `Hello${greetingName}! 👋 I'm **VazhiPorul AI**, your intelligent assistant for the THOZHIRPORUL platform.\n\n` +
+            `I can help you with:\n` +
+            `• 🏭 **Industrial Parks** - Information about all SIPCOT parks\n` +
+            `• 📋 **Services** - NOCs, approvals, land allotment\n` +
+            `• 📊 **Compliance** - Scores, violations, submissions\n` +
+            `• 🎁 **Incentives** - Government schemes and subsidies\n` +
+            `• 📞 **Support** - Contact information and grievances\n\n` +
+            `**Quick Start:** Try asking about "Oragadam park", "Fire NOC", or "How to apply for plot?"`,
+      suggestions: ['Show industrial parks', 'How to apply for plot?', 'Available services']
+    };
   }
 
   // Name query
@@ -130,7 +710,16 @@ function findBestResponse(input, isLoggedIn, currentPath, userName) {
   // What is this platform
   if (/what (is|are).*(platform|thozhirporul|sims|site|website|system)/.test(q) || /tell me about/.test(q)) {
     const p = SITE_KNOWLEDGE.platform;
-    return { text: `**${p.name}** — ${p.fullName}\n\n${p.desc}\n\n*Built by ${p.by}*`, suggestions: ['What roles are available?', 'Show me features', 'How to login?'] };
+    const achievements = p.achievements.map(a => `• ${a}`).join('\n');
+    return {
+      text: `**${p.name}** (${p.tamilName}) — ${p.fullName}\n\n` +
+            `${p.desc}\n\n` +
+            `📊 **Key Achievements:**\n${achievements}\n\n` +
+            `🏢 **Managing:** 1,250+ Industries across 6 Major Parks\n` +
+            `📅 **Established:** ${p.govtBody}, ${p.established}\n` +
+            `🚀 **Built by:** ${p.by}`,
+      suggestions: ['Show industrial parks', 'Services available', 'How to register?']
+    };
   }
 
   // Roles
@@ -260,16 +849,17 @@ export default function AIChatbot() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     const name = localStorage.getItem('userName');
-    
-    const initialText = (token && name) 
-      ? `Hi **${name}**! I'm **VazhiPorul AI** 🤖\n\nI'm your intelligent guide for the THOZHIRPORUL platform. Ask me anything!`
-      : `Hi! I'm **VazhiPorul AI** 🤖\n\nI'm your intelligent guide for the THOZHIRPORUL platform. Ask me anything — I can navigate you to any page, explain workflows, or answer your questions!`;
+    const role = localStorage.getItem('role');
+
+    const initialText = (token && name)
+      ? `Welcome back **${name}**! 👋\n\nI'm **VazhiPorul AI** - your SIPCOT intelligent assistant.\n\nAs a **${role || 'user'}**, I can help you:\n• Navigate to your dashboard\n• Track services and compliance\n• Answer questions about SIPCOT\n• Find information about parks and schemes`
+      : `👋 Welcome to **THOZHIRPORUL**!\n\nI'm **VazhiPorul AI** - your SIPCOT intelligent assistant.\n\nI can help you:\n• Explore our 6 industrial parks\n• Understand services like NOCs and plot allotment\n• Learn about compliance and incentives\n• Navigate to any page`;
 
     setMessages([
-      { 
-        role: 'ai', 
-        text: initialText, 
-        suggestions: ['What is this platform?', 'How to apply for a plot?', 'Show industrial parks'] 
+      {
+        role: 'ai',
+        text: initialText,
+        suggestions: ['Show industrial parks', 'How to apply for plot?', 'Available services']
       }
     ]);
   }, [open]); // Refresh greeting when chat is opened

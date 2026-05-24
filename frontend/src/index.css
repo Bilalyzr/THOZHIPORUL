@@ -1,6 +1,7 @@
 /* NEXORA THOZHIRPORUL - Global Styles */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import './styles/glassmorphism.css';
 
 *,
 *::before,
@@ -79,4 +80,58 @@ button, a, input, select, textarea {
   .MuiAppBar-root {
     display: none !important;
   }
+}
+
+/* Role-specific color variables */
+:root {
+  --color-admin: #1F4E79;
+  --color-admin-light: #3A74A7;
+  --color-admin-dark: #163A5F;
+  --color-industry: #2E7D32;
+  --color-industry-light: #4CAF50;
+  --color-industry-dark: #1B5E20;
+  --color-govt: #E67E22;
+  --color-govt-light: #F5A623;
+  --color-govt-dark: #D35400;
+}
+
+/* Enhanced card hover effects */
+.MuiCard-root {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.MuiCard-root:hover {
+  transform: translateY(-4px);
+}
+
+/* Enhanced button styles */
+.MuiButton-contained {
+  transition: all 0.2s ease;
+}
+
+.MuiButton-contained:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Smooth page transitions */
+.page-transition {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Sidebar menu item animation */
+.sidebar-item {
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  margin: 2px 8px;
+}
+
+.sidebar-item:hover {
+  background: rgba(31, 78, 121, 0.08);
+  transform: translateX(4px);
+}
+
+.sidebar-item.active {
+  background: linear-gradient(90deg, rgba(31, 78, 121, 0.15) 0%, rgba(31, 78, 121, 0.05) 100%);
+  border-left: 3px solid var(--color-admin);
 }

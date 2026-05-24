@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 
 // ─────────────────────────────────────────────────
-// SAMPLE API KEY (In production, SIPCOT authority issues this)
+// API KEY Configuration
+// In production, set SIPCOT_API_KEY in environment variables
 // ─────────────────────────────────────────────────
-const SIPCOT_API_KEY = 'SIPCOT-SIMS-2026-a4f8e2d1-b7c3-49e5-9612-3f8a1d0e7b5c';
+const SIPCOT_API_KEY = process.env.SIPCOT_API_KEY || 'SIPCOT-SIMS-2026-a4f8e2d1-b7c3-49e5-9612-3f8a1d0e7b5c';
 
 // Middleware: Validate API Key on every request to this router
 function validateApiKey(req, res, next) {

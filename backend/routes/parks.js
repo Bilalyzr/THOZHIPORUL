@@ -16,6 +16,28 @@ router.get('/', async (req, res) => {
     }
 });
 
+// @route   GET /api/parks/compare
+// @desc    Compare parks side-by-side
+// @access  Public
+// NOTE: Must be defined BEFORE /:id to avoid route matching issues
+router.get('/compare', async (req, res) => {
+    try {
+        const ids = (req.query.ids || '').split(',').map(Number).filter(id => !isNaN(id));
+        if (ids.length === 0) return res.json([]);
+
+        const { rows } = await db.query(
+            `SELECT id, name, total_area_acres, available_area_acres, total_industries, infrastructure_score, total_investment_cr
+             FROM industrial_parks
+             WHERE id = ANY($1::int[])`,
+            [ids]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('Park Compare Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // @route   GET /api/parks/:id
 // @desc    Get single park detail with infrastructure metrics
 // @access  Public (basic), Authenticated (full metrics)
@@ -81,27 +103,6 @@ router.get('/:id/metrics', requireRole(['admin', 'govt']), async (req, res) => {
         res.json(rows);
     } catch (err) {
         console.error('Park Metrics Error:', err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// @route   GET /api/parks/compare
-// @desc    Compare parks side-by-side
-// @access  Public
-router.get('/compare', async (req, res) => {
-    try {
-        const ids = (req.query.ids || '').split(',').map(Number).filter(id => !isNaN(id));
-        if (ids.length === 0) return res.json([]);
-
-        const { rows } = await db.query(
-            `SELECT id, name, total_area_acres, available_area_acres, total_industries, infrastructure_score, total_investment_cr 
-             FROM industrial_parks 
-             WHERE id = ANY($1::int[])`,
-            [ids]
-        );
-        res.json(rows);
-    } catch (err) {
-        console.error('Park Compare Error:', err.message);
         res.status(500).send('Server Error');
     }
 });

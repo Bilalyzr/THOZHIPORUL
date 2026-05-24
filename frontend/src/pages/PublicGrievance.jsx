@@ -71,7 +71,7 @@ export default function PublicGrievance() {
         {/* Stats Cards */}
         <Grid container spacing={3} sx={{ mb: 6 }}>
           {stats.map((stat, i) => (
-            <Grid item xs={12} sm={4} key={i}>
+            <Grid size={{ xs: 12, sm: 4 }} key={i}>
               <Card sx={{ 
                 boxShadow: '0 10px 30px rgba(0,0,0,0.1)', 
                 borderRadius: 4, 
@@ -102,7 +102,7 @@ export default function PublicGrievance() {
 
         <Grid container spacing={4}>
           {/* Main Form Area */}
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Paper sx={{ 
               p: { xs: 3, md: 5 }, 
               borderRadius: 5, 
@@ -115,44 +115,44 @@ export default function PublicGrievance() {
 
               <form onSubmit={handleSubmit}>
                 <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField 
-                      fullWidth label="Full Name" required 
-                      variant="outlined" value={form.name} 
-                      onChange={e => setForm({...form, name: e.target.value})} 
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      fullWidth label="Full Name" required
+                      variant="outlined" value={form.name}
+                      onChange={e => setForm({...form, name: e.target.value})}
                       sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField 
-                      fullWidth label="Phone Number" required 
-                      variant="outlined" value={form.phone} 
-                      onChange={e => setForm({...form, phone: e.target.value})} 
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      fullWidth label="Phone Number" required
+                      variant="outlined" value={form.phone}
+                      onChange={e => setForm({...form, phone: e.target.value})}
                       sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
                     />
                   </Grid>
-                  <Grid item xs={12}>
-                    <TextField 
-                      fullWidth label="Industrial Park Location / Area" required 
-                      variant="outlined" value={form.location} 
-                      onChange={e => setForm({...form, location: e.target.value})} 
+                  <Grid size={{ xs: 12 }}>
+                    <TextField
+                      fullWidth label="Industrial Park Location / Area" required
+                      variant="outlined" value={form.location}
+                      onChange={e => setForm({...form, location: e.target.value})}
                       placeholder="e.g., Oragadam Phase II, Main Road"
                       sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
                     />
                   </Grid>
-                  <Grid item xs={12}>
-                    <TextField 
-                      fullWidth label="Describe the Issue" required 
-                      multiline rows={5} variant="outlined" value={form.description} 
-                      onChange={e => setForm({...form, description: e.target.value})} 
+                  <Grid size={{ xs: 12 }}>
+                    <TextField
+                      fullWidth label="Describe the Issue" required
+                      multiline rows={5} variant="outlined" value={form.description}
+                      onChange={e => setForm({...form, description: e.target.value})}
                       placeholder="Please provide as much detail as possible..."
                       sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
                     />
                   </Grid>
-                  <Grid item xs={12}>
-                    <Button 
+                  <Grid size={{ xs: 12 }}>
+                    <Button
                       type="submit" variant="contained" size="large" fullWidth
-                      sx={{ 
+                      sx={{
                         py: 2, borderRadius: 3, fontWeight: 700, fontSize: '1.1rem',
                         background: 'linear-gradient(90deg, #1F4E79 0%, #2E7D32 100%)',
                         boxShadow: '0 8px 20px rgba(31, 78, 121, 0.3)',
@@ -168,7 +168,7 @@ export default function PublicGrievance() {
           </Grid>
 
           {/* Sidebar Area */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             {/* Track Status Card */}
             <Card sx={{ borderRadius: 5, mb: 4, bgcolor: '#f8f9fa', border: '1px dashed #dee2e6' }}>
               <CardContent sx={{ p: 3 }}>

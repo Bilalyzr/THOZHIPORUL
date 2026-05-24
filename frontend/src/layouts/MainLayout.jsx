@@ -4,7 +4,7 @@ import {
   AppBar, Box, CssBaseline, Drawer, IconButton,
   List, ListItem, ListItemButton, ListItemIcon,
   ListItemText, Toolbar, Typography, Avatar, Badge,
-  Menu, MenuItem, Tooltip
+  Menu, MenuItem, Tooltip, Collapse
 } from '@mui/material';
 import { notificationService, authService } from '../services/api';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -14,6 +14,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import GavelIcon from '@mui/icons-material/Gavel';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
@@ -30,11 +31,37 @@ import PeopleIcon from '@mui/icons-material/People';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import logoTransparent from '../assets/logo-transparent.png';
 import LoadingScreen from '../components/LoadingScreen';
 
-const drawerWidth = 260;
-const miniDrawerWidth = 72;
+const drawerWidth = 280;
+const miniDrawerWidth = 80;
+
+const ROLE_THEMES = {
+  admin: {
+    primary: '#1F4E79',
+    light: '#3A74A7',
+    dark: '#163A5F',
+    gradient: 'linear-gradient(135deg, #1F4E79 0%, #3A74A7 100%)',
+    bgGradient: 'linear-gradient(180deg, #1F4E79 0%, #0f2744 100%)',
+  },
+  industry: {
+    primary: '#2E7D32',
+    light: '#4CAF50',
+    dark: '#1B5E20',
+    gradient: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+    bgGradient: 'linear-gradient(180deg, #2E7D32 0%, #1a4d25 100%)',
+  },
+  govt: {
+    primary: '#E67E22',
+    light: '#F5A623',
+    dark: '#D35400',
+    gradient: 'linear-gradient(135deg, #E67E22 0%, #F5A623 100%)',
+    bgGradient: 'linear-gradient(180deg, #E67E22 0%, #b35c12 100%)',
+  },
+};
 
 function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -42,12 +69,12 @@ function MainLayout() {
   const [notifications, setNotifications] = useState([]);
   const [notifAnchorEl, setNotifAnchorEl] = useState(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [profileAnchorEl, setProfileAnchorEl] = useState(null);
   const navigate = useNavigate();
 
-  // Route guard: redirect to home if not logged in
   const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('role');
-  
+  const userRole = localStorage.getItem('role') || 'admin';
+
   useEffect(() => {
     if (!token) {
       navigate('/home', { replace: true });
@@ -58,7 +85,7 @@ function MainLayout() {
 
   if (!token) return null;
 
-  const isIndustry = userRole === 'industry';
+  const theme = ROLE_THEMES[userRole] || ROLE_THEMES.admin;
 
   useEffect(() => {
     if (userRole === 'admin' && token) {
@@ -74,6 +101,14 @@ function MainLayout() {
 
   const handleNotifClose = () => {
     setNotifAnchorEl(null);
+  };
+
+  const handleProfileClick = (event) => {
+    setProfileAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileClose = () => {
+    setProfileAnchorEl(null);
   };
 
   const handleDrawerToggle = () => {
@@ -105,6 +140,8 @@ function MainLayout() {
         { text: 'Submit Data', icon: <UploadFileIcon />, path: '/submit-data' },
         { text: 'My Compliance', icon: <VerifiedIcon />, path: '/compliance' },
         { text: 'Service Requests', icon: <SupportAgentIcon />, path: '/services' },
+        { section: 'Secure Vault' },
+        { text: 'Document Vault', icon: <FolderIcon />, path: '/secure-vault' },
         { section: 'Reports' },
         { text: 'Report Center', icon: <DescriptionIcon />, path: '/report-center' },
         { text: 'Parks Explorer', icon: <MapIcon />, path: '/parks-explorer' },
@@ -118,11 +155,12 @@ function MainLayout() {
         { section: 'Monitoring' },
         { text: 'Compliance Engine', icon: <SecurityIcon />, path: '/compliance-engine' },
         { text: 'Analytics', icon: <AutoGraphIcon />, path: '/analytics' },
+        { section: 'Secure Vault' },
+        { text: 'Document Vault', icon: <FolderIcon />, path: '/secure-vault' },
         { section: 'Reports' },
         { text: 'Report Center', icon: <DescriptionIcon />, path: '/report-center' },
       ];
     } else {
-      // Admin
       return [
         { section: 'Overview' },
         { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin-dashboard' },
@@ -135,6 +173,8 @@ function MainLayout() {
         { text: 'Compliance Engine', icon: <SecurityIcon />, path: '/compliance-engine' },
         { text: 'Analytics', icon: <AutoGraphIcon />, path: '/analytics' },
         { text: 'Report Center', icon: <DescriptionIcon />, path: '/report-center' },
+        { section: 'Secure Vault' },
+        { text: 'Document Vault', icon: <FolderIcon />, path: '/secure-vault' },
         { section: 'System' },
         { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
       ];
@@ -142,116 +182,144 @@ function MainLayout() {
   };
 
   const menuItems = getMenuItems();
+  const userName = localStorage.getItem('userName') || localStorage.getItem('name') || 'User';
+  const userInitial = userName.charAt(0).toUpperCase();
 
-  // Full drawer content (used for both mobile and desktop expanded)
   const mobileDrawer = (
-    <div>
-      <Toolbar sx={{ gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40 }}>
-          <img src={logoTransparent} alt="NEXORA Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: theme.primary }}>
+      <Toolbar sx={{ gap: 1.5, borderBottom: '1px solid rgba(255,255,255,0.2)', py: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: 2.5, bgcolor: 'rgba(255,255,255,0.2)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+          <img src={logoTransparent} alt="NEXORA Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
         </Box>
         <Box>
-          <Typography variant="h6" noWrap sx={{ fontWeight: 900, fontSize: '1.2rem', lineHeight: 1.1, background: 'linear-gradient(90deg, #1F4E79, #2E7D32)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <Typography variant="h6" noWrap sx={{ fontWeight: 900, fontSize: '1.1rem', lineHeight: 1.1, color: 'white' }}>
             THOZHIRPORUL
           </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.08em' }}>BY NEXORA</Typography>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em' }}>BY NEXORA</Typography>
         </Box>
       </Toolbar>
-      <List>
+
+      <List sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', py: 2 }}>
         {menuItems.map((item, index) => (
           item.section ? (
-            <Typography key={`section-${index}`} variant="overline" sx={{ px: 2, pt: index === 0 ? 0 : 1.5, pb: 0.5, display: 'block', color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1.2 }}>
+            <Typography key={`section-${index}`} variant="overline" sx={{ px: 3, pt: index === 0 ? 2 : 2.5, pb: 1, display: 'block', color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: 1.5 }}>
               {item.section}
             </Typography>
           ) : (
-            <ListItem key={item.text} disablePadding>
+            <ListItem key={item.text} disablePadding sx={{ px: 2 }}>
               <ListItemButton
                 selected={location.pathname === item.path}
                 onClick={() => handleNavigate(item.path)}
                 sx={{
-                  py: 0.8,
+                  py: 1.2, px: 2, borderRadius: 2, mb: 0.5,
+                  transition: 'all 0.2s ease',
+                  color: 'white',
                   '&.Mui-selected': {
-                    backgroundColor: 'primary.light',
-                    color: 'primary.contrastText',
-                    '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
+                    background: 'rgba(255, 255, 255, 0.25)',
+                    color: 'white',
+                    '& .MuiListItemIcon-root': { color: 'white' },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute', left: 0, top: '15%', bottom: '15%', width: 4,
+                      bgcolor: 'white', borderRadius: '0 4px 4px 0',
+                    },
                   },
-                  '&:hover': { backgroundColor: 'rgba(31, 78, 121, 0.08)' }
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.15)',
+                  },
+                  position: 'relative',
                 }}
               >
-                <ListItemIcon sx={{ color: location.pathname === item.path ? 'inherit' : 'primary.main', minWidth: 40 }}>
+                <ListItemIcon sx={{ color: 'rgba(255,255,255,0.9)', minWidth: 40 }}>
                   {item.icon}
                 </ListItemIcon>
-                <ListItemText primary={item.text} primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                <ListItemText primary={item.text} primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: 600, color: 'white' }} />
               </ListItemButton>
             </ListItem>
           )
         ))}
       </List>
-      <Box sx={{ position: 'absolute', bottom: 0, width: '100%', borderTop: 1, borderColor: 'divider' }}>
-        <List>
-          <ListItem disablePadding>
-            <ListItemButton onClick={handleLogout}>
-              <ListItemIcon sx={{ color: 'error.main' }}>
-                <LogoutIcon />
-              </ListItemIcon>
-              <ListItemText primary="Logout" sx={{ color: 'error.main' }} />
-            </ListItemButton>
-          </ListItem>
-        </List>
+
+      <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+        <ListItem disablePadding>
+          <ListItemButton onClick={handleLogout} sx={{ borderRadius: 2, '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.25)' } }}>
+            <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText primary="Logout" primaryTypographyProps={{ fontWeight: 600, color: 'white' }} />
+          </ListItemButton>
+        </ListItem>
       </Box>
-    </div>
+    </Box>
   );
 
-  // Desktop drawer content (supports collapsed state)
   const desktopDrawer = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Header */}
-      <Toolbar sx={{ gap: 1.5, justifyContent: collapsed ? 'center' : 'flex-start', px: collapsed ? 0 : 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40 }}>
-          <img src={logoTransparent} alt="NEXORA Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: theme.primary }}>
+      <Toolbar sx={{ gap: 1.5, justifyContent: collapsed ? 'center' : 'flex-start', px: collapsed ? 0 : 2.5, borderBottom: '1px solid rgba(255,255,255,0.2)', py: 2 }}>
+        <Box sx={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: collapsed ? 48 : 52, height: collapsed ? 48 : 52, borderRadius: 2.5,
+          bgcolor: 'rgba(255,255,255,0.2)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          transition: 'all 0.3s ease',
+        }}>
+          <img src={logoTransparent} alt="NEXORA Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
         </Box>
         {!collapsed && (
-          <Box>
-            <Typography variant="h6" noWrap sx={{ fontWeight: 900, fontSize: '1.2rem', lineHeight: 1.1, background: 'linear-gradient(90deg, #1F4E79, #2E7D32)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              THOZHIRPORUL
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.08em' }}>BY NEXORA</Typography>
-          </Box>
+          <Collapse in orientation="horizontal" timeout={300}>
+            <Box sx={{ minWidth: 150 }}>
+              <Typography variant="h6" noWrap sx={{ fontWeight: 900, fontSize: '1.1rem', lineHeight: 1.1, color: 'white' }}>
+                THOZHIRPORUL
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em' }}>BY NEXORA</Typography>
+            </Box>
+          </Collapse>
         )}
       </Toolbar>
 
-      {/* Menu Items */}
-      <List sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      <List sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', py: 2 }}>
         {menuItems.map((item, index) => (
           item.section ? (
             !collapsed ? (
-              <Typography key={`section-${index}`} variant="overline" sx={{ px: 2, pt: index === 0 ? 0 : 1.5, pb: 0.5, display: 'block', color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1.2 }}>
+              <Typography key={`section-${index}`} variant="overline" sx={{ px: 3, pt: index === 0 ? 2 : 2.5, pb: 1, display: 'block', color: 'rgba(255,255,255,0.8)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: 1.5 }}>
                 {item.section}
               </Typography>
             ) : (
-              <Box key={`section-${index}`} sx={{ my: 1, mx: 'auto', width: 24, borderTop: 1, borderColor: 'divider' }} />
+              <Box key={`section-${index}`} sx={{ my: 1.5, mx: 'auto', width: 32, borderTop: 1, borderColor: 'rgba(255,255,255,0.3)' }} />
             )
           ) : (
-            <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
-              <Tooltip title={collapsed ? item.text : ''} placement="right" arrow>
+            <ListItem key={item.text} disablePadding sx={{ px: 2 }}>
+              <Tooltip title={collapsed ? item.text : ''} placement="right" arrow TransitionProps={{ timeout: 300 }}>
                 <ListItemButton
                   selected={location.pathname === item.path}
                   onClick={() => handleNavigate(item.path)}
                   sx={{
-                    py: 0.8,
-                    minHeight: 44,
+                    py: 1.2,
+                    minHeight: 48,
                     justifyContent: collapsed ? 'center' : 'initial',
-                    px: collapsed ? 1 : 2.5,
+                    px: collapsed ? 1.5 : 2.5,
+                    borderRadius: 2,
+                    mb: 0.5,
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    color: 'white',
                     '&.Mui-selected': {
-                      backgroundColor: 'primary.light',
-                      color: 'primary.contrastText',
-                      '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
+                      background: 'rgba(255, 255, 255, 0.25)',
+                      color: 'white',
+                      '& .MuiListItemIcon-root': { color: 'white' },
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 4,
+                        bgcolor: 'white', borderRadius: '0 4px 4px 0',
+                      },
                     },
-                    '&:hover': { backgroundColor: 'rgba(31, 78, 121, 0.08)' }
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.15)',
+                    },
                   }}
                 >
                   <ListItemIcon sx={{
-                    color: location.pathname === item.path ? 'inherit' : 'primary.main',
+                    color: 'rgba(255,255,255,0.9)',
                     minWidth: 0,
                     mr: collapsed ? 0 : 2,
                     justifyContent: 'center',
@@ -259,7 +327,16 @@ function MainLayout() {
                     {item.icon}
                   </ListItemIcon>
                   {!collapsed && (
-                    <ListItemText primary={item.text} primaryTypographyProps={{ fontSize: '0.875rem', noWrap: true }} />
+                    <Collapse in orientation="horizontal" timeout={300}>
+                      <Box sx={{ minWidth: 140 }}>
+                        <ListItemText primary={item.text} primaryTypographyProps={{
+                          fontSize: '0.875rem',
+                          noWrap: true,
+                          fontWeight: 600,
+                          color: 'white',
+                        }} />
+                      </Box>
+                    </Collapse>
                   )}
                 </ListItemButton>
               </Tooltip>
@@ -268,46 +345,49 @@ function MainLayout() {
         ))}
       </List>
 
-      {/* Bottom: Collapse toggle + Logout */}
-      <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+      <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.2)', p: 1 }}>
         <List disablePadding>
-          {/* Collapse/Expand toggle */}
           <ListItem disablePadding>
             <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right" arrow>
               <ListItemButton
                 onClick={() => setCollapsed(!collapsed)}
                 sx={{
-                  py: 1,
+                  py: 1.2,
                   justifyContent: collapsed ? 'center' : 'initial',
-                  px: collapsed ? 1 : 2.5,
-                  '&:hover': { backgroundColor: 'rgba(31, 78, 121, 0.08)' }
+                  px: collapsed ? 1.5 : 2.5,
+                  borderRadius: 2,
+                  mx: 1,
+                  mb: 0.5,
+                  '&:hover': { background: 'rgba(255, 255, 255, 0.15)' },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 2, justifyContent: 'center', color: 'text.secondary' }}>
+                <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 2, justifyContent: 'center', color: 'white' }}>
                   {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
                 </ListItemIcon>
                 {!collapsed && (
-                  <ListItemText primary="Collapse" primaryTypographyProps={{ fontSize: '0.85rem', color: 'text.secondary' }} />
+                  <ListItemText primary="Collapse" primaryTypographyProps={{ fontSize: '0.8rem', color: 'white', fontWeight: 600 }} />
                 )}
               </ListItemButton>
             </Tooltip>
           </ListItem>
-          {/* Logout */}
           <ListItem disablePadding>
             <Tooltip title={collapsed ? 'Logout' : ''} placement="right" arrow>
               <ListItemButton
                 onClick={handleLogout}
                 sx={{
-                  py: 1,
+                  py: 1.2,
                   justifyContent: collapsed ? 'center' : 'initial',
-                  px: collapsed ? 1 : 2.5,
+                  px: collapsed ? 1.5 : 2.5,
+                  borderRadius: 2,
+                  mx: 1,
+                  '&:hover': { background: 'rgba(244, 67, 54, 0.25)' },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 2, justifyContent: 'center', color: 'error.main' }}>
+                <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 2, justifyContent: 'center', color: 'white' }}>
                   <LogoutIcon />
                 </ListItemIcon>
                 {!collapsed && (
-                  <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.875rem' }} sx={{ color: 'error.main' }} />
+                  <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.875rem', color: 'white', fontWeight: 700 }} />
                 )}
               </ListItemButton>
             </Tooltip>
@@ -324,114 +404,174 @@ function MainLayout() {
         <CssBaseline />
 
         {/* Top Header */}
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${currentWidth}px)` },
-          ml: { sm: `${currentWidth}px` },
-          backgroundColor: 'background.paper',
-          color: 'text.primary',
-          boxShadow: 1,
-          transition: 'width 0.25s ease, margin-left 0.25s ease',
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Box sx={{ flexGrow: 1 }} />
-          <IconButton
-            size="large"
-            aria-label="show new notifications"
-            color="inherit"
-            onClick={handleNotifClick}
-          >
-            <Badge badgeContent={notifications.length} color="error">
-              <NotificationsIcon sx={{ color: 'primary.main' }} />
-            </Badge>
-          </IconButton>
-          <Menu
-            anchorEl={notifAnchorEl}
-            open={Boolean(notifAnchorEl)}
-            onClose={handleNotifClose}
-            PaperProps={{ sx: { width: { xs: 280, sm: 320 }, maxHeight: 400 } }}
-          >
-            <Typography variant="subtitle1" sx={{ px: 2, py: 1, fontWeight: 'bold' }}>Notifications</Typography>
-            {notifications.length > 0 ? notifications.map(n => (
-              <MenuItem key={n.id} onClick={handleNotifClose} sx={{ whiteSpace: 'normal', py: 1.5, borderBottom: '1px solid #eee' }}>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: n.severity === 'error' ? 'bold' : 'normal' }}>{n.message}</Typography>
-                  <Typography variant="caption" color="text.secondary">{n.time}</Typography>
+        <AppBar
+          position="fixed"
+          sx={{
+            width: { sm: `calc(100% - ${currentWidth}px)` },
+            ml: { sm: `${currentWidth}px` },
+            backgroundColor: 'background.paper',
+            color: 'text.primary',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            height: 64,
+          }}
+        >
+          <Toolbar sx={{ height: 64 }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+
+            {/* Breadcrumb/Title */}
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6" fontWeight={700} sx={{ color: theme.primary }}>
+                {menuItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
+              </Typography>
+            </Box>
+
+            {/* Right side actions */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton
+                size="large"
+                aria-label="show new notifications"
+                onClick={handleNotifClick}
+                sx={{
+                  color: 'text.secondary',
+                  '&:hover': { bgcolor: `${theme.primary}15` },
+                }}
+              >
+                <Badge badgeContent={notifications.length} max={99} sx={{ '& .MuiBadge-badge': { bgcolor: theme.primary } }}>
+                  {notifications.length > 0 ? <NotificationsActiveIcon sx={{ color: theme.primary }} /> : <NotificationsIcon />}
+                </Badge>
+              </IconButton>
+              <Menu
+                anchorEl={notifAnchorEl}
+                open={Boolean(notifAnchorEl)}
+                onClose={handleNotifClose}
+                PaperProps={{
+                  sx: { width: { xs: 280, sm: 340 }, maxHeight: 400, borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: `${theme.primary}08` }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: theme.primary }}>Notifications</Typography>
                 </Box>
-              </MenuItem>
-            )) : <MenuItem disabled>No new notifications</MenuItem>}
-          </Menu>
-          <IconButton sx={{ p: 0, ml: 2 }}>
-            <Avatar sx={{ bgcolor: 'secondary.main' }}>{userRole.charAt(0).toUpperCase()}</Avatar>
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+                {notifications.length > 0 ? notifications.map(n => (
+                  <MenuItem key={n.id} onClick={handleNotifClose} sx={{ whiteSpace: 'normal', py: 1.5, borderBottom: '1px solid #eee' }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: n.severity === 'error' ? 700 : 500 }}>{n.message}</Typography>
+                      <Typography variant="caption" color="text.secondary">{n.time}</Typography>
+                    </Box>
+                  </MenuItem>
+                )) : <MenuItem disabled><Typography variant="body2" color="text.secondary">No new notifications</Typography></MenuItem>}
+              </Menu>
 
-      {/* Sidebar Navigation */}
-      <Box
-        component="nav"
-        sx={{ width: { sm: currentWidth }, flexShrink: { sm: 0 }, transition: 'width 0.25s ease' }}
-        aria-label="sidebar navigation"
-      >
-        {/* Mobile: temporary full drawer */}
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
+              <Tooltip title="Profile" arrow>
+                <IconButton
+                  sx={{ p: 0, ml: 1 }}
+                  onClick={handleProfileClick}
+                >
+                  <Avatar sx={{
+                    bgcolor: theme.gradient,
+                    fontWeight: 700,
+                    boxShadow: `0 2px 8px ${theme.primary}40`,
+                    transition: 'all 0.2s ease',
+                    '&:hover': { transform: 'scale(1.05)', boxShadow: `0 4px 12px ${theme.primary}50` },
+                  }}>
+                    {userInitial}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={profileAnchorEl}
+                open={Boolean(profileAnchorEl)}
+                onClose={handleProfileClose}
+                PaperProps={{
+                  sx: { width: 220, borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{userName}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>{userRole} Account</Typography>
+                </Box>
+                <MenuItem onClick={() => { handleProfileClose(); navigate('/settings'); }}>
+                  <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>Settings</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => { handleProfileClose(); handleLogout(); }} sx={{ color: 'error.main' }}>
+                  <ListItemIcon><LogoutIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
+                  <ListItemText>Logout</ListItemText>
+                </MenuItem>
+              </Menu>
+            </Box>
+          </Toolbar>
+        </AppBar>
+
+        {/* Sidebar Navigation */}
+        <Box
+          component="nav"
+          sx={{ width: { sm: currentWidth }, flexShrink: { sm: 0 }, transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          aria-label="sidebar navigation"
+        >
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{ keepMounted: true }}
+            sx={{
+              display: { xs: 'block', sm: 'none' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            }}
+          >
+            {mobileDrawer}
+          </Drawer>
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: 'none', sm: 'block' },
+              '& .MuiDrawer-paper': {
+                boxSizing: 'border-box',
+                width: currentWidth,
+                transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                overflowX: 'hidden',
+                borderRight: 'none',
+              },
+            }}
+            open
+          >
+            {desktopDrawer}
+          </Drawer>
+        </Box>
+
+        {/* Main Content Area */}
+        <Box
+          component="main"
           sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            flexGrow: 1,
+            p: { xs: 2, sm: 2.5, md: 3.5 },
+            width: { sm: `calc(100% - ${currentWidth}px)` },
+            backgroundColor: 'background.default',
+            minHeight: '100vh',
+            overflow: 'hidden',
+            transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          {mobileDrawer}
-        </Drawer>
-        {/* Desktop: permanent drawer with collapse */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: currentWidth,
-              transition: 'width 0.25s ease',
-              overflowX: 'hidden',
-            },
-          }}
-          open
-        >
-          {desktopDrawer}
-        </Drawer>
+          <Toolbar />
+          <Box className="page-transition">
+            <Outlet />
+          </Box>
+        </Box>
       </Box>
-
-      {/* Main Content Area */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: { xs: 1.5, sm: 2, md: 3 },
-          width: { sm: `calc(100% - ${currentWidth}px)` },
-          backgroundColor: 'background.default',
-          minHeight: '100vh',
-          overflow: 'hidden',
-          transition: 'width 0.25s ease',
-        }}
-      >
-        <Toolbar /> {/* Spacer for AppBar */}
-        <Outlet />
-      </Box>
-    </Box>
     </>
   );
 }

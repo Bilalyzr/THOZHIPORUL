@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const bcrypt = require('bcrypt');
 const { requireRole } = require('./auth');
 
 // @route   POST /api/industries

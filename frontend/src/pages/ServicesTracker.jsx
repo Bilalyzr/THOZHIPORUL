@@ -11,7 +11,8 @@ import {
 import {
   Add, ViewKanban, Timeline, TableChart, Visibility,
   Schedule, Person, Flag, CheckCircle, HourglassEmpty,
-  Assignment, Warning, Download, Map as MapIcon, SquareFoot
+  Assignment, Warning, Download, Map as MapIcon, SquareFoot,
+  LocationOn, CropFree
 } from '@mui/icons-material';
 import { serviceRequestService, parkService } from '../services/api';
 
@@ -48,7 +49,8 @@ export default function ServicesTracker() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [, setLoading] = useState(true);
+  const [allotPlotDialogOpen, setAllotPlotDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const role = localStorage.getItem('role') || 'industry';
   const location = useLocation();
@@ -58,7 +60,8 @@ export default function ServicesTracker() {
     if (location.state) {
       if (location.state.serviceType) setNewServiceType(location.state.serviceType);
       if (location.state.parkId) setNewParkId(location.state.parkId);
-      setNewDialogOpen(true);
+      // Small delay to ensure dialog renders properly
+      setTimeout(() => setNewDialogOpen(true), 100);
     }
   }, [location]);
 
@@ -91,11 +94,21 @@ export default function ServicesTracker() {
   const [selectedPlotId, setSelectedPlotId] = useState('');
   const [updateRemarks, setUpdateRemarks] = useState('');
 
+  // Plot allotment state
+  const [allotPlotId, setAllotPlotId] = useState('');
+  const [allotRemarks, setAllotRemarks] = useState('');
+
   useEffect(() => {
     if (statusDialogOpen && selectedRequest?.service_type === 'land_allotment' && selectedRequest.park_id) {
       fetchPlots(selectedRequest.park_id);
     }
   }, [statusDialogOpen, selectedRequest]);
+
+  useEffect(() => {
+    if (allotPlotDialogOpen && selectedRequest?.service_type === 'land_allotment' && selectedRequest.park_id) {
+      fetchPlots(selectedRequest.park_id);
+    }
+  }, [allotPlotDialogOpen, selectedRequest]);
 
   const fetchPlots = async (parkId) => {
     try {
@@ -130,21 +143,34 @@ export default function ServicesTracker() {
       return;
     }
 
+    // Validate requested area is a positive number
+    if (newRequestedArea && parseFloat(newRequestedArea) <= 0) {
+      setSnackbar({ open: true, message: 'Requested Area must be greater than 0.', severity: 'error' });
+      return;
+    }
+
     try {
-      await serviceRequestService.create({
+      const payload = {
         serviceType: newServiceType,
-        parkId: newParkId,
-        requestedArea: newRequestedArea,
+        parkId: newParkId ? parseInt(newParkId) : null,
+        requestedArea: newRequestedArea ? parseFloat(newRequestedArea) : null,
         priority: newPriority,
-        remarks: newRemarks
-      });
-      
+        remarks: newRemarks || ''
+      };
+
+      console.log('Submitting service request:', payload);
+
+      const response = await serviceRequestService.create(payload);
+      console.log('Service request response:', response);
+
       fetchData();
       setNewDialogOpen(false);
       resetNewForm();
       setSnackbar({ open: true, message: 'Service request submitted successfully!', severity: 'success' });
-    } catch {
-      setSnackbar({ open: true, message: 'Failed to submit request.', severity: 'error' });
+    } catch (err) {
+      console.error('Service request error:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to submit request. Please try again.';
+      setSnackbar({ open: true, message: errorMsg, severity: 'error' });
     }
   };
 
@@ -196,6 +222,33 @@ export default function ServicesTracker() {
     setSnackbar({ open: true, message: 'Service request withdrawn successfully.', severity: 'warning' });
   };
 
+  // ALLOT PLOT (admin)
+  const handleAllotPlot = async () => {
+    if (!allotPlotId) {
+      setSnackbar({ open: true, message: 'Please select a plot to allot.', severity: 'error' });
+      return;
+    }
+
+    try {
+      await serviceRequestService.allotPlot(selectedRequest.id, allotPlotId);
+      fetchData();
+      setAllotPlotDialogOpen(false);
+      setSelectedRequest(null);
+      setAllotPlotId('');
+      setAllotRemarks('');
+      setSnackbar({ open: true, message: 'Plot successfully allotted to industry!', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to allot plot. Please try again.', severity: 'error' });
+    }
+  };
+
+  // Open allot plot dialog
+  const openAllotPlotDialog = () => {
+    setAllotPlotId('');
+    setAllotRemarks('');
+    setAllotPlotDialogOpen(true);
+  };
+
   // DOWNLOAD all requests as CSV
   const handleDownloadCSV = () => {
     const header = 'Reference,Type,Company,Status,Priority,Applied,Expected,Officer,Remarks';
@@ -221,25 +274,60 @@ export default function ServicesTracker() {
           <Typography variant="subtitle2" fontWeight={600}>{STATUS_LABELS[status]}</Typography>
           <Chip label={items.length} size="small" sx={{ bgcolor: STATUS_COLORS[status], color: 'white' }} />
         </Box>
-        {items.map((req) => (
-          <Card key={req.id} sx={{ mb: 1, cursor: 'pointer', '&:hover': { boxShadow: 3 }, borderLeft: `3px solid ${STATUS_COLORS[req.current_status]}` }} onClick={() => setSelectedRequest(req)}>
-            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-              <Typography variant="body2" fontWeight={600}>{SERVICE_LABELS[req.service_type]}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{req.reference_number}</Typography>
-              {req.requested_area_acres && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                  <SquareFoot sx={{ fontSize: 14, color: 'text.secondary' }} />
-                  <Typography variant="caption" fontWeight={700}>{req.requested_area_acres} Acres</Typography>
+        {items.map((req) => {
+          const isLandAllotmentReady = req.service_type === 'land_allotment' && ['applied', 'document_review', 'field_inspection', 'pending_approval'].includes(req.current_status) && (role === 'admin' || role === 'govt');
+          return (
+            <Card
+              key={req.id}
+              sx={{
+                mb: 1,
+                cursor: 'pointer',
+                '&:hover': { boxShadow: 3 },
+                borderLeft: `3px solid ${STATUS_COLORS[req.current_status]}`,
+                position: 'relative',
+                overflow: 'visible'
+              }}
+              onClick={() => setSelectedRequest(req)}
+            >
+              {isLandAllotmentReady && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    bgcolor: '#4caf50',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: 24,
+                    height: 24,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(76, 175, 80, 0.5)',
+                    zIndex: 1
+                  }}
+                >
+                  <CropFree sx={{ fontSize: 14 }} />
                 </Box>
               )}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                <Typography variant="caption">{req.company_name}</Typography>
-                {req.priority === 'urgent' && <Chip label="Urgent" size="small" color="error" sx={{ height: 18, fontSize: '0.65rem' }} />}
-                {req.priority === 'high' && <Chip label="High" size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />}
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
+              <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Typography variant="body2" fontWeight={600}>{SERVICE_LABELS[req.service_type]}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{req.reference_number}</Typography>
+                {req.requested_area_acres && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                    <SquareFoot sx={{ fontSize: 14, color: 'text.secondary' }} />
+                    <Typography variant="caption" fontWeight={700}>{req.requested_area_acres} Acres</Typography>
+                  </Box>
+                )}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                  <Typography variant="caption">{req.company_name}</Typography>
+                  {req.priority === 'urgent' && <Chip label="Urgent" size="small" color="error" sx={{ height: 18, fontSize: '0.65rem' }} />}
+                  {req.priority === 'high' && <Chip label="High" size="small" color="warning" sx={{ height: 18, fontSize: '0.65rem' }} />}
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        })}
         {items.length === 0 && (
           <Typography variant="caption" color="text.disabled" sx={{ display: 'block', textAlign: 'center', mt: 4 }}>No requests</Typography>
         )}
@@ -331,7 +419,21 @@ export default function ServicesTracker() {
                     <TableCell>{new Date(req.applied_date).toLocaleDateString()}</TableCell>
                     <TableCell>{req.assigned_officer || 'Pending'}</TableCell>
                     <TableCell>
-                      <IconButton size="small" onClick={() => setSelectedRequest(req)}><Visibility /></IconButton>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {(role === 'admin' || role === 'govt') && req.service_type === 'land_allotment' && ['applied', 'document_review', 'field_inspection', 'pending_approval'].includes(req.current_status) && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            startIcon={<CropFree sx={{ fontSize: 14 }} />}
+                            onClick={(e) => { e.stopPropagation(); setSelectedRequest(req); openAllotPlotDialog(); }}
+                            sx={{ fontSize: '0.7rem', py: 0.5, px: 1 }}
+                          >
+                            Allot Plot
+                          </Button>
+                        )}
+                        <IconButton size="small" onClick={() => setSelectedRequest(req)}><Visibility /></IconButton>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -407,7 +509,22 @@ export default function ServicesTracker() {
                 <Button variant="outlined" color="error" onClick={handleWithdraw}>Withdraw Request</Button>
               )}
               {(role === 'admin' || role === 'govt') && selectedRequest.current_status !== 'completed' && (
-                <Button variant="contained" onClick={() => { setUpdateStatus(''); setUpdateRemarks(''); setStatusDialogOpen(true); }}>Update Status</Button>
+                <>
+                  {selectedRequest.service_type === 'land_allotment' && ['applied', 'document_review', 'field_inspection', 'pending_approval'].includes(selectedRequest.current_status) && (
+                    <Button
+                      variant="contained"
+                      color="success"
+                      startIcon={<CropFree />}
+                      onClick={openAllotPlotDialog}
+                      sx={{ mr: 1 }}
+                    >
+                      Allot Plot
+                    </Button>
+                  )}
+                  <Button variant="outlined" onClick={() => { setUpdateStatus(''); setUpdateRemarks(''); setStatusDialogOpen(true); }}>
+                    Update Status
+                  </Button>
+                </>
               )}
             </DialogActions>
           </>
@@ -472,10 +589,159 @@ export default function ServicesTracker() {
         </DialogActions>
       </Dialog>
 
+      {/* Plot Allotment Dialog (Admin) */}
+      <Dialog open={allotPlotDialogOpen} onClose={() => setAllotPlotDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CropFree color="success" />
+            <Typography variant="h6" fontWeight={600}>Allot Plot to Industry</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedRequest && (
+            <Box sx={{ mt: 1 }}>
+              {/* Request Summary */}
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#e8f5e9', borderRadius: 2, border: '1px solid #c8e6c9' }}>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Reference</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedRequest.reference_number}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Company</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedRequest.company_name}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Requested Area</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedRequest.requested_area_acres} Acres</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Target Park</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedRequest.park_name}</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {/* Available Plots */}
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LocationOn color="primary" />
+                Available Plots in {selectedRequest.park_name}
+              </Typography>
+
+              {availablePlots.length > 0 ? (
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  {availablePlots.map((plot) => (
+                    <Grid size={{ xs: 12, sm: 6 }} key={plot.id}>
+                      <Paper
+                        onClick={() => setAllotPlotId(plot.id)}
+                        sx={{
+                          p: 2,
+                          cursor: 'pointer',
+                          border: `2px solid ${allotPlotId === plot.id ? '#4caf50' : 'transparent'}`,
+                          bgcolor: allotPlotId === plot.id ? '#e8f5e9' : 'grey.50',
+                          '&:hover': { bgcolor: allotPlotId === plot.id ? '#e8f5e9' : '#fafafa' },
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                          <Box>
+                            <Typography variant="h6" fontWeight={700} color="primary.main">
+                              Plot {plot.plot_number}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">{plot.plot_type || 'Standard Plot'}</Typography>
+                          </Box>
+                          <Chip
+                            label={allotPlotId === plot.id ? 'Selected' : 'Select'}
+                            size="small"
+                            color={allotPlotId === plot.id ? 'success' : 'default'}
+                            sx={{ fontWeight: 600 }}
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 3, mt: 1 }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Area</Typography>
+                            <Typography variant="body2" fontWeight={600}>{plot.area_acres} Acres</Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Dimensions</Typography>
+                            <Typography variant="body2">{plot.dimensions || 'N/A'}</Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">Rate</Typography>
+                            <Typography variant="body2">₹{(plot.rate_per_acre || 100).toFixed(0)}L/acre</Typography>
+                          </Box>
+                        </Box>
+                        {plot.location_in_park && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
+                            <LocationOn sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="caption" color="text.secondary">{plot.location_in_park}</Typography>
+                          </Box>
+                        )}
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.100', borderRadius: 2, mb: 3 }}>
+                  <Warning color="warning" sx={{ fontSize: 40, mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    No available plots found in {selectedRequest.park_name}. Please contact the park administrator.
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Remarks */}
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Allotment Remarks (optional)"
+                placeholder="Enter any conditions or notes for this allotment..."
+                value={allotRemarks}
+                onChange={(e) => setAllotRemarks(e.target.value)}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAllotPlotDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircle />}
+            onClick={handleAllotPlot}
+            disabled={!allotPlotId || availablePlots.length === 0}
+          >
+            Confirm Plot Allotment
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* New Request Dialog (Industry) */}
       <Dialog open={newDialogOpen} onClose={() => setNewDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Service Request</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" fontWeight={600}>
+              {newServiceType === 'land_allotment' && newParkId ? 'Apply for Industrial Plot' : 'New Service Request'}
+            </Typography>
+          </Box>
+        </DialogTitle>
         <DialogContent>
+          {newServiceType === 'land_allotment' && newParkId && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#e8f5e9', borderRadius: 2, border: '1px solid #c8e6c9' }}>
+              <Typography variant="subtitle2" fontWeight={700} color="success.main" gutterBottom>
+                Applying for Plot
+              </Typography>
+              {parks.find(p => p.id === newParkId) && (
+                <Typography variant="body2">
+                  <strong>Park:</strong> {parks.find(p => p.id === newParkId).name}
+                </Typography>
+              )}
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                Complete the form below to submit your land allotment request.
+              </Typography>
+            </Box>
+          )}
            <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
             <InputLabel>Service Type *</InputLabel>
             <Select value={newServiceType} label="Service Type *" onChange={(e) => setNewServiceType(e.target.value)}>

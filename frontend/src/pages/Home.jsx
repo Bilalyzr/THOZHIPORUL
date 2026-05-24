@@ -95,6 +95,7 @@ export default function Home() {
   const navItems = [
     { label: 'About THOZHIRPORUL', path: '/about' },
     { label: 'Capabilities', path: '/features' },
+    { label: 'Pricing & Plans', path: '/subscriptions' },
     { label: 'Industrial Parks', path: '/parks' },
     { label: 'Support', path: '/contact' },
   ];
@@ -391,6 +392,152 @@ export default function Home() {
               </Grid>
             </Grid>
           </Paper>
+        </Container>
+      </Box>
+
+      {/* SUBSCRIPTION WORKSPACE TIERS SECTION */}
+      <Box sx={{ py: { xs: 12, md: 16 }, bgcolor: '#FAFDFB', borderTop: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0', position: 'relative', overflow: 'hidden' }}>
+        {/* Ambient green glow background */}
+        <Box sx={{ position: 'absolute', top: '-10%', left: '-10%', width: 400, height: 400, borderRadius: '50%', bg: '#2E7D32', filter: 'blur(120px)', opacity: 0.04, pointerEvents: 'none' }} />
+        <Box sx={{ position: 'absolute', bottom: '-10%', right: '-10%', width: 400, height: 400, borderRadius: '50%', bg: '#1F4E79', filter: 'blur(120px)', opacity: 0.04, pointerEvents: 'none' }} />
+
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+          <Box textAlign="center" sx={{ mb: 10 }}>
+            <Chip label="FLEXIBLE MONETIZATION" sx={{ mb: 2, bgcolor: 'rgba(76, 175, 80, 0.12)', color: '#2E7D32', fontWeight: 800, px: 2, py: 2.5, letterSpacing: '0.1em' }} />
+            <Typography variant="h2" fontWeight={900} sx={{ mb: 2, letterSpacing: '-0.03em', fontSize: { xs: '2rem', sm: '2.5rem', md: '3.75rem' } }}>
+              Tailored Subscription{' '}
+              <Box component="span" sx={{ color: '#2E7D32' }}>Workspace Tiers</Box>
+            </Typography>
+            <Typography variant="h6" color="text.secondary" maxWidth={750} sx={{ mx: 'auto', fontWeight: 400, lineHeight: 1.7, fontSize: '1.05rem' }}>
+              Whether you are an MSME owner or a multinational conglomerate, choose a plan structured precisely around your compliance reporting and statutory storage requirements.
+            </Typography>
+          </Box>
+
+          <Grid container spacing={4} alignItems="stretch">
+            {[
+              {
+                name: 'Compliance Starter',
+                price: '₹0',
+                period: 'Free Plan',
+                desc: 'Baseline digital forms and standard compliance tracker. Perfect for small businesses fulfilling statutory requirements.',
+                bullets: ['Unified submission forms', 'Overall compliance scoring', 'Standard Services NOC tracker', '10 MB Vault file limit'],
+                color: '#455A64',
+                bg: 'white'
+              },
+              {
+                name: 'SME Professional',
+                price: '₹4,999',
+                period: '/ month',
+                desc: 'Bulk uploads, manual Excel reports, statutory expiry alert automations, and consolidated compliance logs for growth factories.',
+                bullets: ['Bulk CSV & Excel uploads', 'Detailed category score breakdown', 'SLA timelines & Kanban alerts', '1 GB Vault storage + expiry alerts'],
+                color: '#2E7D32',
+                bg: 'white',
+                isPopular: true
+              },
+              {
+                name: 'Enterprise Suite',
+                price: '₹24,999',
+                period: '/ month',
+                desc: 'Predictive economic modeling, live API feeds, automated AI OCR document scanning, and deep state-level compliance auditing.',
+                bullets: ['Direct API & ERP integrations', 'AI Compliance Mitigation engine', 'Scheduled automatic reporting', '100 GB Vault + Auto OCR scanning'],
+                color: '#1F4E79',
+                bg: 'white'
+              }
+            ].map((plan, idx) => (
+              <Grid size={{ xs: 12, md: 4 }} key={idx}>
+                <Card 
+                  elevation={0}
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderRadius: 5,
+                    border: plan.isPopular ? '2px solid #2E7D32' : '1px solid #E2E8F0',
+                    boxShadow: plan.isPopular ? '0 16px 40px rgba(46, 125, 50, 0.1)' : '0 4px 20px rgba(0,0,0,0.02)',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    '&:hover': { transform: 'translateY(-8px)', boxShadow: plan.isPopular ? '0 24px 48px rgba(46, 125, 50, 0.15)' : '0 16px 36px rgba(0,0,0,0.06)' }
+                  }}
+                >
+                  {plan.isPopular && (
+                    <Box sx={{
+                      position: 'absolute',
+                      top: 20,
+                      right: 20,
+                      bgcolor: '#2E7D32',
+                      color: 'white',
+                      fontWeight: 800,
+                      fontSize: '0.65rem',
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: 2,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase'
+                    }}>
+                      Highly Recommended
+                    </Box>
+                  )}
+
+                  <CardContent sx={{ p: 5, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Typography variant="h5" fontWeight={900} sx={{ color: plan.color, mb: 1, letterSpacing: '-0.02em' }}>
+                      {plan.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 4.5, minHeight: 60, lineHeight: 1.6 }}>
+                      {plan.desc}
+                    </Typography>
+
+                    <Box display="flex" alignItems="baseline" mb={4}>
+                      <Typography variant="h3" fontWeight={900} sx={{ color: 'text.primary', letterSpacing: '-0.03em' }}>
+                        {plan.price}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" fontWeight={600} sx={{ ml: 1 }}>
+                        {plan.period}
+                      </Typography>
+                    </Box>
+
+                    <Divider sx={{ mb: 4 }} />
+
+                    <Box sx={{ flexGrow: 1, mb: 5 }}>
+                      <Stack spacing={2}>
+                        {plan.bullets.map((bullet, bIdx) => (
+                          <Box display="flex" alignItems="center" gap={1.5} key={bIdx}>
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: plan.color }} />
+                            <Typography variant="body2" color="text.secondary" fontWeight={600} sx={{ fontSize: '0.85rem' }}>
+                              {bullet}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+
+                    <Button
+                      fullWidth
+                      variant={plan.isPopular ? 'contained' : 'outlined'}
+                      onClick={() => navigate('/subscriptions')}
+                      sx={{
+                        py: 1.8,
+                        borderRadius: 3.5,
+                        fontWeight: 800,
+                        textTransform: 'none',
+                        fontSize: '0.95rem',
+                        bgcolor: plan.isPopular ? '#2E7D32' : 'transparent',
+                        borderColor: plan.isPopular ? 'none' : plan.color,
+                        color: plan.isPopular ? 'white' : plan.color,
+                        boxShadow: plan.isPopular ? '0 8px 24px rgba(46,125,50,0.2)' : 'none',
+                        '&:hover': {
+                          bgcolor: plan.isPopular ? '#1B5E20' : `${plan.color}05`,
+                          borderColor: plan.isPopular ? 'none' : plan.color,
+                          transform: 'translateY(-1px)'
+                        }
+                      }}
+                    >
+                      Compare Features
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
         </Container>
       </Box>
 

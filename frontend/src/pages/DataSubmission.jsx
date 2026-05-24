@@ -22,11 +22,14 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 const steps = ['Company Defaults', 'Investment Details', 'Employment Data', 'Resource Usage', 'CSR Activities'];
 
 function DataSubmission() {
+  // Get user's company name from localStorage or use default
+  const companyName = localStorage.getItem('companyName') || localStorage.getItem('userName') || 'My Company';
+
   const [activeStep, setActiveStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [formData, setFormData] = useState({
-    companyName: 'ABC Industries',
+    companyName: companyName,
     industryType: 'Manufacturing',
     location: 'NEXORA Park, Irungattukottai',
     investmentAmount: '',
@@ -200,7 +203,7 @@ function DataSubmission() {
           Submit Industrial Data
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Periodic data submission for ABC Industries (Q1 2026).
+          Periodic data submission for {companyName} (Q1 2026).
         </Typography>
       </Box>
 

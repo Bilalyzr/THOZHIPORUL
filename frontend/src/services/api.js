@@ -108,6 +108,21 @@ export const complianceService = {
   getByCategory: () => api.get('/compliance/by-category'),
 };
 
+export const aiDecisionService = {
+  getRecommendations: (industryId) => api.get(`/ai-decisions/recommendations/${industryId}`),
+  getBatchRecommendations: (params) => api.get('/ai-decisions/batch', { params }),
+  getDashboardSummary: () => api.get('/ai-decisions/dashboard-summary'),
+};
+
+export const workflowService = {
+  evaluateRules: (data) => api.post('/workflow/evaluate', data),
+  getRules: (type) => api.get(`/workflow/rules${type ? `?type=${type}` : ''}`),
+  updateRuleset: (ruleset, ruleId, data) => api.put(`/workflow/rules/${ruleset}/${ruleId}`, data),
+  executeAction: (data) => api.post('/workflow/execute-action', data),
+  getActivityLog: (params) => api.get('/workflow/activity-log', { params }),
+  getStats: () => api.get('/workflow/stats'),
+};
+
 export const workspaceService = {
   getOverview: () => api.get('/workspace/overview'),
   getComplianceScore: () => api.get('/workspace/compliance-score'),
