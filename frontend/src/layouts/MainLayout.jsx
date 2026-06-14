@@ -83,10 +83,6 @@ function MainLayout() {
 
   const location = useLocation();
 
-  if (!token) return null;
-
-  const theme = ROLE_THEMES[userRole] || ROLE_THEMES.admin;
-
   useEffect(() => {
     if (userRole === 'admin' && token) {
       notificationService.getNotifications().then(res => {
@@ -94,6 +90,10 @@ function MainLayout() {
       }).catch(() => {});
     }
   }, [userRole, token]);
+
+  if (!token) return null;
+
+  const theme = ROLE_THEMES[userRole] || ROLE_THEMES.admin;
 
   const handleNotifClick = (event) => {
     setNotifAnchorEl(event.currentTarget);

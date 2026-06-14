@@ -31,6 +31,56 @@ const ALERT_ICONS = {
   low: <Info sx={{ color: '#2196f3' }} />,
 };
 
+const KPICard = ({ title, value, unit, growth, icon, color }) => (
+  <Card
+    sx={{
+      height: '100%',
+      borderTop: `4px solid ${color}`,
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)',
+      backdropFilter: 'blur(10px)',
+      '&:hover': {
+        transform: 'translateY(-6px)',
+        boxShadow: `0 16px 40px ${color}25`,
+      },
+    }}
+  >
+    <CardContent>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="body2" color="text.secondary" fontWeight={600}>{title}</Typography>
+          <Typography variant="h4" fontWeight={800} sx={{ my: 1 }}>
+            {typeof value === 'number' ? value.toLocaleString() : value}
+            {unit && <Typography component="span" variant="body2" color="text.secondary"> {unit}</Typography>}
+          </Typography>
+          <Chip
+            size="small"
+            icon={growth >= 0 ? <TrendingUp /> : <TrendingDown />}
+            label={`${growth >= 0 ? '+' : ''}${growth}%`}
+            color={growth >= 0 ? 'success' : 'error'}
+            variant="outlined"
+            sx={{ fontWeight: 700 }}
+          />
+        </Box>
+        <Box sx={{
+          color,
+          opacity: 0.8,
+          fontSize: 40,
+          bgcolor: `${color}12`,
+          p: 1.5,
+          borderRadius: 2.5,
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            transform: 'scale(1.1) rotate(5deg)',
+            bgcolor: color,
+            '& > svg': { color: 'white' },
+          },
+        }}>{icon}</Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
+
 export default function GovCommandCenter() {
   const [trendMetric, setTrendMetric] = useState('investment');
   const [sortBy, setSortBy] = useState('infrastructure_score');
@@ -137,56 +187,6 @@ export default function GovCommandCenter() {
     { id: 3, type: 'registration', message: 'Sunrise Foods completed registration', severity: 'info', time: 'Yesterday' },
     { id: 4, type: 'service', message: 'NOC Fire Safety approved for PQR Auto', severity: 'success', time: 'Yesterday' },
   ];
-
-  const KPICard = ({ title, value, unit, growth, icon, color }) => (
-    <Card
-      sx={{
-        height: '100%',
-        borderTop: `4px solid ${color}`,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)',
-        backdropFilter: 'blur(10px)',
-        '&:hover': {
-          transform: 'translateY(-6px)',
-          boxShadow: `0 16px 40px ${color}25`,
-        },
-      }}
-    >
-      <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="body2" color="text.secondary" fontWeight={600}>{title}</Typography>
-            <Typography variant="h4" fontWeight={800} sx={{ my: 1 }}>
-              {typeof value === 'number' ? value.toLocaleString() : value}
-              {unit && <Typography component="span" variant="body2" color="text.secondary"> {unit}</Typography>}
-            </Typography>
-            <Chip
-              size="small"
-              icon={growth >= 0 ? <TrendingUp /> : <TrendingDown />}
-              label={`${growth >= 0 ? '+' : ''}${growth}%`}
-              color={growth >= 0 ? 'success' : 'error'}
-              variant="outlined"
-              sx={{ fontWeight: 700 }}
-            />
-          </Box>
-          <Box sx={{
-            color,
-            opacity: 0.8,
-            fontSize: 40,
-            bgcolor: `${color}12`,
-            p: 1.5,
-            borderRadius: 2.5,
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'scale(1.1) rotate(5deg)',
-              bgcolor: color,
-              '& > svg': { color: 'white' },
-            },
-          }}>{icon}</Box>
-        </Box>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -414,7 +414,7 @@ export default function GovCommandCenter() {
               <Typography variant="h6" fontWeight={600}>Alerts & Action Items</Typography>
             </Box>
             <List dense>
-              {alerts.map((alert, idx) => (
+              {alerts.map((alert) => (
                 <Box key={alert.id}>
                   <ListItem sx={{ borderLeft: `3px solid ${SEVERITY_COLORS[alert.severity]}`, mb: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
                     <ListItemIcon sx={{ minWidth: 36 }}>

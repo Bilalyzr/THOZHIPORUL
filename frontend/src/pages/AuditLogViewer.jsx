@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { History } from '@mui/icons-material';
 

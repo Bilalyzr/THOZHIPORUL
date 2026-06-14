@@ -38,7 +38,7 @@ const initialComplianceData = [
 ];
 
 function ComplianceMonitoring() {
-  const [data, setData] = useState(initialComplianceData);
+  const [data] = useState(initialComplianceData);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);

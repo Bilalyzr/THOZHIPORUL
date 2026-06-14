@@ -11,7 +11,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MapIcon from '@mui/icons-material/Map';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import DescriptionIcon from '@mui/icons-material/Description';
-import SubPageNav from '../components/SubPageNav';
+import UnifiedNav from '../components/UnifiedNav';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(30px); }
@@ -58,7 +58,7 @@ const extraModules = [
 export default function Features() {
   return (
     <Box sx={{ bgcolor: '#f8fafc' }}>
-      <SubPageNav />
+      <UnifiedNav transparent={false} />
       {/* Hero */}
       <Box sx={{
         pt: { xs: 16, md: 22 }, pb: { xs: 10, md: 14 }, textAlign: 'center', overflow: 'hidden',

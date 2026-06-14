@@ -2,16 +2,15 @@ import { useState } from 'react';
 import { 
   Box, Typography, Paper, TextField, Button, Grid, Alert, 
   Snackbar, Card, CardContent, Divider, List, ListItem, 
-  ListItemIcon, ListItemText, useTheme 
+  ListItemIcon, ListItemText 
 } from '@mui/material';
 import { 
   Campaign, ReportProblem, CheckCircle, HourglassEmpty, 
   Speed, HelpOutline, AssignmentTurnedIn, Info 
 } from '@mui/icons-material';
-import SubPageNav from '../components/SubPageNav';
+import UnifiedNav from '../components/UnifiedNav';
 
 export default function PublicGrievance() {
-  const theme = useTheme();
   const [form, setForm] = useState({ name: '', phone: '', location: '', description: '' });
   const [submitted, setSubmitted] = useState(false);
   const [refId, setRefId] = useState('');
@@ -37,18 +36,18 @@ export default function PublicGrievance() {
 
   return (
     <>
-      <SubPageNav />
+      <UnifiedNav transparent={false} />
       
       {/* Hero Section */}
-      <Box sx={{ 
-        background: 'linear-gradient(135deg, #1F4E79 0%, #2E7D32 100%)', 
-        pt: { xs: 12, md: 20 }, 
-        pb: { xs: 8, md: 12 }, 
-        px: 3, 
+      <Box sx={{
+        background: 'linear-gradient(135deg, #1F4E79 0%, #2E7D32 100%)',
+        pt: { xs: 14, md: 20 },
+        pb: { xs: 8, md: 12 },
+        px: 3,
         color: 'white',
         textAlign: 'center',
         position: 'relative',
-        overflow: 'visible', // Ensure cards can overlap correctly
+        overflow: 'visible',
         zIndex: 1
       }}>
         {/* Decorative Circles */}

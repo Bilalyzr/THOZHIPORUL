@@ -18,6 +18,17 @@ const SEVERITY_COLORS = { low: '#2196f3', medium: '#fbc02d', high: '#f57c00', cr
 const STATUS_COLORS = { open: '#d32f2f', acknowledged: '#f57c00', resolving: '#fbc02d', resolved: '#4caf50', escalated: '#9c27b0' };
 const PIE_COLORS = ['#1F4E79', '#2E7D32', '#F57C00', '#d32f2f'];
 
+const OverviewCard = ({ label, count, pct, color, icon }) => (
+  <Card sx={{ borderTop: `4px solid ${color}` }}>
+    <CardContent sx={{ textAlign: 'center' }}>
+      <Box sx={{ color, mb: 1 }}>{icon}</Box>
+      <Typography variant="h3" fontWeight={700}>{count}</Typography>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography variant="caption" color="text.secondary">({pct}%)</Typography>
+    </CardContent>
+  </Card>
+);
+
 export default function ComplianceEngine() {
   const [tab, setTab] = useState(0);
   const [severityFilter, setSeverityFilter] = useState('all');
@@ -76,17 +87,6 @@ export default function ComplianceEngine() {
   const filteredViolations = violations.filter(v =>
     (severityFilter === 'all' || v.severity === severityFilter) &&
     (statusFilter === 'all' || v.status === statusFilter)
-  );
-
-  const OverviewCard = ({ label, count, pct, color, icon }) => (
-    <Card sx={{ borderTop: `4px solid ${color}` }}>
-      <CardContent sx={{ textAlign: 'center' }}>
-        <Box sx={{ color, mb: 1 }}>{icon}</Box>
-        <Typography variant="h3" fontWeight={700}>{count}</Typography>
-        <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="caption" color="text.secondary">({pct}%)</Typography>
-      </CardContent>
-    </Card>
   );
 
   return (

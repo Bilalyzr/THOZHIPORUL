@@ -290,7 +290,7 @@ export default function ReportExportCenter() {
                         <ListItem><ListItemText primary="Quarter" secondary={cfg.quarter} /></ListItem>
                       </List>
                     );
-                  } catch (e) {
+                  } catch {
                     return <Typography color="error">Invalid saved configuration</Typography>;
                   }
                 })()}
@@ -308,7 +308,7 @@ export default function ReportExportCenter() {
                     setQuarter(cfg.quarter);
                     setSavedDialogOpen(false);
                     setSnackbar({ open: true, message: 'Report configuration loaded!', severity: 'success' });
-                  } catch (e) {
+                  } catch {
                     setSnackbar({ open: true, message: 'Failed to load configuration', severity: 'error' });
                   }
                 }}

@@ -24,9 +24,8 @@ import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import CloudSyncIcon from '@mui/icons-material/CloudSync';
 import StorageIcon from '@mui/icons-material/Storage';
 
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
-import { keyframes } from '@emotion/react';
 
 import {
   BarChart, Bar,
@@ -96,7 +95,7 @@ function AdminDashboard() {
 
         setIsFetchingCloud(false);
       }, 1500);
-    } catch (err) {
+    } catch {
       setTimeout(() => {
         setCloudSyncResult({
           status: 'error',
@@ -158,10 +157,7 @@ function AdminDashboard() {
     }
   });
 
-  const [historicalData, setHistoricalData] = useState({
-    electricity: [],
-    water: []
-  });
+
 
   // Animation state
   const [isLoaded, setIsLoaded] = useState(false);
@@ -188,12 +184,7 @@ function AdminDashboard() {
         const elecAlerts = newElecFlow > 480 ? ['High consumption alert: Exceeding 480MW threshold'] : [];
         const waterAlerts = newWaterFlow > 140 ? ['High consumption alert: Exceeding 140ML/d threshold'] : [];
 
-        // Update historical data (keep last 50 points)
-        const timestamp = new Date().toLocaleTimeString();
-        setHistoricalData(h => ({
-          electricity: [...h.electricity.slice(-49), { time: timestamp, value: newElecFlow }],
-          water: [...h.water.slice(-49), { time: timestamp, value: newWaterFlow }]
-        }));
+
 
         return {
           electricity: {

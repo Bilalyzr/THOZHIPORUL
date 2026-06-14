@@ -8,7 +8,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import SpeedIcon from '@mui/icons-material/Speed';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import SubPageNav from '../components/SubPageNav';
+import UnifiedNav from '../components/UnifiedNav';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(30px); }
@@ -20,7 +20,7 @@ export default function About() {
 
   return (
     <Box sx={{ bgcolor: '#f8fafc' }}>
-      <SubPageNav />
+      <UnifiedNav transparent={false} />
       {/* Hero */}
       <Box sx={{
         position: 'relative', pt: { xs: 16, md: 22 }, pb: { xs: 10, md: 16 }, textAlign: 'center', overflow: 'hidden',

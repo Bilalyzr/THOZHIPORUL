@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Typography, Button, Grid, Card, CardContent,
-  Paper, Divider, Stack, AppBar, Toolbar, useScrollTrigger,
-  Fade, IconButton, Chip, Link, Drawer, List, ListItemButton, ListItemText
+  Paper, Divider, Stack, Fade, Chip, Link
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
@@ -11,25 +10,28 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import SecurityIcon from '@mui/icons-material/Security';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import MenuIcon from '@mui/icons-material/Menu';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import SpeedIcon from '@mui/icons-material/Speed';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import GroupsIcon from '@mui/icons-material/Groups';
-import LandscapeIcon from '@mui/icons-material/Landscape';
-import CloseIcon from '@mui/icons-material/Close';
 import logoTransparent from '../assets/logo-transparent.png';
 import LoadingScreen from '../components/LoadingScreen';
+import UnifiedNav from '../components/UnifiedNav';
 
 // Animations
 const float = keyframes`
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-12px); }
 `;
-const pulse = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.5); }
-  70% { box-shadow: 0 0 0 20px rgba(76, 175, 80, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+const dashboardFloat = keyframes`
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(0.3deg); }
+`;
+const pulseGreen = keyframes`
+  0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.6); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
+  100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+`;
+const drawPath = keyframes`
+  from { stroke-dashoffset: 400; }
+  to { stroke-dashoffset: 0; }
 `;
 const slideUp = keyframes`
   from { opacity: 0; transform: translateY(40px); }
@@ -43,21 +45,6 @@ const shimmer = keyframes`
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }
 `;
-
-function ElevationScroll({ children }) {
-  const trigger = useScrollTrigger({ disableHysteresis: true, threshold: 20 });
-  return React.cloneElement(children, {
-    elevation: trigger ? 4 : 0,
-    sx: {
-      backgroundColor: trigger ? 'rgba(255,255,255,0.97)' : 'transparent',
-      backdropFilter: trigger ? 'blur(20px)' : 'none',
-      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-      borderBottom: trigger ? '1px solid rgba(226,232,240,0.8)' : 'none',
-      py: trigger ? 0.3 : 0.8,
-      color: trigger ? 'text.primary' : 'white'
-    }
-  });
-}
 
 // Animated counter
 function AnimatedStat({ value, suffix, label, delay }) {
@@ -76,110 +63,68 @@ function AnimatedStat({ value, suffix, label, delay }) {
 export default function Home() {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
-  const [mobileMenu, setMobileMenu] = useState(false);
   const [isIntroLoading, setIsIntroLoading] = useState(true);
-  const trigger = useScrollTrigger({ disableHysteresis: true, threshold: 0 });
+  const [recentEvents, setRecentEvents] = useState([
+    { time: 'Just now', msg: 'SLA NOC Approved - Kanchipuram Hub', type: 'success' },
+    { time: '2 mins ago', msg: 'GST Verification completed for Unit #49', type: 'info' },
+    { time: '5 mins ago', msg: 'GIS Map plot allocation sync finished', type: 'success' },
+    { time: '12 mins ago', msg: 'New grievance ticket registered - Org #382', type: 'warning' },
+  ]);
 
   useEffect(() => { 
-    if (isIntroLoading) {
-      const timer = setTimeout(() => {
-        setIsIntroLoading(false);
-        setIsVisible(true);
-      }, 1500);
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(true); 
-    }
+    if (!isIntroLoading) return;
+    const timer = setTimeout(() => {
+      setIsIntroLoading(false);
+      setIsVisible(true);
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [isIntroLoading]);
 
+  useEffect(() => {
+    const eventOptions = [
+      { msg: 'NOC Clearance issued for TechPark-Coimbatore', type: 'success' },
+      { msg: 'System Audit completed successfully', type: 'info' },
+      { msg: 'SIPCOT land plot status updated to ALLOCATED', type: 'success' },
+      { msg: 'Statutory compliance score recalculated: 98.4%', type: 'info' },
+      { msg: 'Auto OCR document scanning complete (Unit #12)', type: 'success' },
+      { msg: 'Grievance resolved by Administrator (Ticket #932)', type: 'success' }
+    ];
+
+    const timer = setInterval(() => {
+      setRecentEvents(prev => {
+        const nextOption = eventOptions[Math.floor(Math.random() * eventOptions.length)];
+        const newEvent = {
+          time: 'Just now',
+          msg: nextOption.msg,
+          type: nextOption.type
+        };
+        const updatedPrev = prev.map((e, idx) => {
+          if (idx === 0) return { ...e, time: '1 min ago' };
+          if (idx === 1) return { ...e, time: '3 mins ago' };
+          if (idx === 2) return { ...e, time: '6 mins ago' };
+          return e;
+        });
+        return [newEvent, ...updatedPrev.slice(0, 3)];
+      });
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const navItems = [
-    { label: 'About THOZHIRPORUL', path: '/about' },
-    { label: 'Capabilities', path: '/features' },
-    { label: 'Pricing & Plans', path: '/subscriptions' },
+    { label: 'About', path: '/about' },
+    { label: 'Features', path: '/features' },
+    { label: 'Pricing', path: '/subscriptions' },
     { label: 'Industrial Parks', path: '/parks' },
-    { label: 'Support', path: '/contact' },
+    { label: 'Contact', path: '/contact' },
+    { label: 'Grievance', path: '/grievance' },
   ];
 
   return (
     <>
       {isIntroLoading && <LoadingScreen message="Initializing THOZHIRPORUL..." />}
+      <UnifiedNav transparent={true} />
       <Box sx={{ overflowX: 'hidden', bgcolor: '#f8fafc' }}>
-      {/* NAVBAR */}
-      <ElevationScroll>
-        <AppBar position="fixed" color="default" sx={{ zIndex: 1100 }}>
-          <Container maxWidth="xl">
-            <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: 72 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => navigate('/home')}>
-                <Box sx={{
-                  width: 48, height: 48, mr: 1.5, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <img src={logoTransparent} alt="NEXORA Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={900} sx={{
-                    letterSpacing: '-0.02em', fontSize: '1.4rem', lineHeight: 1.1,
-                    color: trigger ? 'text.primary' : 'white', transition: 'color 0.3s',
-                    background: trigger ? 'linear-gradient(90deg, #1F4E79, #2E7D32)' : 'none',
-                    WebkitBackgroundClip: trigger ? 'text' : 'unset',
-                    WebkitTextFillColor: trigger ? 'transparent' : 'unset',
-                  }}>
-                    THOZHIRPORUL
-                  </Typography>
-                  <Typography variant="caption" sx={{ fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.1em', color: trigger ? 'text.secondary' : 'rgba(255,255,255,0.7)', lineHeight: 1 }}>
-                    BY NEXORA
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
-                {navItems.map((item) => (
-                  <Button key={item.label} onClick={() => navigate(item.path)}
-                    sx={{ px: 2.5, fontWeight: 600, fontSize: '0.85rem', color: trigger ? 'text.primary' : 'white',
-                      '&:hover': { color: '#2E7D32', bgcolor: 'transparent' }, transition: 'color 0.3s' }}>
-                    {item.label}
-                  </Button>
-                ))}
-                <Box sx={{ width: '1px', height: 24, bgcolor: trigger ? 'divider' : 'rgba(255,255,255,0.25)', mx: 1 }} />
-                <Button variant="contained" onClick={() => navigate('/role-selection')}
-                  sx={{
-                    borderRadius: 3, px: { xs: 2, sm: 3 }, py: 0.8, fontWeight: 700,
-                    background: trigger ? 'linear-gradient(135deg, #1F4E79, #2E7D32)' : 'rgba(255,255,255,0.12)',
-                    border: trigger ? 'none' : '1px solid rgba(255,255,255,0.25)',
-                    backdropFilter: 'blur(10px)',
-                    '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 6px 20px rgba(31,78,121,0.3)' }
-                  }}>
-                  Login to THOZHIRPORUL
-                </Button>
-              </Stack>
-
-              <IconButton sx={{ display: { xs: 'flex', md: 'none' }, color: trigger ? 'text.primary' : 'white' }} onClick={() => setMobileMenu(true)}>
-                <MenuIcon />
-              </IconButton>
-            </Toolbar>
-          </Container>
-        </AppBar>
-      </ElevationScroll>
-
-      {/* Mobile Drawer */}
-      <Drawer anchor="right" open={mobileMenu} onClose={() => setMobileMenu(false)} PaperProps={{ sx: { width: 280 } }}>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography fontWeight={800} color="primary">THOZHIRPORUL</Typography>
-          <IconButton onClick={() => setMobileMenu(false)}><CloseIcon /></IconButton>
-        </Box>
-        <Divider />
-        <List>
-          {navItems.map((item) => (
-            <ListItemButton key={item.label} onClick={() => { navigate(item.path); setMobileMenu(false); }}>
-              <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 600 }} />
-            </ListItemButton>
-          ))}
-          <ListItemButton onClick={() => { navigate('/role-selection'); setMobileMenu(false); }}
-            sx={{ mx: 2, mt: 2, bgcolor: 'primary.main', color: 'white', borderRadius: 2, '&:hover': { bgcolor: 'primary.dark' } }}>
-            <ListItemText primary="Login to THOZHIRPORUL" primaryTypographyProps={{ fontWeight: 700, textAlign: 'center' }} />
-          </ListItemButton>
-        </List>
-      </Drawer>
 
       {/* HERO SECTION */}
       <Box sx={{
@@ -210,88 +155,235 @@ export default function Home() {
           }} />
         ))}
 
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2, textAlign: 'center', color: 'white', py: { xs: 4, md: 8 } }}>
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2, color: 'white', py: { xs: 8, md: 12 } }}>
           <Fade in={isVisible} timeout={800}>
-            <Box>
-              {/* THOZHIRPORUL Badge */}
-              <Chip label="SMART INDUSTRIAL MONITORING SYSTEM" sx={{
-                mb: 4, bgcolor: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)',
-                fontWeight: 700, letterSpacing: '0.15em', fontSize: '0.7rem', py: 2.5, px: 1,
-                backdropFilter: 'blur(10px)',
-                animation: `${slideUp} 0.8s ease-out`,
-              }} />
-
-              <Typography variant="h1" sx={{
-                fontSize: { xs: '2.8rem', md: '5.5rem' }, fontWeight: 900, lineHeight: 1.05, mb: 4,
-                letterSpacing: '-0.04em', animation: `${slideUp} 1s ease-out`,
-              }}>
-                Welcome to{' '}
-                <Box component="span" sx={{
-                  background: 'linear-gradient(90deg, #4CAF50, #81C784, #4CAF50)',
-                  backgroundSize: '200% auto',
-                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                  animation: `${shimmer} 3s linear infinite`,
+            <Grid container spacing={5} alignItems="center">
+              {/* Left Column: Hero Text and Actions */}
+              <Grid size={{ xs: 12, md: 7 }} sx={{ textAlign: { xs: 'center', md: 'left' } }}>
+                {/* Glowing Active Status Badge */}
+                <Box sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  mb: 3.5,
+                  bgcolor: 'rgba(46, 125, 50, 0.15)',
+                  border: '1px solid rgba(76, 175, 80, 0.35)',
+                  borderRadius: '50px',
+                  px: 2.5,
+                  py: 1,
+                  backdropFilter: 'blur(10px)',
+                  animation: `${slideUp} 0.8s ease-out`,
                 }}>
-                  THOZHIRPORUL
+                  <Box sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    bgcolor: '#4CAF50',
+                    animation: `${pulseGreen} 1.8s infinite ease-in-out`
+                  }} />
+                  <Typography sx={{
+                    fontWeight: 800,
+                    letterSpacing: '0.12em',
+                    fontSize: '0.75rem',
+                    color: '#c0f772',
+                    textTransform: 'uppercase'
+                  }}>
+                    SIPCOT SIMS 2.0 • Live Monitoring Active
+                  </Typography>
                 </Box>
-              </Typography>
 
-              <Typography variant="h5" sx={{
-                mb: 6, fontWeight: 300, opacity: 0.9, maxWidth: 750, mx: 'auto',
-                fontSize: { xs: '1.1rem', md: '1.5rem' }, lineHeight: 1.7,
-                animation: `${slideUp} 1.2s ease-out`,
-              }}>
-                The unified digital platform powering Tamil Nadu's industrial transformation
-                through real-time monitoring, compliance tracking, and data-driven governance.
-              </Typography>
-
-              {/* CTA Buttons */}
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center" sx={{ animation: `${slideUp} 1.4s ease-out` }}>
-                <Button variant="contained" size="large" onClick={() => navigate('/role-selection')}
-                  endIcon={<ArrowForwardIcon />}
-                  sx={{
-                    px: 5, py: 1.8, fontSize: '1.1rem', fontWeight: 800, borderRadius: 4,
-                    background: 'linear-gradient(135deg, #2E7D32, #4CAF50)',
-                    boxShadow: '0 8px 32px rgba(46,125,50,0.4)',
-                    '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 40px rgba(46,125,50,0.5)' },
-                    transition: 'all 0.3s ease',
+                <Typography variant="h1" sx={{
+                  fontSize: { xs: '2.8rem', sm: '3.6rem', md: '4.6rem' },
+                  fontWeight: 900,
+                  lineHeight: 1.1,
+                  mb: 3,
+                  letterSpacing: '-0.04em',
+                  animation: `${slideUp} 1s ease-out`,
+                }}>
+                  Welcome to{' '}
+                  <Box component="span" sx={{
+                    background: 'linear-gradient(90deg, #4CAF50, #81C784, #4CAF50)',
+                    backgroundSize: '200% auto',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    animation: `${shimmer} 3s linear infinite`,
                   }}>
-                  Launch THOZHIRPORUL Portal
-                </Button>
-                <Button variant="outlined" size="large" onClick={() => navigate('/parks')}
-                  sx={{
-                    px: 4, py: 1.8, fontSize: '1rem', fontWeight: 700, borderRadius: 4,
-                    color: 'white', borderColor: 'rgba(255,255,255,0.4)', borderWidth: 2,
-                    backdropFilter: 'blur(10px)',
-                    '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.08)', transform: 'translateY(-2px)' },
-                    transition: 'all 0.3s ease',
-                  }}>
-                  Explore Parks
-                </Button>
-              </Stack>
+                    THOZHIRPORUL
+                  </Box>
+                </Typography>
 
-              {/* Core Pillars */}
-              <Grid container spacing={2} justifyContent="center" sx={{ mt: 8, animation: `${slideUp} 1.6s ease-out` }}>
-                {[
-                  { title: 'Industrial Infrastructure', icon: <FactoryIcon /> },
-                  { title: 'Land Allocation', icon: <LocationOnIcon /> },
-                  { title: 'Single-Window Clearance', icon: <SecurityIcon /> },
-                ].map((item, idx) => (
-                  <Grid key={idx} size={{ xs: 12, sm: 4 }}>
-                    <Paper elevation={0} sx={{
-                      px: { xs: 2, sm: 3 }, py: 2, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)',
-                      color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5,
-                      transition: 'all 0.3s ease',
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.12)', transform: 'translateY(-4px)' },
+                <Typography variant="h5" sx={{
+                  mb: 5, fontWeight: 300, opacity: 0.88, maxWidth: { xs: '100%', md: 620 },
+                  fontSize: { xs: '1.05rem', md: '1.3rem' }, lineHeight: 1.6,
+                  animation: `${slideUp} 1.2s ease-out`,
+                  mx: { xs: 'auto', md: 0 }
+                }}>
+                  The unified digital command center powering Tamil Nadu's industrial transformation
+                  through real-time telemetry, statutory compliance auditing, and secure land orchestration.
+                </Typography>
+
+                {/* CTA Buttons */}
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2.5} justifyContent={{ xs: 'center', md: 'flex-start' }} sx={{ animation: `${slideUp} 1.4s ease-out`, mb: 6 }}>
+                  <Button variant="contained" size="large" onClick={() => navigate('/role-selection')}
+                    endIcon={<ArrowForwardIcon />}
+                    sx={{
+                      px: 4.5, py: 2, fontSize: '1.05rem', fontWeight: 800, borderRadius: 3.5,
+                      background: 'linear-gradient(135deg, #1B5E20, #4CAF50)',
+                      boxShadow: '0 8px 30px rgba(46,125,50,0.35)',
+                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 36px rgba(46,125,50,0.5)', background: 'linear-gradient(135deg, #1B5E20, #4CAF50)' },
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}>
-                      <Box sx={{ color: '#4CAF50' }}>{item.icon}</Box>
-                      <Typography variant="body1" fontWeight={700}>{item.title}</Typography>
-                    </Paper>
-                  </Grid>
-                ))}
+                    Launch Command Portal
+                  </Button>
+                  <Button variant="outlined" size="large" onClick={() => navigate('/parks')}
+                    sx={{
+                      px: 4, py: 2, fontSize: '1rem', fontWeight: 700, borderRadius: 3.5,
+                      color: 'white', borderColor: 'rgba(255,255,255,0.35)', borderWidth: 1.5,
+                      backdropFilter: 'blur(10px)',
+                      '&:hover': { borderColor: 'white', borderWidth: 1.5, bgcolor: 'rgba(255,255,255,0.08)', transform: 'translateY(-2px)' },
+                      transition: 'all 0.3s ease',
+                    }}>
+                    Explore Parks
+                  </Button>
+                </Stack>
+
+                {/* Core Pillars */}
+                <Grid container spacing={1.5} justifyContent={{ xs: 'center', md: 'flex-start' }} sx={{ animation: `${slideUp} 1.6s ease-out` }}>
+                  {[
+                    { title: 'Infrastructure', icon: <FactoryIcon sx={{ fontSize: 18 }} /> },
+                    { title: 'Land Allocation', icon: <LocationOnIcon sx={{ fontSize: 18 }} /> },
+                    { title: 'Single-Window', icon: <SecurityIcon sx={{ fontSize: 18 }} /> },
+                  ].map((item, idx) => (
+                    <Grid key={idx} size={{ xs: 6, sm: 'auto' }}>
+                      <Box sx={{
+                        px: 2, py: 1, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)',
+                        color: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', gap: 1,
+                        transition: 'all 0.3s ease',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', transform: 'translateY(-2px)' },
+                      }}>
+                        <Box sx={{ color: '#4CAF50', display: 'flex', alignItems: 'center' }}>{item.icon}</Box>
+                        <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: '0.05em' }}>{item.title}</Typography>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
               </Grid>
-            </Box>
+
+              {/* Right Column: Interactive Command Dashboard Mockup */}
+              <Grid size={{ xs: 12, md: 5 }} sx={{ display: { xs: 'none', md: 'block' }, animation: `${slideUp} 1.2s ease-out` }}>
+                <Box sx={{
+                  position: 'relative',
+                  width: '100%',
+                  maxWidth: 480,
+                  bgcolor: 'rgba(15, 23, 42, 0.45)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: 6,
+                  boxShadow: '0 30px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
+                  p: 3,
+                  mx: 'auto',
+                  animation: `${dashboardFloat} 6s ease-in-out infinite`,
+                }}>
+                  {/* Dashboard Header */}
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#4CAF50', animation: `${pulseGreen} 1.5s infinite` }} />
+                      <Typography sx={{ fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.7)' }}>
+                        SIMS CONTROL ROOM
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#4CAF50', bgcolor: 'rgba(76,175,80,0.15)', px: 1.5, py: 0.5, borderRadius: 2 }}>
+                      SYSTEM: ONLINE
+                    </Typography>
+                  </Box>
+
+                  {/* Stat Grid */}
+                  <Grid container spacing={2} mb={3}>
+                    <Grid size={{ xs: 6 }}>
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
+                        <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, mb: 0.5 }}>COMPLIANCE AVG</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#4CAF50', letterSpacing: '-0.02em' }}>98.4%</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
+                        <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, mb: 0.5 }}>ACTIVE SESSIONS</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#3B82F6', letterSpacing: '-0.02em' }}>1,842</Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+
+                  {/* SVG Chart */}
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <Box display="flex" justifyContent="space-between" mb={1}>
+                      <Typography sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>DATA INGESTION (GB/s)</Typography>
+                      <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)' }}>Real-time Feed</Typography>
+                    </Box>
+                    <svg viewBox="0 0 300 100" style={{ width: '100%', height: '80px', display: 'block' }}>
+                      {/* Horizontal Grid lines */}
+                      <line x1="0" y1="20" x2="300" y2="20" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                      <line x1="0" y1="50" x2="300" y2="50" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                      <line x1="0" y1="80" x2="300" y2="80" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                      
+                      {/* Flow Path 1 (Blue) */}
+                      <path
+                        d="M 0 80 Q 30 50 60 70 T 120 40 T 180 60 T 240 25 T 300 15"
+                        fill="none"
+                        stroke="#3B82F6"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        style={{
+                          strokeDasharray: '400',
+                          strokeDashoffset: '400',
+                          animation: `${drawPath} 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+                        }}
+                      />
+                      {/* Flow Path 2 (Green) */}
+                      <path
+                        d="M 0 90 Q 40 40 80 60 T 160 30 T 240 50 T 300 35"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        style={{
+                          strokeDasharray: '400',
+                          strokeDashoffset: '400',
+                          animation: `${drawPath} 2.5s 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+                        }}
+                      />
+                    </svg>
+                  </Box>
+
+                  {/* Activity log feed */}
+                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, mb: 1.5, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.02em' }}>
+                    LIVE ACTIVITY MONITOR
+                  </Typography>
+                  <Stack spacing={1} sx={{ minHeight: 120 }}>
+                    {recentEvents.map((evt, idx) => (
+                      <Box key={idx} sx={{
+                        p: 1.2,
+                        borderRadius: 2,
+                        bgcolor: 'rgba(255,255,255,0.02)',
+                        borderLeft: `3px solid ${
+                          evt.type === 'success' ? '#10B981' : evt.type === 'warning' ? '#F57C00' : '#3B82F6'
+                        }`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        animation: `${slideUp} 0.4s ease-out forwards`,
+                      }}>
+                        <Typography sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.85)', fontWeight: 500, maxWidth: '80%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {evt.msg}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>
+                          {evt.time}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              </Grid>
+            </Grid>
           </Fade>
         </Container>
       </Box>
@@ -319,42 +411,135 @@ export default function Home() {
       </Container>
 
       {/* CAPABILITIES SECTION */}
-      <Box sx={{ py: { xs: 12, md: 18 } }}>
-        <Container maxWidth="lg">
-          <Box textAlign="center" sx={{ mb: 10 }}>
-            <Chip label="PLATFORM CAPABILITIES" sx={{ mb: 2, bgcolor: 'primary.main', color: 'white', fontWeight: 800, px: 2, py: 2.5, letterSpacing: '0.1em' }} />
-            <Typography variant="h2" fontWeight={900} sx={{ mb: 2, letterSpacing: '-0.03em', fontSize: { xs: '2rem', sm: '2.5rem', md: '3.75rem' } }}>
+      <Box sx={{ py: { xs: 12, md: 16 }, position: 'relative', overflow: 'hidden', bgcolor: '#f8fafc' }}>
+        {/* Ambient background glows */}
+        <Box sx={{ position: 'absolute', top: '20%', left: '-10%', width: 450, height: 450, borderRadius: '50%', background: 'radial-gradient(circle, rgba(76,175,80,0.04) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+        <Box sx={{ position: 'absolute', bottom: '15%', right: '-5%', width: 450, height: 450, borderRadius: '50%', background: 'radial-gradient(circle, rgba(31,78,121,0.03) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+          <Box textAlign="center" sx={{ mb: 8 }}>
+            {/* PLATFORM CAPABILITIES Badge */}
+            <Box sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              mb: 3,
+              bgcolor: '#1F4E79',
+              borderRadius: '50px',
+              px: 3,
+              py: 1,
+            }}>
+              <Typography sx={{
+                fontWeight: 800,
+                letterSpacing: '0.12em',
+                fontSize: '0.75rem',
+                color: '#ffffff',
+                textTransform: 'uppercase'
+              }}>
+                Platform Capabilities
+              </Typography>
+            </Box>
+
+            <Typography variant="h2" fontWeight={900} sx={{ mb: 3, letterSpacing: '-0.03em', fontSize: { xs: '2.2rem', sm: '2.8rem', md: '3.8rem' }, color: '#0f172a' }}>
               Built for Modern{' '}
-              <Box component="span" sx={{ color: 'secondary.main' }}>Governance</Box>
+              <Box component="span" sx={{ color: '#2E7D32' }}>
+                Governance
+              </Box>
             </Typography>
-            <Typography variant="h6" color="text.secondary" maxWidth={700} sx={{ mx: 'auto', fontWeight: 400, lineHeight: 1.7 }}>
+            <Typography variant="h6" sx={{ mx: 'auto', fontWeight: 400, lineHeight: 1.7, fontSize: '1.05rem', color: '#64748b', maxWidth: 800 }}>
               THOZHIRPORUL integrates industrial datasets into a single source of truth, enabling agile decision-making and sustainable growth.
             </Typography>
           </Box>
 
-          <Grid container spacing={{ xs: 2, sm: 3, md: 4 }}>
+          <Grid container spacing={4}>
             {[
-              { title: 'Real-time Monitoring', desc: 'Live surveillance of resource consumption, emission metrics, and operational status across every industrial unit.', icon: <BarChartIcon sx={{ fontSize: 44 }} />, color: '#1F4E79' },
-              { title: 'Compliance Engine', desc: 'Automated tracking of mandatory filings, GST compliance, environmental clearances, and statutory obligations.', icon: <SecurityIcon sx={{ fontSize: 44 }} />, color: '#2E7D32' },
-              { title: 'Predictive Analytics', desc: 'AI-ready data models to forecast economic shifts, infrastructure demand, and investment trajectories.', icon: <AssessmentIcon sx={{ fontSize: 44 }} />, color: '#F57C00' },
-              { title: 'Unified Gateway', desc: 'Single platform connecting factory owners, NEXORA administrators, and state officials seamlessly.', icon: <FactoryIcon sx={{ fontSize: 44 }} />, color: '#455A64' },
+              {
+                title: 'Real-time Monitoring',
+                desc: 'Live surveillance of resource consumption, emission metrics, and operational status across every industrial unit.',
+                icon: <BarChartIcon sx={{ fontSize: 32 }} />,
+                color: '#1F4E79',
+                bgColor: '#e6f0fa',
+                shadow: '0 8px 24px rgba(31, 78, 121, 0.12)',
+                path: '/command-center'
+              },
+              {
+                title: 'Compliance Engine',
+                desc: 'Automated tracking of mandatory filings, GST compliance, environmental clearances, and statutory obligations.',
+                icon: <SecurityIcon sx={{ fontSize: 32 }} />,
+                color: '#2E7D32',
+                bgColor: '#e8f5e9',
+                shadow: '0 8px 24px rgba(46, 125, 50, 0.12)',
+                path: '/compliance-engine'
+              },
+              {
+                title: 'Predictive Analytics',
+                desc: 'AI-ready data models to forecast economic shifts, infrastructure demand, and investment trajectories.',
+                icon: <AssessmentIcon sx={{ fontSize: 32 }} />,
+                color: '#F57C00',
+                bgColor: '#fff3e0',
+                shadow: '0 8px 24px rgba(245, 124, 0, 0.12)',
+                path: '/analytics'
+              },
+              {
+                title: 'Unified Gateway',
+                desc: 'Single platform connecting factory owners, NEXORA administrators, and state officials seamlessly.',
+                icon: <FactoryIcon sx={{ fontSize: 32 }} />,
+                color: '#374151',
+                bgColor: '#f3f4f6',
+                shadow: '0 8px 24px rgba(55, 65, 81, 0.1)',
+                path: '/workspace'
+              },
             ].map((feature, idx) => (
               <Grid key={idx} size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card elevation={0} sx={{
-                  height: '100%', p: 4, transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                  '&:hover': { transform: 'translateY(-12px)', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', borderColor: `${feature.color}40` },
-                }}>
-                  <CardContent sx={{ p: 0 }}>
-                    <Box sx={{
-                      width: 80, height: 80, borderRadius: 4,
-                      bgcolor: `${feature.color}10`, color: feature.color,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3,
-                      boxShadow: `0 8px 24px ${feature.color}15`,
-                    }}>
+                <Card 
+                  elevation={0} 
+                  onClick={() => navigate(feature.path)}
+                  sx={{
+                    height: '100%',
+                    position: 'relative',
+                    p: 4.5,
+                    borderRadius: '24px',
+                    bgcolor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.02)',
+                    transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      transform: 'translateY(-8px)',
+                      boxShadow: '0 20px 40px rgba(0, 0, 0, 0.06)',
+                      borderColor: 'rgba(226, 232, 240, 0.5)',
+                    },
+                    '&:hover .icon-box': {
+                      transform: 'scale(1.05)',
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 0, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box
+                      className="icon-box"
+                      sx={{
+                        width: 68,
+                        height: 68,
+                        borderRadius: '50%',
+                        bgcolor: feature.bgColor,
+                        color: feature.color,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mb: 3.5,
+                        boxShadow: feature.shadow,
+                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                      }}
+                    >
                       {feature.icon}
                     </Box>
-                    <Typography variant="h5" fontWeight={800} gutterBottom>{feature.title}</Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>{feature.desc}</Typography>
+                    <Typography variant="h5" fontWeight={800} gutterBottom sx={{ fontSize: '1.25rem', color: '#0f172a', letterSpacing: '-0.01em', mb: 1.5 }}>
+                      {feature.title}
+                    </Typography>
+                    <Typography variant="body1" sx={{ lineHeight: 1.7, fontSize: '0.9rem', color: '#64748b' }}>
+                      {feature.desc}
+                    </Typography>
                   </CardContent>
                 </Card>
               </Grid>

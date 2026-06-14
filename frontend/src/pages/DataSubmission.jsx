@@ -27,6 +27,7 @@ function DataSubmission() {
 
   const [activeStep, setActiveStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [transactionId, setTransactionId] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [formData, setFormData] = useState({
     companyName: companyName,
@@ -85,6 +86,7 @@ function DataSubmission() {
     // Simulate API Submission
     setTimeout(() => {
       setIsSubmitting(false);
+      setTransactionId(`THOZHIRPORUL-${Date.now()}`);
       showSnackbar("Full Industrial Report Submitted to NEXORA successfully!");
       setActiveStep(steps.length + 1); // Finished state
     }, 2000);
@@ -255,7 +257,7 @@ function DataSubmission() {
         ) : activeStep > steps.length ? (
             <Box sx={{ textAlign: 'center', py: 5 }}>
                 <Typography variant="h5" color="success.main" gutterBottom>🎉 Submission Successful!</Typography>
-                <Typography variant="body1" sx={{ mb: 4 }}>Your report has been received and logged under Transaction ID: THOZHIRPORUL-{Date.now()}.</Typography>
+                <Typography variant="body1" sx={{ mb: 4 }}>Your report has been received and logged under Transaction ID: {transactionId}.</Typography>
                 <Button variant="outlined" onClick={handleReset}>Initiate New Submission</Button>
             </Box>
         ) : (

@@ -50,37 +50,7 @@ export default function ServicesTracker() {
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [allotPlotDialogOpen, setAllotPlotDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const role = localStorage.getItem('role') || 'industry';
-  const location = useLocation();
-
-  useEffect(() => {
-    fetchData();
-    if (location.state) {
-      if (location.state.serviceType) setNewServiceType(location.state.serviceType);
-      if (location.state.parkId) setNewParkId(location.state.parkId);
-      // Small delay to ensure dialog renders properly
-      setTimeout(() => setNewDialogOpen(true), 100);
-    }
-  }, [location]);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [reqs, pks] = await Promise.all([
-        serviceRequestService.getAll(),
-        parkService.getAll()
-      ]);
-      setRequests(reqs.data);
-      setParks(pks.data);
-    } catch (err) {
-      console.error('Fetch Data Error:', err);
-      setSnackbar({ open: true, message: 'Error loading data from server.', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // New request form state
   const [newServiceType, setNewServiceType] = useState('');
@@ -98,17 +68,22 @@ export default function ServicesTracker() {
   const [allotPlotId, setAllotPlotId] = useState('');
   const [allotRemarks, setAllotRemarks] = useState('');
 
-  useEffect(() => {
-    if (statusDialogOpen && selectedRequest?.service_type === 'land_allotment' && selectedRequest.park_id) {
-      fetchPlots(selectedRequest.park_id);
-    }
-  }, [statusDialogOpen, selectedRequest]);
+  const role = localStorage.getItem('role') || 'industry';
+  const location = useLocation();
 
-  useEffect(() => {
-    if (allotPlotDialogOpen && selectedRequest?.service_type === 'land_allotment' && selectedRequest.park_id) {
-      fetchPlots(selectedRequest.park_id);
+  const fetchData = async () => {
+    try {
+      const [reqs, pks] = await Promise.all([
+        serviceRequestService.getAll(),
+        parkService.getAll()
+      ]);
+      setRequests(reqs.data);
+      setParks(pks.data);
+    } catch (err) {
+      console.error('Fetch Data Error:', err);
+      setSnackbar({ open: true, message: 'Error loading data from server.', severity: 'error' });
     }
-  }, [allotPlotDialogOpen, selectedRequest]);
+  };
 
   const fetchPlots = async (parkId) => {
     try {
@@ -118,6 +93,41 @@ export default function ServicesTracker() {
       console.error('Fetch Plots Error:', err);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 0);
+    if (location.state) {
+      if (location.state.serviceType) {
+        setTimeout(() => setNewServiceType(location.state.serviceType), 0);
+      }
+      if (location.state.parkId) {
+        setTimeout(() => setNewParkId(location.state.parkId), 0);
+      }
+      // Small delay to ensure dialog renders properly
+      setTimeout(() => setNewDialogOpen(true), 100);
+    }
+    return () => clearTimeout(timer);
+  }, [location]);
+
+  useEffect(() => {
+    if (statusDialogOpen && selectedRequest?.service_type === 'land_allotment' && selectedRequest.park_id) {
+      const timer = setTimeout(() => {
+        fetchPlots(selectedRequest.park_id);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [statusDialogOpen, selectedRequest]);
+
+  useEffect(() => {
+    if (allotPlotDialogOpen && selectedRequest?.service_type === 'land_allotment' && selectedRequest.park_id) {
+      const timer = setTimeout(() => {
+        fetchPlots(selectedRequest.park_id);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [allotPlotDialogOpen, selectedRequest]);
 
   const getMilestones = (req) => {
     const statusIdx = STATUS_FLOW.indexOf(req.current_status);

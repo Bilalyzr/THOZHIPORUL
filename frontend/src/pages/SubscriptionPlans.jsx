@@ -7,11 +7,11 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import {
-  CheckCircle, LockOpen, ArrowBack, AutoAwesome,
+  CheckCircle, LockOpen, AutoAwesome,
   HelpOutline, CloudUpload, History, Analytics, Security,
   PictureAsPdf, FlashOn, SupportAgent
 } from '@mui/icons-material';
-import logoTransparent from '../assets/logo-transparent.png';
+import UnifiedNav from '../components/UnifiedNav';
 
 export default function SubscriptionPlans() {
   const navigate = useNavigate();
@@ -52,7 +52,8 @@ export default function SubscriptionPlans() {
       buttonText: 'Current Plan (Free)',
       buttonColor: 'inherit',
       color: '#455A64',
-      bgGrad: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
+      bgGrad: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+      image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=400'
     },
     {
       name: 'SME Professional',
@@ -74,7 +75,8 @@ export default function SubscriptionPlans() {
       buttonText: 'Upgrade to SME Pro',
       buttonColor: 'success',
       color: '#2E7D32',
-      bgGrad: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)'
+      bgGrad: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
+      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400'
     },
     {
       name: 'Enterprise Suite',
@@ -98,7 +100,8 @@ export default function SubscriptionPlans() {
       buttonText: 'Purchase Enterprise',
       buttonColor: 'primary',
       color: '#1F4E79',
-      bgGrad: 'linear-gradient(135deg, #172554 0%, #0f172a 100%)'
+      bgGrad: 'linear-gradient(135deg, #172554 0%, #0f172a 100%)',
+      image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=400'
     }
   ];
 
@@ -114,13 +117,16 @@ export default function SubscriptionPlans() {
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', pb: 12 }}>
-      
+      <UnifiedNav transparent={false} />
+
       {/* HEADER SECTION */}
       <Box sx={{
-        background: 'linear-gradient(135deg, #0F1728 0%, #153C24 100%)',
+        background: 'linear-gradient(135deg, rgba(15,23,40,0.95) 0%, rgba(21,60,36,0.92) 100%), url("https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=2000")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         color: 'white',
-        pt: { xs: 8, md: 12 },
-        pb: { xs: 16, md: 22 },
+        pt: { xs: 14, md: 20 },
+        pb: { xs: 12, md: 18 },
         textAlign: 'center',
         position: 'relative',
         overflow: 'hidden'
@@ -130,15 +136,6 @@ export default function SubscriptionPlans() {
         <Box sx={{ position: 'absolute', bottom: -100, left: -100, width: 300, height: 300, borderRadius: '50%', bg: '#1F4E79', filter: 'blur(100px)', opacity: 0.15 }} />
 
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <Box display="flex" justifyContent="flex-start" sx={{ mb: 4 }}>
-            <Button
-              startIcon={<ArrowBack />}
-              onClick={() => navigate('/home')}
-              sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.08)' }, textTransform: 'none', fontWeight: 600 }}
-            >
-              Return Home
-            </Button>
-          </Box>
 
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 2, py: 0.8, borderRadius: 3, mb: 3, bgcolor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
             <AutoAwesome sx={{ color: '#4CAF50', fontSize: '0.9rem' }} />
@@ -172,7 +169,7 @@ export default function SubscriptionPlans() {
               color="success"
               sx={{ mx: 1 }}
             />
-            <Typography variant="body2" sx={{ fontWeight: 700, color: billingPeriod === 'annual' ? '#81c784' : 'rgba(255,255,255,0.6)' }}>
+            <Typography variant="body2" component="span" sx={{ fontWeight: 700, color: billingPeriod === 'annual' ? '#81c784' : 'rgba(255,255,255,0.6)' }}>
               Annual Billing <Chip label="SAVE 20%" size="small" sx={{ bgcolor: 'rgba(76, 175, 80, 0.15)', color: '#81c784', fontWeight: 900, ml: 1, height: 18, fontSize: '0.65rem' }} />
             </Typography>
           </Paper>
@@ -180,7 +177,7 @@ export default function SubscriptionPlans() {
       </Box>
 
       {/* WORKSPACE PLANS CARDS */}
-      <Container maxWidth="lg" sx={{ mt: { xs: -10, md: -16 }, position: 'relative', zIndex: 10 }}>
+      <Container maxWidth="lg" sx={{ mt: { xs: -8, md: -12 }, position: 'relative', zIndex: 10 }}>
         <Grid container spacing={4} alignItems="stretch">
           {plans.map((plan, i) => {
             const price = billingPeriod === 'annual' ? plan.annualPrice : plan.monthlyPrice;
@@ -221,6 +218,33 @@ export default function SubscriptionPlans() {
                     )}
 
                     <CardContent sx={{ p: { xs: 4, sm: 5 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                      {/* Plan Image */}
+                      <Box sx={{
+                        width: '100%',
+                        height: 140,
+                        mb: 3,
+                        borderRadius: 3,
+                        overflow: 'hidden',
+                        position: 'relative'
+                      }}>
+                        <Box
+                          component="img"
+                          src={plan.image}
+                          alt={plan.name}
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            transition: 'transform 0.4s ease',
+                          }}
+                        />
+                        <Box sx={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: `linear-gradient(135deg, ${plan.color}30 0%, transparent 100%)`,
+                        }} />
+                      </Box>
+
                       <Typography variant="h5" fontWeight={900} sx={{ color: plan.color, mb: 1, letterSpacing: '-0.02em' }}>
                         {plan.name}
                       </Typography>
@@ -330,45 +354,65 @@ export default function SubscriptionPlans() {
 
       {/* GOVT PLATFORM GPaaS SECTION */}
       <Container maxWidth="lg" sx={{ mt: 10 }}>
-        <Paper 
+        <Paper
           elevation={4}
           sx={{
-            p: { xs: 4, md: 6 },
+            p: 0,
             borderRadius: 5,
+            overflow: 'hidden',
             background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)',
             color: 'white',
             border: '1px solid rgba(255,255,255,0.05)'
           }}
         >
-          <Grid container spacing={4} alignItems="center">
-            <Grid size={{ xs: 12, md: 8 }}>
+          <Grid container>
+            <Grid size={{ xs: 12, md: 5 }} sx={{ position: 'relative', minHeight: { xs: 200, md: 'auto' } }}>
+              <Box
+                component="img"
+                src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&q=80&w=600"
+                alt="Government Dashboard"
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  position: 'absolute',
+                  inset: 0
+                }}
+              />
+              <Box sx={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(to right, rgba(17,24,39,0.3) 0%, rgba(17,24,39,0.8) 100%)'
+              }} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 7 }} sx={{ p: { xs: 4, md: 6 } }}>
               <Chip label="STATE GOVERNANCE G2G" sx={{ mb: 2, bgcolor: 'rgba(76, 175, 80, 0.15)', color: '#81c784', fontWeight: 900, px: 1 }} />
               <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.02em', mb: 2 }}>
                 Are you a Government Official or Park Manager?
               </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.8, fontWeight: 300, lineHeight: 1.8 }}>
+              <Typography variant="body1" sx={{ opacity: 0.8, fontWeight: 300, lineHeight: 1.8, mb: 3 }}>
                 The Government/Admin tracks operate on a Government-Platform-as-a-Service (GPaaS) cost structure. Park officers (G1) and Command Center officials (G2) obtain full bypass access to all industry audit files and verification logs.
               </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }} display="flex" justifyContent={{ xs: 'flex-start', md: 'flex-end' }}>
-              <Button 
-                variant="contained" 
-                color="secondary"
-                size="large" 
-                onClick={() => navigate('/role-selection')}
-                sx={{
-                  py: 1.8,
-                  px: 4,
-                  borderRadius: 3.5,
-                  fontWeight: 800,
-                  textTransform: 'none',
-                  bgcolor: '#E67E22',
-                  boxShadow: '0 8px 24px rgba(230, 126, 34, 0.25)',
-                  '&:hover': { bgcolor: '#D35400' }
-                }}
-              >
-                Access Govt. Portal
-              </Button>
+              <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-start' } }}>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  size="large"
+                  onClick={() => navigate('/role-selection')}
+                  sx={{
+                    py: 1.8,
+                    px: 4,
+                    borderRadius: 3.5,
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    bgcolor: '#E67E22',
+                    boxShadow: '0 8px 24px rgba(230, 126, 34, 0.25)',
+                    '&:hover': { bgcolor: '#D35400' }
+                  }}
+                >
+                  Access Govt. Portal
+                </Button>
+              </Box>
             </Grid>
           </Grid>
         </Paper>

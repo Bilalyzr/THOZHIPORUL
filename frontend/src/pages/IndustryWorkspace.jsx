@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, LinearProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -16,8 +15,17 @@ const SCORE_COLORS = { high: '#2E7D32', good: '#43A047', medium: '#F57C00', low:
 const getScoreColor = (score) => score >= 80 ? SCORE_COLORS.high : score >= 60 ? SCORE_COLORS.good : score >= 40 ? SCORE_COLORS.medium : SCORE_COLORS.low;
 const getScoreLabel = (score) => score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Needs Attention' : 'Critical';
 
+const ScoreBar = ({ label, score }) => (
+  <Box sx={{ mb: 1.5 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+      <Typography variant="body2">{label}</Typography>
+      <Typography variant="body2" fontWeight={600}>{score}/100</Typography>
+    </Box>
+    <LinearProgress variant="determinate" value={score} sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.200', '& .MuiLinearProgress-bar': { bgcolor: getScoreColor(score), borderRadius: 4 } }} />
+  </Box>
+);
+
 export default function IndustryWorkspace() {
-  const navigate = useNavigate();
   const [leaseDialogOpen, setLeaseDialogOpen] = useState(false);
   const [uploadSnack, setUploadSnack] = useState(false);
   
@@ -46,17 +54,7 @@ export default function IndustryWorkspace() {
     service_summary: { applied: 1, in_review: 1, approved: 0, completed: 5 },
   };
 
-  const { company, compliance_score, quick_stats, lease, pending_tasks, notices, documents, service_summary } = overview;
-
-  const ScoreBar = ({ label, score }) => (
-    <Box sx={{ mb: 1.5 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="body2">{label}</Typography>
-        <Typography variant="body2" fontWeight={600}>{score}/100</Typography>
-      </Box>
-      <LinearProgress variant="determinate" value={score} sx={{ height: 8, borderRadius: 4, bgcolor: 'grey.200', '& .MuiLinearProgress-bar': { bgcolor: getScoreColor(score), borderRadius: 4 } }} />
-    </Box>
-  );
+  const { company, compliance_score, quick_stats, lease, pending_tasks, notices, service_summary } = overview;
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>

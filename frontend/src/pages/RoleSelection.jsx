@@ -12,10 +12,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import GroupsIcon from '@mui/icons-material/Groups';
 import logoTransparent from '../assets/logo-transparent.png';
 
-const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
 
 const float = keyframes`
   0%, 100% { transform: translateY(0px); }
@@ -57,12 +53,6 @@ const portalOptions = [
   },
 ];
 
-const FeatureItem = ({ icon: Icon, text }) => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-    <Icon sx={{ fontSize: 16, opacity: 0.7 }} />
-    <Typography variant="caption" color="text.secondary">{text}</Typography>
-  </Box>
-);
 
 export default function RoleSelection() {
   const navigate = useNavigate();

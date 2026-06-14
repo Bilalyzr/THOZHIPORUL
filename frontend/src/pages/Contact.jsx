@@ -10,7 +10,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SendIcon from '@mui/icons-material/Send';
-import SubPageNav from '../components/SubPageNav';
+import UnifiedNav from '../components/UnifiedNav';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(30px); }
@@ -37,7 +37,7 @@ export default function Contact() {
 
   return (
     <Box sx={{ bgcolor: '#f8fafc' }}>
-      <SubPageNav />
+      <UnifiedNav transparent={false} />
       {/* Hero */}
       <Box sx={{
         pt: { xs: 16, md: 22 }, pb: { xs: 10, md: 14 }, textAlign: 'center', overflow: 'hidden',

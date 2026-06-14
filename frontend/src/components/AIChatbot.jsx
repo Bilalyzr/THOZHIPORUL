@@ -11,7 +11,6 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { keyframes } from '@emotion/react';
 
-import aiLogo from '../assets/vazhiporul_ai_logo.png';
 import fabIcon from '../assets/vazhiporul_fab_icon.png';
 
 const pulse = keyframes`0%,100%{transform:scale(1)}50%{transform:scale(1.08)}`;
@@ -855,13 +854,16 @@ export default function AIChatbot() {
       ? `Welcome back **${name}**! 👋\n\nI'm **VazhiPorul AI** - your SIPCOT intelligent assistant.\n\nAs a **${role || 'user'}**, I can help you:\n• Navigate to your dashboard\n• Track services and compliance\n• Answer questions about SIPCOT\n• Find information about parks and schemes`
       : `👋 Welcome to **THOZHIRPORUL**!\n\nI'm **VazhiPorul AI** - your SIPCOT intelligent assistant.\n\nI can help you:\n• Explore our 6 industrial parks\n• Understand services like NOCs and plot allotment\n• Learn about compliance and incentives\n• Navigate to any page`;
 
-    setMessages([
-      {
-        role: 'ai',
-        text: initialText,
-        suggestions: ['Show industrial parks', 'How to apply for plot?', 'Available services']
-      }
-    ]);
+    const timer = setTimeout(() => {
+      setMessages([
+        {
+          role: 'ai',
+          text: initialText,
+          suggestions: ['Show industrial parks', 'How to apply for plot?', 'Available services']
+        }
+      ]);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [open]); // Refresh greeting when chat is opened
 
   useEffect(() => {
@@ -893,7 +895,7 @@ export default function AIChatbot() {
       if (response.autoNavigate && response.path) {
         setTimeout(() => navigate(response.path), 800);
       }
-    }, 600 + Math.random() * 400);
+    }, 600 + (userMsg.length % 5) * 80);
   };
 
   const handleNavigate = (path) => {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Grid, Card, CardContent, Button, Chip,
   Paper, TextField, InputAdornment, ToggleButton, ToggleButtonGroup,
@@ -7,6 +7,7 @@ import {
   LinearProgress, Divider, Tooltip, Switch, FormControlLabel,
   List, ListItemButton, ListItemIcon, ListItemText, ClickAwayListener, Popper, IconButton
 } from '@mui/material';
+import UnifiedNav from '../components/UnifiedNav';
 import {
   Search, Map as MapIcon, TableChart, LocationOn,
   Water, Bolt, ArrowForwardIos, Explore, Layers,
@@ -134,6 +135,7 @@ export default function IndustrialParks() {
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
+      {!isAuthenticated && <UnifiedNav transparent={false} />}
       {/* Hero Header */}
       <Box sx={{
         background: 'linear-gradient(135deg, #0f172a 0%, #1F4E79 100%)',

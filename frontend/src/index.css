@@ -10,7 +10,7 @@
 }
 
 html {
-  font-size: 13px;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -24,6 +24,7 @@ body {
   background-color: #F8FAFC;
   color: #0F172A;
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
 #root {
@@ -60,8 +61,8 @@ img {
 }
 
 /* Smooth transitions for interactive elements */
-button, a, input, select, textarea {
-  transition: all 0.2s ease;
+button, a, input, select, textarea, .MuiButton-root, .MuiIconButton-root {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Focus styles for accessibility */
@@ -98,10 +99,12 @@ button, a, input, select, textarea {
 /* Enhanced card hover effects */
 .MuiCard-root {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px;
 }
 
 .MuiCard-root:hover {
   transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
 
 /* Enhanced button styles */
@@ -114,7 +117,28 @@ button, a, input, select, textarea {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
+.MuiButton-outlined:hover {
+  transform: translateY(-1px);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
 /* Smooth page transitions */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .page-transition {
   animation: fadeInUp 0.4s ease-out;
 }
@@ -134,4 +158,219 @@ button, a, input, select, textarea {
 .sidebar-item.active {
   background: linear-gradient(90deg, rgba(31, 78, 121, 0.15) 0%, rgba(31, 78, 121, 0.05) 100%);
   border-left: 3px solid var(--color-admin);
+}
+
+/* Responsive container adjustments */
+@media (max-width: 600px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+/* Improved text rendering */
+.text-gradient {
+  background: linear-gradient(90deg, #1F4E79, #2E7D32);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent horizontal overflow */
+body, #root, .MuiBox-root {
+  overflow-x: hidden;
+}
+
+/* Card elevation consistency */
+.MuiPaper-elevation1 {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.MuiPaper-elevation2 {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.MuiPaper-elevation3 {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Table improvements */
+.MuiTable-root {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Input field consistency */
+.MuiInputBase-root,
+.MuiOutlinedInput-root,
+.MuiFilledInput-root {
+  transition: all 0.2s ease;
+}
+
+.MuiInputBase-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #1F4E79;
+}
+
+/* Dialog and modal improvements */
+.MuiDialog-container .MuiPaper-root {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Snackbar positioning */
+.MuiSnackbar-root {
+  z-index: 9999;
+}
+
+/* Responsive spacing helpers */
+@media (max-width: 960px) {
+  .MuiContainer-root {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* Button loading state */
+button:disabled,
+.MuiButton-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Link styles */
+.MuiLink-root,
+.MuiLink-button {
+  cursor: pointer;
+}
+
+/* Badge improvements */
+.MuiBadge-badge {
+  font-weight: 700;
+}
+
+/* Progress bar */
+.MuiLinearProgress-root {
+  height: 6px;
+  border-radius: 3px;
+}
+
+/* Tooltip improvements */
+.MuiTooltip-popper {
+  z-index: 10000;
+}
+
+/* Select dropdown improvements */
+.MuiMenu-paper {
+  max-height: 300px;
+}
+
+/* Tab improvements */
+.MuiTab-root {
+  text-transform: none;
+  font-weight: 600;
+}
+
+/* Chip improvements */
+.MuiChip-root {
+  font-weight: 600;
+}
+
+/* Avatar improvements */
+.MuiAvatar-root {
+  font-weight: 600;
+}
+
+/* Divider improvements */
+.MuiDivider-root {
+  border-color: #E2E8F0;
+}
+
+/* List improvements */
+.MuiList-root {
+  padding: 8px;
+}
+
+.MuiListItem-root {
+  border-radius: 8px;
+  margin: 2px 0;
+}
+
+.MuiListItem-root:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Pagination improvements */
+.MuiPaginationItem-root {
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+/* Skeleton loading improvements */
+.MuiSkeleton-root {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Slide menu improvements */
+.MuiDrawer-paper {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* AppBar improvements */
+.MuiAppBar-root {
+  backdrop-filter: blur(10px);
+}
+
+/* Hero section spacing */
+.hero-section {
+  padding-top: 80px;
+  padding-bottom: 60px;
+}
+
+@media (min-width: 960px) {
+  .hero-section {
+    padding-top: 120px;
+    padding-bottom: 80px;
+  }
+}
+
+/* Card content consistency */
+.MuiCardContent-root {
+  padding: 24px;
+}
+
+@media (min-width: 960px) {
+  .MuiCardContent-root {
+    padding: 32px;
+  }
+}
+
+/* Grid container spacing */
+.MuiGrid-container {
+  margin: -12px;
+}
+
+.MuiGrid-item {
+  padding: 12px;
+}
+
+@media (min-width: 960px) {
+  .MuiGrid-container {
+    margin: -16px;
+  }
+
+  .MuiGrid-item {
+    padding: 16px;
+  }
 }
