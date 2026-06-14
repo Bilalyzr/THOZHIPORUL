@@ -416,23 +416,42 @@ export default function Home() {
         <Box sx={{ position: 'absolute', top: '20%', left: '-10%', width: 450, height: 450, borderRadius: '50%', background: 'radial-gradient(circle, rgba(76,175,80,0.04) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
         <Box sx={{ position: 'absolute', bottom: '15%', right: '-5%', width: 450, height: 450, borderRadius: '50%', background: 'radial-gradient(circle, rgba(31,78,121,0.03) 0%, transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
 
+        {/* Sleek background grid pattern */}
+        <Box sx={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.25,
+          backgroundImage: `radial-gradient(#e2e8f0 1.5px, transparent 1.5px)`,
+          backgroundSize: '24px 24px',
+          pointerEvents: 'none'
+        }} />
+
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Box textAlign="center" sx={{ mb: 8 }}>
-            {/* PLATFORM CAPABILITIES Badge */}
+            {/* PLATFORM CAPABILITIES Live Badge */}
             <Box sx={{
               display: 'inline-flex',
               alignItems: 'center',
+              gap: 1.5,
               mb: 3,
-              bgcolor: '#1F4E79',
+              bgcolor: 'rgba(31, 78, 121, 0.08)',
+              border: '1px solid rgba(31, 78, 121, 0.15)',
               borderRadius: '50px',
-              px: 3,
-              py: 1,
+              px: 2.5,
+              py: 0.8,
             }}>
+              <Box sx={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                bgcolor: '#4CAF50',
+                animation: `${pulseGreen} 2s infinite ease-in-out`
+              }} />
               <Typography sx={{
                 fontWeight: 800,
                 letterSpacing: '0.12em',
-                fontSize: '0.75rem',
-                color: '#ffffff',
+                fontSize: '0.72rem',
+                color: '#1F4E79',
                 textTransform: 'uppercase'
               }}>
                 Platform Capabilities
@@ -441,7 +460,12 @@ export default function Home() {
 
             <Typography variant="h2" fontWeight={900} sx={{ mb: 3, letterSpacing: '-0.03em', fontSize: { xs: '2.2rem', sm: '2.8rem', md: '3.8rem' }, color: '#0f172a' }}>
               Built for Modern{' '}
-              <Box component="span" sx={{ color: '#2E7D32' }}>
+              <Box component="span" sx={{ 
+                background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                display: 'inline-block'
+              }}>
                 Governance
               </Box>
             </Typography>
@@ -458,8 +482,12 @@ export default function Home() {
                 icon: <BarChartIcon sx={{ fontSize: 32 }} />,
                 color: '#1F4E79',
                 bgColor: '#e6f0fa',
-                shadow: '0 8px 24px rgba(31, 78, 121, 0.12)',
-                path: '/command-center'
+                shadow: '0 8px 24px rgba(31, 78, 121, 0.08)',
+                hoverShadow: '0 20px 40px rgba(31, 78, 121, 0.15)',
+                hoverIconShadow: '0 12px 28px rgba(31, 78, 121, 0.22)',
+                path: '/command-center',
+                badge: 'Live Feed',
+                action: 'Explore Command Center'
               },
               {
                 title: 'Compliance Engine',
@@ -467,17 +495,25 @@ export default function Home() {
                 icon: <SecurityIcon sx={{ fontSize: 32 }} />,
                 color: '#2E7D32',
                 bgColor: '#e8f5e9',
-                shadow: '0 8px 24px rgba(46, 125, 50, 0.12)',
-                path: '/compliance-engine'
+                shadow: '0 8px 24px rgba(46, 125, 50, 0.08)',
+                hoverShadow: '0 20px 40px rgba(46, 125, 50, 0.15)',
+                hoverIconShadow: '0 12px 28px rgba(46, 125, 50, 0.22)',
+                path: '/compliance-engine',
+                badge: 'Automated',
+                action: 'Manage Compliance'
               },
               {
                 title: 'Predictive Analytics',
                 desc: 'AI-ready data models to forecast economic shifts, infrastructure demand, and investment trajectories.',
                 icon: <AssessmentIcon sx={{ fontSize: 32 }} />,
-                color: '#F57C00',
+                color: '#E65100',
                 bgColor: '#fff3e0',
-                shadow: '0 8px 24px rgba(245, 124, 0, 0.12)',
-                path: '/analytics'
+                shadow: '0 8px 24px rgba(230, 81, 0, 0.08)',
+                hoverShadow: '0 20px 40px rgba(230, 81, 0, 0.15)',
+                hoverIconShadow: '0 12px 28px rgba(230, 81, 0, 0.22)',
+                path: '/analytics',
+                badge: 'AI-Powered',
+                action: 'View Analytics'
               },
               {
                 title: 'Unified Gateway',
@@ -485,8 +521,12 @@ export default function Home() {
                 icon: <FactoryIcon sx={{ fontSize: 32 }} />,
                 color: '#374151',
                 bgColor: '#f3f4f6',
-                shadow: '0 8px 24px rgba(55, 65, 81, 0.1)',
-                path: '/workspace'
+                shadow: '0 8px 24px rgba(55, 65, 81, 0.06)',
+                hoverShadow: '0 20px 40px rgba(55, 65, 81, 0.12)',
+                hoverIconShadow: '0 12px 28px rgba(55, 65, 81, 0.18)',
+                path: '/workspace',
+                badge: 'Multi-Portal',
+                action: 'Access Workspace'
               },
             ].map((feature, idx) => (
               <Grid key={idx} size={{ xs: 12, sm: 6, md: 3 }}>
@@ -497,6 +537,7 @@ export default function Home() {
                     height: '100%',
                     position: 'relative',
                     p: 4.5,
+                    pt: 5,
                     borderRadius: '24px',
                     bgcolor: '#ffffff',
                     border: '1px solid #e2e8f0',
@@ -505,23 +546,66 @@ export default function Home() {
                     display: 'flex',
                     flexDirection: 'column',
                     cursor: 'pointer',
+                    overflow: 'hidden',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '4px',
+                      background: feature.color,
+                      opacity: 0.1,
+                      transition: 'all 0.3s ease',
+                    },
+                    '&:hover::before': {
+                      height: '6px',
+                      opacity: 1,
+                    },
                     '&:hover': {
                       transform: 'translateY(-8px)',
-                      boxShadow: '0 20px 40px rgba(0, 0, 0, 0.06)',
-                      borderColor: 'rgba(226, 232, 240, 0.5)',
+                      background: `linear-gradient(180deg, #ffffff 0%, ${feature.bgColor}33 100%)`,
+                      boxShadow: feature.hoverShadow,
+                      borderColor: `${feature.color}22`,
                     },
                     '&:hover .icon-box': {
-                      transform: 'scale(1.05)',
+                      transform: 'scale(1.1) rotate(3deg)',
+                      boxShadow: feature.hoverIconShadow,
+                    },
+                    '&:hover .action-link': {
+                      color: feature.color,
+                    },
+                    '&:hover .arrow-icon': {
+                      transform: 'translateX(6px)',
                     }
                   }}
                 >
+                  {/* Top-right Status Pill */}
+                  <Box sx={{
+                    position: 'absolute',
+                    top: 20,
+                    right: 20,
+                    bgcolor: `${feature.color}11`,
+                    color: feature.color,
+                    borderRadius: '6px',
+                    px: 1.5,
+                    py: 0.5,
+                    fontSize: '0.65rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    border: `1px solid ${feature.color}22`
+                  }}>
+                    {feature.badge}
+                  </Box>
+
                   <CardContent sx={{ p: 0, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                     <Box
                       className="icon-box"
                       sx={{
-                        width: 68,
-                        height: 68,
-                        borderRadius: '50%',
+                        width: 64,
+                        height: 64,
+                        borderRadius: '18px',
                         bgcolor: feature.bgColor,
                         color: feature.color,
                         display: 'flex',
@@ -534,12 +618,35 @@ export default function Home() {
                     >
                       {feature.icon}
                     </Box>
-                    <Typography variant="h5" fontWeight={800} gutterBottom sx={{ fontSize: '1.25rem', color: '#0f172a', letterSpacing: '-0.01em', mb: 1.5 }}>
+                    <Typography variant="h5" fontWeight={800} sx={{ fontSize: '1.25rem', color: '#0f172a', letterSpacing: '-0.01em', mb: 1.5 }}>
                       {feature.title}
                     </Typography>
-                    <Typography variant="body1" sx={{ lineHeight: 1.7, fontSize: '0.9rem', color: '#64748b' }}>
+                    <Typography variant="body1" sx={{ lineHeight: 1.7, fontSize: '0.9rem', color: '#64748b', mb: 3.5, flexGrow: 1 }}>
                       {feature.desc}
                     </Typography>
+
+                    {/* Learn More link with sliding arrow */}
+                    <Box 
+                      className="action-link"
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        fontSize: '0.85rem', 
+                        fontWeight: 700, 
+                        color: '#64748b',
+                        transition: 'color 0.3s ease',
+                      }}
+                    >
+                      <span>{feature.action}</span>
+                      <ArrowForwardIcon 
+                        className="arrow-icon"
+                        sx={{ 
+                          fontSize: 16, 
+                          transition: 'transform 0.3s ease' 
+                        }} 
+                      />
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
