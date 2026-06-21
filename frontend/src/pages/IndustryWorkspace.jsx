@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, LinearProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   List, ListItem, ListItemIcon, ListItemText, Button, Divider, Avatar,
-  Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert
+  Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert,
+  CircularProgress
 } from '@mui/material';
 import {
   CheckCircle, RadioButtonUnchecked, Warning, Info, Business,
   People, CurrencyRupee, Bolt, WaterDrop, Description,
   UploadFile, Gavel, Assignment, Schedule
 } from '@mui/icons-material';
+import { workspaceService } from '../services/api';
 
 const SCORE_COLORS = { high: '#2E7D32', good: '#43A047', medium: '#F57C00', low: '#d32f2f' };
 const getScoreColor = (score) => score >= 80 ? SCORE_COLORS.high : score >= 60 ? SCORE_COLORS.good : score >= 40 ? SCORE_COLORS.medium : SCORE_COLORS.low;
@@ -25,34 +27,71 @@ const ScoreBar = ({ label, score }) => (
   </Box>
 );
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+};
+
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined) return '-';
+  return 'Rs. ' + Number(amount).toLocaleString('en-IN');
+};
+
 export default function IndustryWorkspace() {
   const [leaseDialogOpen, setLeaseDialogOpen] = useState(false);
   const [uploadSnack, setUploadSnack] = useState(false);
-  
-  const overview = {
-    company: { name: 'ABC Industries', park: 'Oragadam Industrial Park', plot: 'A-101', since: 2019, industry_type: 'Auto Components' },
-    compliance_score: { overall: 78, submission: 90, environmental: 72, financial: 85, safety: 65 },
-    quick_stats: { employees: 234, investment_cr: 45, power_usage_kwh: 125, water_usage_kl: 89 },
-    lease: { status: 'Active', end_date: '2035-03-31', monthly_amount: 240000 },
-    pending_tasks: [
-      { id: 1, title: 'Q1 2026 Data Submission', due_date: '2026-04-15', type: 'submission', priority: 'high', done: false },
-      { id: 2, title: 'Fire NOC Renewal', due_date: '2026-05-01', type: 'document', priority: 'medium', done: false },
-      { id: 3, title: 'Pollution Certificate Expiring', due_date: '2026-08-15', type: 'document', priority: 'low', done: false },
-      { id: 4, title: 'Q4 2025 Data - Approved', due_date: '2026-01-15', type: 'submission', priority: 'none', done: true },
-      { id: 5, title: 'Lease Renewed', due_date: '2025-12-01', type: 'lease', priority: 'none', done: true },
-    ],
-    notices: [
-      { id: 1, severity: 'warning', message: 'Water usage increased 40% from last quarter', date: '2026-04-10' },
-      { id: 2, severity: 'info', message: 'New quarterly reporting format effective Q2 2026', date: '2026-04-05' },
-    ],
-    documents: [
-      { id: 1, category: 'GST Certificate', file_name: 'gst_2026.pdf', expiry_date: '2026-12-31', verified: true, status: 'Valid' },
-      { id: 2, category: 'Fire NOC', file_name: 'fire_noc_2025.pdf', expiry_date: '2026-05-01', verified: true, status: 'Expiring' },
-      { id: 3, category: 'Pollution Clearance', file_name: 'pcb_cert_2025.pdf', expiry_date: '2026-08-15', verified: true, status: 'Valid' },
-      { id: 4, category: 'Lease Agreement', file_name: 'lease.pdf', expiry_date: null, verified: true, status: 'Active' },
-    ],
-    service_summary: { applied: 1, in_review: 1, approved: 0, completed: 5 },
-  };
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const fetchWorkspace = async () => {
+      try {
+        setLoading(true);
+        const res = await workspaceService.getOverview();
+        if (active) {
+          setOverview(res.data);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch workspace overview:', err);
+        if (active) {
+          setError(err.response?.data?.error || 'Failed to load workspace data. Please make sure the backend is running.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchWorkspace();
+    return () => { active = false; };
+  }, []);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+        <CircularProgress color="primary" />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button variant="contained" onClick={() => window.location.reload()}>Retry</Button>
+      </Box>
+    );
+  }
+
+  if (!overview) return null;
 
   const { company, compliance_score, quick_stats, lease, pending_tasks, notices, service_summary } = overview;
 
@@ -135,15 +174,15 @@ export default function IndustryWorkspace() {
             <Typography variant="h6" fontWeight={600} gutterBottom>Quick Stats</Typography>
             <Grid container spacing={2}>
               {[
-                { icon: <People />, label: 'Employees', value: quick_stats.employees, color: '#1F4E79' },
-                { icon: <CurrencyRupee />, label: 'Investment', value: `Rs.${quick_stats.investment_cr} Cr`, color: '#2E7D32' },
-                { icon: <Bolt />, label: 'Power Usage', value: `${quick_stats.power_usage_kwh} kWh`, color: '#F57C00' },
-                { icon: <WaterDrop />, label: 'Water Usage', value: `${quick_stats.water_usage_kl} KL`, color: '#1565C0' },
+                { icon: <People />, label: 'Employees', value: quick_stats.employees ? quick_stats.employees.toLocaleString('en-IN') : '0', color: '#1F4E79' },
+                { icon: <CurrencyRupee />, label: 'Investment', value: `Rs. ${quick_stats.investment_cr ? quick_stats.investment_cr.toLocaleString('en-IN') : '0'} Cr`, color: '#2E7D32' },
+                { icon: <Bolt />, label: 'Power Usage', value: `${quick_stats.power_usage_kwh ? quick_stats.power_usage_kwh.toLocaleString('en-IN') : '0'} kWh`, color: '#F57C00' },
+                { icon: <WaterDrop />, label: 'Water Usage', value: `${quick_stats.water_usage_kl ? quick_stats.water_usage_kl.toLocaleString('en-IN') : '0'} KL`, color: '#1565C0' },
               ].map((stat, i) => (
                 <Grid key={i} size={{ xs: 6 }}>
                   <Card variant="outlined" sx={{ textAlign: 'center', p: 1.5 }}>
                     <Box sx={{ color: stat.color, mb: 0.5 }}>{stat.icon}</Box>
-                    <Typography variant="h6" fontWeight={700}>{stat.value}</Typography>
+                    <Typography fontWeight={700} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem', md: '0.95rem', lg: '1.1rem' }, lineHeight: 1.2, my: 0.5 }}>{stat.value}</Typography>
                     <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
                   </Card>
                 </Grid>
@@ -197,16 +236,16 @@ export default function IndustryWorkspace() {
         <DialogContent>
           <Box sx={{ py: 1 }}>
             {[
-              { label: 'Plot Number', value: 'A-101' },
-              { label: 'Park', value: 'Oragadam Industrial Park' },
-              { label: 'Area', value: '5.0 Acres' },
-              { label: 'Zone Type', value: 'Industrial' },
-              { label: 'Lease Start', value: '01 April 2019' },
-              { label: 'Lease End', value: '31 March 2035' },
-              { label: 'Monthly Rent', value: 'Rs. 2,40,000' },
-              { label: 'Total Paid to Date', value: 'Rs. 1,72,80,000' },
-              { label: 'Next Payment Due', value: '01 May 2026' },
-              { label: 'Payment Status', value: 'Current - No Dues' },
+              { label: 'Plot Number', value: lease.plot_number },
+              { label: 'Park', value: lease.park_name },
+              { label: 'Area', value: `${lease.area_acres} Acres` },
+              { label: 'Zone Type', value: lease.zone_type || 'Industrial' },
+              { label: 'Lease Start', value: formatDate(lease.lease_start) },
+              { label: 'Lease End', value: formatDate(lease.end_date) },
+              { label: 'Monthly Rent', value: formatCurrency(lease.monthly_amount) },
+              { label: 'Total Paid to Date', value: formatCurrency(lease.total_paid) },
+              { label: 'Next Payment Due', value: formatDate(lease.next_payment_due) },
+              { label: 'Payment Status', value: lease.payment_status || 'Current' },
             ].map((item, i) => (
               <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="body2" color="text.secondary">{item.label}</Typography>

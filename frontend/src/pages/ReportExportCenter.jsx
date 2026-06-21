@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Button,
   Radio, RadioGroup, FormControlLabel, FormControl, FormLabel,
@@ -12,6 +12,9 @@ import {
   PictureAsPdf, TableChart, DataObject, Download,
   Visibility, History, Save
 } from '@mui/icons-material';
+import { submissionService } from '../services/api';
+import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx';
 
 export default function ReportExportCenter() {
   const [reportType, setReportType] = useState('investment');
@@ -41,13 +44,27 @@ export default function ReportExportCenter() {
     { value: 'custom', label: 'Custom Query' },
   ];
 
-  const previewData = [
-    { company: 'ABC Industries', park: 'Oragadam', investment: '45 Cr', employment: 234, compliance: 78 },
-    { company: 'XYZ Manufacturing', park: 'Sriperumbudur', investment: '82 Cr', employment: 456, compliance: 65 },
-    { company: 'PQR Auto Parts', park: 'Hosur', investment: '120 Cr', employment: 890, compliance: 92 },
-    { company: 'LMN Textiles', park: 'Oragadam', investment: '35 Cr', employment: 178, compliance: 54 },
-    { company: 'Delta Pharma', park: 'Hosur', investment: '68 Cr', employment: 312, compliance: 71 },
-  ];
+  const [previewData, setPreviewData] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await submissionService.getCompliance();
+        // Map the backend compliance data to the report center format
+        const mappedData = response.data.map(row => ({
+          company: row.name,
+          park: row.location,
+          investment: row.investmentAmount ? `${row.investmentAmount} Cr` : '-',
+          employment: '-', // Currently employment total isn't returned by getCompliance, could be added later
+          compliance: row.status === 'Compliant' ? 100 : row.status === 'Alert' ? 20 : 60
+        }));
+        setPreviewData(mappedData);
+      } catch (err) {
+        console.error("Failed to load report data", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const recentReports = [
     { id: 1, name: 'Investment_Q1_2026', type: 'PDF', generated: '2026-04-10', size: '120 KB' },
@@ -60,17 +77,157 @@ export default function ReportExportCenter() {
     setGenerating(true);
     setTimeout(() => {
       setGenerating(false);
-      const csvData = previewData.map(r => `${r.company},${r.park},${r.investment},${r.employment},${r.compliance}`).join('\n');
-      const csv = 'Company,Park,Investment,Employment,Compliance\n' + csvData;
-      const blob = new Blob([csv], { type: format === 'CSV' ? 'text/csv' : 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `NEXORA_${reportType}_${period}.${format === 'PDF' ? 'csv' : format === 'Excel' ? 'csv' : 'csv'}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      
+      if (format === 'PDF') {
+        const doc = new jsPDF();
+        doc.setFont("helvetica");
+        doc.setFontSize(22);
+        doc.setTextColor(31, 78, 121); // Branded primary: #1F4E79
+        doc.text("THOZHIRPORUL - Industrial OS", 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139); // Text secondary
+        doc.text("SIPCOT Compliance & Investment Reporting", 14, 26);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(51, 65, 85);
+        const reportTitle = reportTypes.find(r => r.value === reportType)?.label || 'Industrial Report';
+        doc.text(`Report: ${reportTitle}`, 14, 36);
+        doc.text(`Period: ${period} | Park: ${park === 'all' ? 'All Parks' : park.toUpperCase()} | Quarter: ${quarter === 'all' ? 'All Quarters' : 'Q' + quarter}`, 14, 42);
+        
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, 48, 196, 48);
+
+        let y = 58;
+        // Table Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        doc.text("Company", 14, y);
+        doc.text("Park/Location", 75, y);
+        doc.text("Investment", 120, y);
+        doc.text("Employment", 155, y);
+        doc.text("Compliance", 180, y);
+        
+        doc.line(14, y + 4, 196, y + 4);
+        y += 12;
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(15, 23, 42);
+        previewData.forEach(row => {
+          doc.text(row.company || '', 14, y);
+          doc.text(row.park || '', 75, y);
+          doc.text(row.investment || '', 120, y);
+          doc.text(row.employment || '', 155, y);
+          doc.text(`${row.compliance}%`, 180, y);
+          y += 8;
+          if (y > 280) {
+            doc.addPage();
+            y = 20;
+          }
+        });
+        
+        doc.save(`NEXORA_${reportType}_${period}.pdf`);
+      } else if (format === 'Excel') {
+        const worksheetData = previewData.map(row => ({
+          Company: row.company,
+          Location: row.park,
+          Investment: row.investment,
+          Employment: row.employment,
+          'Compliance (%)': row.compliance
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Compliance Report");
+        XLSX.writeFile(workbook, `NEXORA_${reportType}_${period}.xlsx`);
+      } else {
+        const csvData = previewData.map(r => `"${r.company}","${r.park}","${r.investment}","${r.employment}",${r.compliance}`).join('\n');
+        const csvContent = 'Company,Park,Investment,Employment,Compliance (%)\n' + csvData;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `NEXORA_${reportType}_${period}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
       setSnackbar({ open: true, message: `Report generated and downloaded as ${format}!`, severity: 'success' });
     }, 2000);
+  };
+
+  const handleDownloadRecentReport = (report) => {
+    setSnackbar({ open: true, message: `Generating and downloading ${report.name}.${report.type === 'Excel' ? 'xlsx' : report.type.toLowerCase()}...`, severity: 'info' });
+    
+    const reportData = [
+      { Company: "Sipcot Industries Ltd", Park: "Oragadam", Investment: "150 Cr", Employment: "450", 'Compliance (%)': 95 },
+      { Company: "Nexora Technologies", Park: "Siruseri", Investment: "85 Cr", Employment: "1200", 'Compliance (%)': 100 },
+      { Company: "Hindustan Autos", Park: "Sriperumbudur", Investment: "210 Cr", Employment: "800", 'Compliance (%)': 80 },
+      { Company: "PharmaCorp India", Park: "Hosur", Investment: "45 Cr", Employment: "150", 'Compliance (%)': 60 }
+    ];
+
+    setTimeout(() => {
+      if (report.type === 'PDF') {
+        const doc = new jsPDF();
+        doc.setFont("helvetica");
+        doc.setFontSize(22);
+        doc.setTextColor(31, 78, 121);
+        doc.text("THOZHIRPORUL - Industrial OS", 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Archive Report Download", 14, 26);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(51, 65, 85);
+        doc.text(`Report: ${report.name}`, 14, 36);
+        doc.text(`Generated Date: ${report.generated}`, 14, 42);
+        
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, 48, 196, 48);
+
+        let y = 58;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        doc.text("Company", 14, y);
+        doc.text("Park/Location", 75, y);
+        doc.text("Investment", 120, y);
+        doc.text("Employment", 155, y);
+        doc.text("Compliance", 180, y);
+        doc.line(14, y + 4, 196, y + 4);
+        y += 12;
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(15, 23, 42);
+        reportData.forEach(row => {
+          doc.text(row.Company, 14, y);
+          doc.text(row.Park, 75, y);
+          doc.text(row.Investment, 120, y);
+          doc.text(row.Employment, 155, y);
+          doc.text(`${row['Compliance (%)']}%`, 180, y);
+          y += 8;
+        });
+        
+        doc.save(`${report.name}.pdf`);
+      } else if (report.type === 'Excel') {
+        const worksheet = XLSX.utils.json_to_sheet(reportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Archive Report");
+        XLSX.writeFile(workbook, `${report.name}.xlsx`);
+      } else {
+        const csvData = reportData.map(r => `"${r.Company}","${r.Park}","${r.Investment}","${r.Employment}",${r['Compliance (%)']}`).join('\n');
+        const csvContent = 'Company,Park,Investment,Employment,Compliance (%)\n' + csvData;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${report.name}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      setSnackbar({ open: true, message: `${report.name} downloaded successfully!`, severity: 'success' });
+    }, 1000);
   };
 
   return (
@@ -260,7 +417,7 @@ export default function ReportExportCenter() {
                   </TableCell>
                   <TableCell>{report.generated}</TableCell>
                   <TableCell>{report.size}</TableCell>
-                  <TableCell><Button size="small" startIcon={<Download />} onClick={() => setSnackbar({ open: true, message: `Downloading ${report.name}.${report.type.toLowerCase()}...`, severity: 'info' })}>Download</Button></TableCell>
+                  <TableCell><Button size="small" startIcon={<Download />} onClick={() => handleDownloadRecentReport(report)}>Download</Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>

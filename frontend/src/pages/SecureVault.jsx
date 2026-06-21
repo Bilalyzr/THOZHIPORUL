@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Grid, Avatar, Button, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Chip, LinearProgress,
@@ -11,18 +11,18 @@ import {
   Visibility, VisibilityOff, LockOutlined, AutoAwesome, InfoOutlined,
   Key, Storage, Gavel
 } from '@mui/icons-material';
+import { workspaceService, paymentsService } from '../services/api';
 
 export default function SecureVault() {
+  // Get active role (if Govt or Admin, we automatically grant access bypass)
+  const userRole = localStorage.getItem('role') || 'industry';
+  const hasGovtBypass = userRole === 'admin' || userRole === 'govt';
+
   // Subscription Tier State: 'free_starter', 'sme_pro', 'enterprise_suite'
   const [subscriptionTier, setSubscriptionTier] = useState('free_starter');
   
   // File registry with file sizes in KB
-  const [documentsList, setDocumentsList] = useState([
-    { id: 1, category: 'GST Certificate', file_name: 'gst_2026.pdf', expiry_date: '2026-12-31', verified: true, status: 'Valid', size_kb: 245 },
-    { id: 2, category: 'Fire NOC', file_name: 'fire_noc_2025.pdf', expiry_date: '2026-05-01', verified: true, status: 'Expiring', size_kb: 180 },
-    { id: 3, category: 'Pollution Clearance', file_name: 'pcb_cert_2025.pdf', expiry_date: '2026-08-15', verified: true, status: 'Valid', size_kb: 320 },
-    { id: 4, category: 'Lease Agreement', file_name: 'lease.pdf', expiry_date: null, verified: true, status: 'Active', size_kb: 1200 },
-  ]);
+  const [documentsList, setDocumentsList] = useState([]);
 
   // Mock Audit Trail
   const [auditLogs, setAuditLogs] = useState([
@@ -37,6 +37,8 @@ export default function SecureVault() {
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [unlockError, setUnlockError] = useState('');
+  const [shake, setShake] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   // Modals & States
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -53,9 +55,96 @@ export default function SecureVault() {
   
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // Get active role (if Govt or Admin, we automatically grant access bypass)
-  const userRole = localStorage.getItem('role') || 'industry';
-  const hasGovtBypass = userRole === 'admin' || userRole === 'govt';
+  // Load Razorpay SDK and active subscription tier on mount
+  useEffect(() => {
+    // Dynamically insert Razorpay script
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    if (userRole === 'industry') {
+      workspaceService.getOverview()
+        .then(res => {
+          if (res.data?.company?.subscription_tier) {
+            setSubscriptionTier(res.data.company.subscription_tier);
+          }
+        })
+        .catch(err => console.error('[VAULT] Failed to load subscription tier:', err));
+    }
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [userRole]);
+
+  const handleRazorpayPayment = async (plan) => {
+    try {
+      setSnackbar({ open: true, message: 'Initiating Razorpay payment order...', severity: 'info' });
+      
+      const orderRes = await paymentsService.createOrder(plan);
+      const { orderId, amount, currency, keyId, mock } = orderRes.data;
+
+      const userEmail = localStorage.getItem('userEmail') || 'industry@abc.com';
+      const userName = localStorage.getItem('userName') || 'ABC Manufacturing';
+
+      if (mock) {
+        // Bypass payment validation for sandbox fallback testing
+        setTimeout(async () => {
+          try {
+            await paymentsService.verifyPayment({
+              razorpay_payment_id: `mock_pay_${Date.now()}`,
+              razorpay_order_id: orderId,
+              razorpay_signature: 'mock_sig',
+              plan: plan
+            });
+            setSubscriptionTier(plan);
+            setSnackbar({ open: true, message: `🎉 Successfully upgraded to ${plan === 'sme_pro' ? 'SME Professional' : 'Enterprise Suite'}!`, severity: 'success' });
+          } catch {
+            setSnackbar({ open: true, message: 'Mock payment verification failed.', severity: 'error' });
+          }
+        }, 1200);
+        return;
+      }
+
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: currency,
+        name: 'THOZHIRPORUL',
+        description: `Upgrade to ${plan === 'sme_pro' ? 'SME Professional' : 'Enterprise Suite'}`,
+        order_id: orderId,
+        handler: async function (response) {
+          try {
+            setSnackbar({ open: true, message: 'Verifying payment signatures...', severity: 'info' });
+            await paymentsService.verifyPayment({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              plan: plan
+            });
+            setSubscriptionTier(plan);
+            setSnackbar({ open: true, message: `🎉 Upgrade Successful! Active Plan: ${plan === 'sme_pro' ? 'SME Pro' : 'Enterprise Suite'}`, severity: 'success' });
+          } catch {
+            setSnackbar({ open: true, message: 'Payment verification failed.', severity: 'error' });
+          }
+        },
+        prefill: {
+          name: userName,
+          email: userEmail
+        },
+        theme: {
+          color: '#2E7D32'
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error('Razorpay payment gateway error:', err);
+      setSnackbar({ open: true, message: 'Failed to connect to Razorpay payment gateway.', severity: 'error' });
+    }
+  };
 
   // Calculate storage metrics dynamically
   const totalUsedKb = documentsList.reduce((acc, doc) => acc + doc.size_kb, 0);
@@ -85,7 +174,7 @@ export default function SecureVault() {
     }, 1500);
   };
 
-  const handleUnlock = (e) => {
+  const handleUnlock = async (e) => {
     e.preventDefault();
     if (!passphrase) {
       setUnlockError('Please enter a decryption passphrase.');
@@ -95,19 +184,38 @@ export default function SecureVault() {
     setUnlockError('');
     setIsDecrypting(true);
 
-    // Simulate PBKDF2 Master Key derivation from passphrase
-    setTimeout(() => {
-      const cleanPassphrase = passphrase.trim().toLowerCase();
-      if (cleanPassphrase === 'sipcot123' || cleanPassphrase === 'password123') {
-        setIsDecrypting(false);
-        setIsUnlocked(true);
-        setSnackbar({ open: true, message: 'AES master key derived successfully! Vault unlocked.', severity: 'success' });
-        setPassphrase('');
-      } else {
-        setIsDecrypting(false);
-        setUnlockError('Invalid Decryption Passphrase. Cryptographic hash signature mismatch. Hint: use "sipcot123" or your account password.');
-      }
-    }, 1500);
+    try {
+      // Verify vault passphrase via backend
+      await workspaceService.verifyVault(passphrase);
+      
+      // Fetch files from backend dynamically
+      const res = await workspaceService.getDocuments();
+      const mappedDocs = res.data.map(d => ({
+        id: d.id,
+        category: d.category === 'gst_certificate' ? 'GST Certificate' :
+                  d.category === 'pollution_clearance' ? 'Pollution Clearance' :
+                  d.category === 'fire_noc' ? 'Fire NOC' :
+                  d.category === 'incorporation' ? 'Company Registration' : 'Lease Agreement',
+        file_name: d.file_name,
+        expiry_date: d.expiry_date,
+        verified: d.verified,
+        status: d.expiry_date ? (new Date(d.expiry_date) < new Date() ? 'Expired' : 'Valid') : 'Active',
+        size_kb: d.file_size_kb || 150,
+        company_name: d.company_name
+      }));
+      setDocumentsList(mappedDocs);
+      setIsUnlocked(true);
+      setSnackbar({ open: true, message: 'AES master key derived successfully! Vault unlocked.', severity: 'success' });
+      setPassphrase('');
+    } catch (err) {
+      console.error('Failed to unlock vault:', err);
+      const errMsg = err.response?.data?.error || 'Invalid Decryption Passphrase. Cryptographic hash signature mismatch. Hint: use "sipcot123" or your account password.';
+      setUnlockError(errMsg);
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+    } finally {
+      setIsDecrypting(false);
+    }
   };
 
   const handleLockVault = () => {
@@ -137,46 +245,61 @@ export default function SecureVault() {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          setUploading(false);
-          setUploadModalOpen(false);
-          
-          const newDoc = {
-            id: Date.now(),
-            category: uploadCategory === 'gst_certificate' ? 'GST Registration' :
-                      uploadCategory === 'pollution_clearance' ? 'Pollution NOC' :
-                      uploadCategory === 'fire_noc' ? 'Fire NOC' : 'Lease Agreement',
-            file_name: uploadFileName.toLowerCase().endsWith('.pdf') ? uploadFileName : `${uploadFileName}.pdf`,
-            expiry_date: uploadExpiryDate || null,
-            verified: false,
-            status: 'Valid',
-            size_kb: parseInt(mockFileSizeKb)
-          };
-
-          setDocumentsList((prevDocs) => [...prevDocs, newDoc]);
-          
-          // Append audit logs if Enterprise Suite is active
-          setAuditLogs((prevLogs) => [
-            {
-              id: Date.now(),
-              action: 'upload',
-              document: newDoc.file_name,
-              user: 'industry@abc.com',
-              ip: '192.168.1.45',
-              timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-              verified: true
-            },
-            ...prevLogs
-          ]);
-
-          setSnackbar({ open: true, message: 'Document encrypted and uploaded to secure vault successfully!', severity: 'success' });
-          setUploadFileName('');
-          setUploadExpiryDate('');
-          setMockFileSizeKb(300);
-          return 0;
+          return 100;
         }
         return prev + 30;
       });
     }, 450);
+
+    setTimeout(async () => {
+      try {
+        const payload = {
+          category: uploadCategory,
+          fileName: uploadFileName.toLowerCase().endsWith('.pdf') ? uploadFileName : `${uploadFileName}.pdf`,
+          expiryDate: uploadExpiryDate || null
+        };
+        const res = await workspaceService.uploadDocument(payload);
+        
+        const newDoc = {
+          id: res.data.id,
+          category: uploadCategory === 'gst_certificate' ? 'GST Certificate' :
+                    uploadCategory === 'pollution_clearance' ? 'Pollution Clearance' :
+                    uploadCategory === 'fire_noc' ? 'Fire NOC' : 'Lease Agreement',
+          file_name: payload.fileName,
+          expiry_date: uploadExpiryDate || null,
+          verified: false,
+          status: uploadExpiryDate ? 'Valid' : 'Active',
+          size_kb: parseInt(mockFileSizeKb)
+        };
+
+        setDocumentsList((prevDocs) => [newDoc, ...prevDocs]);
+        setUploading(false);
+        setUploadModalOpen(false);
+        
+        // Append audit logs if Enterprise Suite is active
+        setAuditLogs((prevLogs) => [
+          {
+            id: Date.now(),
+            action: 'upload',
+            document: newDoc.file_name,
+            user: localStorage.getItem('userEmail') || 'industry@abc.com',
+            ip: '192.168.1.45',
+            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            verified: true
+          },
+          ...prevLogs
+        ]);
+
+        setSnackbar({ open: true, message: 'Document encrypted and uploaded to secure vault successfully!', severity: 'success' });
+        setUploadFileName('');
+        setUploadExpiryDate('');
+        setMockFileSizeKb(300);
+      } catch {
+        setUploading(false);
+        setUploadModalOpen(false);
+        setSnackbar({ open: true, message: 'Failed to securely upload document.', severity: 'error' });
+      }
+    }, 1800);
   };
 
   const handleDeleteSecure = (id, fileName) => {
@@ -204,60 +327,166 @@ export default function SecureVault() {
       
       {/* 🔒 Locked State Screen */}
       {!isUnlocked ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '75vh', px: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '75vh', 
+          px: 2,
+          perspective: '1000px'
+        }}>
           <Paper 
-            elevation={8}
+            elevation={24}
             sx={{
-              p: { xs: 3, sm: 5 },
-              maxWidth: 460,
+              p: { xs: 4, sm: 6 },
+              maxWidth: 480,
               width: '100%',
-              borderRadius: 4,
-              border: '1px solid rgba(46, 125, 50, 0.15)',
-              background: 'linear-gradient(135deg, #0F2A1D 0%, #0A1C14 100%)',
+              borderRadius: '24px',
+              border: '1px solid rgba(76, 175, 80, 0.25)',
+              background: 'linear-gradient(135deg, rgba(13, 35, 24, 0.85) 0%, rgba(9, 23, 17, 0.95) 100%)',
+              backdropFilter: 'blur(20px)',
               color: 'white',
               textAlign: 'center',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.15)',
               position: 'relative',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              transition: 'all 0.3s ease-in-out',
+              animation: shake ? 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both' : 'none',
+              '@keyframes shake': {
+                '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
+              }
             }}
           >
-            <Avatar sx={{ bgcolor: 'rgba(76, 175, 80, 0.08)', color: '#4CAF50', width: 64, height: 64, mx: 'auto', mb: 2, border: '1px solid rgba(76, 175, 80, 0.25)', animation: isDecrypting ? 'pulse 1.5s infinite ease-in-out' : 'none', '@keyframes pulse': { '0%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.08)', boxShadow: '0 0 16px rgba(76,175,80,0.3)' }, '100%': { transform: 'scale(1)' } } }}>
-              <LockOutlined sx={{ fontSize: '2rem' }} />
-            </Avatar>
+            {/* Background cyber pattern details */}
+            <Box sx={{
+              position: 'absolute',
+              top: '-50%',
+              left: '-50%',
+              width: '200%',
+              height: '200%',
+              opacity: 0.03,
+              backgroundImage: 'radial-gradient(#4CAF50 1px, transparent 1px)',
+              backgroundSize: '16px 16px',
+              pointerEvents: 'none',
+              animation: 'spin 120s linear infinite',
+              '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
+            }} />
 
-            <Typography variant="h5" fontWeight={800} gutterBottom sx={{ color: 'white', letterSpacing: '0.02em' }}>
-              Document Vault Decryption
+            {/* Glowing avatar header with dynamic interactive focus/decrypt state */}
+            <Box sx={{ position: 'relative', display: 'inline-flex', mx: 'auto', mb: 3 }}>
+              {/* Outer Pulsing Ring */}
+              <Box sx={{
+                position: 'absolute',
+                inset: -6,
+                borderRadius: '50%',
+                border: '2px solid',
+                borderColor: isDecrypting ? '#2E7D32' : isInputFocused ? '#4CAF50' : 'rgba(76, 175, 80, 0.3)',
+                animation: isDecrypting || isInputFocused ? 'spin-slow 4s linear infinite' : 'none',
+                '@keyframes spin-slow': { '100%': { transform: 'rotate(360deg)' } },
+                transition: 'border-color 0.3s ease'
+              }} />
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'rgba(76, 175, 80, 0.08)', 
+                  color: isDecrypting ? '#81c784' : isInputFocused ? '#4CAF50' : '#81c784', 
+                  width: 72, 
+                  height: 72,
+                  border: '1px solid rgba(76, 175, 80, 0.35)',
+                  boxShadow: isInputFocused ? '0 0 20px rgba(76,175,80,0.3)' : 'none',
+                  transition: 'all 0.3s ease',
+                  animation: isDecrypting ? 'decrypting-pulse 1.2s infinite ease-in-out' : 'none',
+                  '@keyframes decrypting-pulse': {
+                    '0%': { transform: 'scale(1)' },
+                    '50%': { transform: 'scale(1.1)', filter: 'brightness(1.2)' },
+                    '100%': { transform: 'scale(1)' }
+                  }
+                }}
+              >
+                {isDecrypting ? (
+                  <Cached sx={{ fontSize: '2.2rem', animation: 'spin 1.5s linear infinite' }} />
+                ) : isInputFocused ? (
+                  <Key sx={{ fontSize: '2.2rem', transform: 'rotate(-45deg)', transition: 'transform 0.3s ease' }} />
+                ) : (
+                  <LockOutlined sx={{ fontSize: '2.2rem' }} />
+                )}
+              </Avatar>
+            </Box>
+
+            <Typography variant="h5" fontWeight={900} gutterBottom sx={{ color: 'white', letterSpacing: '0.04em', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+              Secure Document Vault
             </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 4, fontSize: '0.85rem', lineHeight: 1.5 }}>
-              Enter your vault passphrase to derive the AES-256 decryption keys and load your secured statutory files.
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontSize: '0.85rem', lineHeight: 1.6, px: 2 }}>
+              Derive standard AES-256 decryption keys locally to unlock statutory folders and records.
             </Typography>
+
+            {/* Cyber HUD Metadata Panel */}
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'space-around',
+              alignItems: 'center',
+              bgcolor: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(76, 175, 80, 0.15)',
+              borderRadius: '12px',
+              py: 1.5,
+              px: 2,
+              mb: 4,
+              fontFamily: 'monospace',
+              fontSize: '0.7rem',
+              color: 'rgba(255,255,255,0.65)'
+            }}>
+              <Box>
+                <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>PROTOCOL</Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 'bold', color: '#81c784' }}>AES-GCM</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(76, 175, 80, 0.15)' }} />
+              <Box>
+                <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>DERIVATION</Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 'bold', color: '#81c784' }}>PBKDF2</Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(76, 175, 80, 0.15)' }} />
+              <Box>
+                <Typography variant="caption" sx={{ display: 'block', fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>STATUS</Typography>
+                <Box display="flex" alignItems="center" gap={0.5}>
+                  <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#4CAF50', animation: 'blink 1.5s infinite alternate', '@keyframes blink': { '0%': { opacity: 0.3 }, '100%': { opacity: 1 } } }} />
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 'bold', color: '#4CAF50' }}>SECURE</Typography>
+                </Box>
+              </Box>
+            </Box>
 
             <form onSubmit={handleUnlock}>
-              <Box display="flex" flexDirection="column" gap={2.5}>
+              <Box display="flex" flexDirection="column" gap={3}>
                 <TextField
                   fullWidth
                   variant="outlined"
                   type={showPassphrase ? 'text' : 'password'}
-                  label="Vault Passphrase"
-                  placeholder="Enter vault passphrase"
+                  label="Enter Vault Passphrase"
+                  placeholder="Password..."
                   value={passphrase}
                   disabled={isDecrypting}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                   onChange={(e) => setPassphrase(e.target.value)}
-                  InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)', '&.Mui-focused': { color: '#4CAF50' } } }}
+                  InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)', '&.Mui-focused': { color: '#4CAF50', fontWeight: 'bold' } } }}
                   InputProps={{
                     sx: { 
                       color: 'white', 
-                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
-                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.4)' },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4CAF50' },
-                      bgcolor: 'rgba(255,255,255,0.03)'
+                      borderRadius: '12px',
+                      fontSize: '0.95rem',
+                      letterSpacing: showPassphrase ? 'normal' : '0.25em',
+                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.15)', borderWidth: '1px' },
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(76, 175, 80, 0.4)' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4CAF50', borderWidth: '2px', boxShadow: '0 0 12px rgba(76,175,80,0.15)' },
+                      bgcolor: 'rgba(0, 0, 0, 0.2)'
                     },
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton
                           onClick={() => setShowPassphrase(!showPassphrase)}
                           edge="end"
-                          sx={{ color: 'rgba(255,255,255,0.5)' }}
+                          sx={{ color: 'rgba(255,255,255,0.5)', mr: 0.5 }}
                         >
                           {showPassphrase ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
@@ -267,7 +496,18 @@ export default function SecureVault() {
                 />
 
                 {unlockError && (
-                  <Alert severity="error" variant="filled" sx={{ textAlign: 'left', py: 0.5, fontSize: '0.8rem', bgcolor: '#b71c1c' }}>
+                  <Alert 
+                    severity="error" 
+                    variant="filled" 
+                    sx={{ 
+                      textAlign: 'left', 
+                      borderRadius: '12px',
+                      py: 1, 
+                      fontSize: '0.8rem', 
+                      bgcolor: '#c62828',
+                      boxShadow: '0 4px 12px rgba(198, 40, 40, 0.2)' 
+                    }}
+                  >
                     {unlockError}
                   </Alert>
                 )}
@@ -278,14 +518,19 @@ export default function SecureVault() {
                   disabled={isDecrypting}
                   sx={{
                     bgcolor: '#2E7D32',
-                    '&:hover': { bgcolor: '#1B5E20' },
+                    '&:hover': { 
+                      bgcolor: '#1B5E20',
+                      boxShadow: '0 0 20px rgba(46,125,50,0.5)',
+                      transform: 'translateY(-1px)'
+                    },
                     color: 'white',
-                    py: 1.5,
-                    borderRadius: 2,
-                    fontWeight: 700,
+                    py: 1.8,
+                    borderRadius: '12px',
+                    fontWeight: 800,
                     textTransform: 'none',
                     fontSize: '0.95rem',
-                    boxShadow: '0 8px 16px rgba(46, 125, 50, 0.25)',
+                    boxShadow: '0 8px 24px rgba(46, 125, 50, 0.3)',
+                    transition: 'all 0.2s ease-in-out',
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
@@ -295,20 +540,33 @@ export default function SecureVault() {
                   {isDecrypting ? (
                     <>
                       <CircularProgress size={20} color="inherit" />
-                      <span>Deriving Master Keys...</span>
+                      <span>Verifying Authority & Key Derivation...</span>
                     </>
                   ) : (
                     <>
                       <LockOpenOutlined />
-                      <span>Decrypt & Unlock Folder</span>
+                      <span>Authorize & Unlock Vault</span>
                     </>
                   )}
                 </Button>
               </Box>
             </form>
 
-            <Alert severity="info" variant="outlined" sx={{ mt: 4, textAlign: 'left', borderColor: 'rgba(76, 175, 80, 0.3)', color: '#81c784', fontSize: '0.8rem', '& .MuiAlert-icon': { color: '#81c784' } }}>
-              For testing purposes, the mock decryption passphrase is <strong>sipcot123</strong> or <strong>password123</strong> (case-insensitive).
+            <Alert 
+              severity="info" 
+              variant="outlined" 
+              sx={{ 
+                mt: 5, 
+                textAlign: 'left', 
+                borderRadius: '12px',
+                borderColor: 'rgba(76, 175, 80, 0.3)', 
+                color: '#81c784', 
+                fontSize: '0.8rem', 
+                bgcolor: 'rgba(76, 175, 80, 0.02)',
+                '& .MuiAlert-icon': { color: '#81c784' } 
+              }}
+            >
+              Demo mode sandbox keys: <strong>sipcot123</strong> or your user account login password.
             </Alert>
           </Paper>
         </Box>
@@ -329,24 +587,33 @@ export default function SecureVault() {
 
             <Stack direction="row" spacing={2} alignItems="center">
               {/* Premium Switcher dropdown solely for easy demo & test gating */}
-              <Paper variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc', borderColor: '#E2E8F0', borderRadius: 2 }}>
-                <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ pl: 1 }}>DEMO PLAN SWITCHER:</Typography>
-                <TextField
-                  select
-                  size="small"
-                  value={subscriptionTier}
-                  onChange={(e) => {
-                    setSubscriptionTier(e.target.value);
-                    setSnackbar({ open: true, message: `Subscription plan switched to ${e.target.value === 'free_starter' ? 'Compliance Starter (Free)' : e.target.value === 'sme_pro' ? 'SME Professional (Paid)' : 'Enterprise Suite (Paid)'}! Visual features gated instantly.`, severity: 'success' });
-                  }}
-                  SelectProps={{ sx: { py: 0, fontWeight: 700, fontSize: '0.8rem' } }}
-                  sx={{ width: 180, '& .MuiOutlinedInput-root': { py: 0 } }}
-                >
-                  <MenuItem value="free_starter">Starter (Free)</MenuItem>
-                  <MenuItem value="sme_pro">SME Pro (Growth)</MenuItem>
-                  <MenuItem value="enterprise_suite">Enterprise (Infinite)</MenuItem>
-                </TextField>
-              </Paper>
+              {hasGovtBypass ? (
+                <Paper variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc', borderColor: '#E2E8F0', borderRadius: 2 }}>
+                  <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ pl: 1 }}>DEMO PLAN SWITCHER:</Typography>
+                  <TextField
+                    select
+                    size="small"
+                    value={subscriptionTier}
+                    onChange={(e) => {
+                      setSubscriptionTier(e.target.value);
+                      setSnackbar({ open: true, message: `Subscription plan switched to ${e.target.value === 'free_starter' ? 'Compliance Starter (Free)' : e.target.value === 'sme_pro' ? 'SME Professional (Paid)' : 'Enterprise Suite (Paid)'}! Visual features gated instantly.`, severity: 'success' });
+                    }}
+                    SelectProps={{ sx: { py: 0, fontWeight: 700, fontSize: '0.8rem' } }}
+                    sx={{ width: 180, '& .MuiOutlinedInput-root': { py: 0 } }}
+                  >
+                    <MenuItem value="free_starter">Starter (Free)</MenuItem>
+                    <MenuItem value="sme_pro">SME Pro (Growth)</MenuItem>
+                    <MenuItem value="enterprise_suite">Enterprise (Infinite)</MenuItem>
+                  </TextField>
+                </Paper>
+              ) : (
+                <Chip 
+                  label={`Plan: ${subscriptionTier === 'free_starter' ? 'Compliance Starter (Free)' : subscriptionTier === 'sme_pro' ? 'SME Professional' : 'Enterprise Suite'}`}
+                  color="success"
+                  variant="filled"
+                  sx={{ fontWeight: 700, borderRadius: 2, px: 1, color: 'white' }}
+                />
+              )}
 
               <Button
                 variant="outlined"
@@ -423,16 +690,18 @@ export default function SecureVault() {
                       </Box>
                     </Box>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }} display="flex" justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
-                    <Button 
-                      variant="contained" 
-                      startIcon={<CloudUpload />}
-                      sx={{ bgcolor: '#2E7D32', '&:hover': { bgcolor: '#1B5E20' }, px: 3, py: 1, borderRadius: 2, textTransform: 'none', fontWeight: 600, boxShadow: '0 4px 12px rgba(46, 125, 50, 0.2)' }}
-                      onClick={() => setUploadModalOpen(true)}
-                    >
-                      Upload Secure File
-                    </Button>
-                  </Grid>
+                  {!hasGovtBypass && (
+                    <Grid size={{ xs: 12, sm: 4 }} display="flex" justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
+                      <Button 
+                        variant="contained" 
+                        startIcon={<CloudUpload />}
+                        sx={{ bgcolor: '#2E7D32', '&:hover': { bgcolor: '#1B5E20' }, px: 3, py: 1, borderRadius: 2, textTransform: 'none', fontWeight: 600, boxShadow: '0 4px 12px rgba(46, 125, 50, 0.2)' }}
+                        onClick={() => setUploadModalOpen(true)}
+                      >
+                        Upload Secure File
+                      </Button>
+                    </Grid>
+                  )}
                 </Grid>
 
                 {/* Secure Document List Table */}
@@ -440,6 +709,9 @@ export default function SecureVault() {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: 'rgba(0,0,0,0.02)' }}>
+                        {hasGovtBypass && (
+                          <TableCell sx={{ fontWeight: 600, color: 'text.secondary', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>Company</TableCell>
+                        )}
                         <TableCell sx={{ fontWeight: 600, color: 'text.secondary', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>Category</TableCell>
                         <TableCell sx={{ fontWeight: 600, color: 'text.secondary', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>File Name</TableCell>
                         <TableCell sx={{ fontWeight: 600, color: 'text.secondary', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>Expiry Date</TableCell>
@@ -450,6 +722,11 @@ export default function SecureVault() {
                     <TableBody>
                       {documentsList.map((doc) => (
                         <TableRow key={doc.id} hover sx={{ '&:hover': { bgcolor: 'rgba(0,0,0,0.01)' } }}>
+                          {hasGovtBypass && (
+                            <TableCell sx={{ fontWeight: 600, color: '#1F4E79', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                              {doc.company_name || 'N/A'}
+                            </TableCell>
+                          )}
                           <TableCell sx={{ fontWeight: 600, color: '#1F4E79', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>{doc.category}</TableCell>
                           <TableCell sx={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                             <Box display="flex" alignItems="center" gap={1}>
@@ -495,18 +772,20 @@ export default function SecureVault() {
                             >
                               <FileDownload fontSize="small" />
                             </IconButton>
-                            <IconButton 
-                              size="small"
-                              sx={{ color: '#d32f2f', '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.08)' } }}
-                              onClick={() => {
-                                if (confirm(`Are you absolutely sure you want to securely delete ${doc.file_name} from the encrypted storage? This action will permanently remove it from the vault.`)) {
-                                  handleDeleteSecure(doc.id, doc.file_name);
-                                }
-                              }}
-                              title="Secure Delete"
-                            >
-                              <DeleteOutline fontSize="small" />
-                            </IconButton>
+                            {!hasGovtBypass && (
+                              <IconButton 
+                                size="small"
+                                sx={{ color: '#d32f2f', '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.08)' } }}
+                                onClick={() => {
+                                  if (confirm(`Are you absolutely sure you want to securely delete ${doc.file_name} from the encrypted storage? This action will permanently remove it from the vault.`)) {
+                                    handleDeleteSecure(doc.id, doc.file_name);
+                                  }
+                                }}
+                                title="Secure Delete"
+                              >
+                                <DeleteOutline fontSize="small" />
+                              </IconButton>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -555,7 +834,7 @@ export default function SecureVault() {
                     variant="contained" 
                     startIcon={<AutoAwesome />}
                     onClick={() => {
-                      setUpgradeDialogOpen(true);
+                      handleRazorpayPayment('enterprise_suite');
                     }}
                     sx={{
                       bgcolor: '#1F4E79',
@@ -781,8 +1060,7 @@ export default function SecureVault() {
                   startIcon={<AutoAwesome />}
                   onClick={() => {
                     setUpgradeDialogOpen(false);
-                    setSubscriptionTier('sme_pro');
-                    setSnackbar({ open: true, message: '🎉 Workspace upgraded to SME Professional! 1 GB storage unlocked.', severity: 'success' });
+                    handleRazorpayPayment('sme_pro');
                   }}
                   sx={{
                     bgcolor: '#2E7D32',

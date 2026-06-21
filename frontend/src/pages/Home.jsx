@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Container, Typography, Button, Grid, Card, CardContent,
-  Paper, Divider, Stack, Fade, Chip, Link
+  Paper, Divider, Stack, Fade, Chip
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
@@ -11,22 +11,21 @@ import SecurityIcon from '@mui/icons-material/Security';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import logoTransparent from '../assets/logo-transparent.png';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import SpeedIcon from '@mui/icons-material/Speed';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LoadingScreen from '../components/LoadingScreen';
 import UnifiedNav from '../components/UnifiedNav';
+import UnifiedFooter from '../components/UnifiedFooter';
 
 // Animations
-const float = keyframes`
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-12px); }
-`;
 const dashboardFloat = keyframes`
   0%, 100% { transform: translateY(0px) rotate(0deg); }
   50% { transform: translateY(-8px) rotate(0.3deg); }
 `;
 const pulseGreen = keyframes`
   0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.6); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); }
   100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
 `;
 const drawPath = keyframes`
@@ -34,7 +33,7 @@ const drawPath = keyframes`
   to { stroke-dashoffset: 0; }
 `;
 const slideUp = keyframes`
-  from { opacity: 0; transform: translateY(40px); }
+  from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 const countUp = keyframes`
@@ -44,6 +43,21 @@ const countUp = keyframes`
 const shimmer = keyframes`
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }
+`;
+const orbit1 = keyframes`
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(40px, -60px) scale(1.05); }
+  66% { transform: translate(-30px, 30px) scale(0.95); }
+  100% { transform: translate(0px, 0px) scale(1); }
+`;
+const orbit2 = keyframes`
+  0% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(-50px, 40px) scale(1.1); }
+  100% { transform: translate(0px, 0px) scale(1); }
+`;
+const pulseCardGlow = keyframes`
+  0%, 100% { box-shadow: 0 30px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06), 0 0 25px rgba(76,175,80,0.03); }
+  50% { box-shadow: 0 30px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1), 0 0 35px rgba(76,175,80,0.12); }
 `;
 
 // Animated counter
@@ -64,12 +78,64 @@ export default function Home() {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
   const [isIntroLoading, setIsIntroLoading] = useState(true);
+  const [dashboardTab, setDashboardTab] = useState('telemetry');
+  const [highlightedRow, setHighlightedRow] = useState(null);
+  const [alertFilter, setAlertFilter] = useState('all');
   const [recentEvents, setRecentEvents] = useState([
     { time: 'Just now', msg: 'SLA NOC Approved - Kanchipuram Hub', type: 'success' },
     { time: '2 mins ago', msg: 'GST Verification completed for Unit #49', type: 'info' },
     { time: '5 mins ago', msg: 'GIS Map plot allocation sync finished', type: 'success' },
     { time: '12 mins ago', msg: 'New grievance ticket registered - Org #382', type: 'warning' },
   ]);
+
+  // Real-time telemetry data states
+  const [streamingRate, setStreamingRate] = useState(45.8);
+  const [telemetryPoints1, setTelemetryPoints1] = useState([80, 70, 55, 62, 50, 45, 55, 38, 28, 20, 15]);
+  const [telemetryPoints2, setTelemetryPoints2] = useState([90, 75, 50, 55, 45, 38, 32, 45, 52, 40, 35]);
+
+  // Telemetry real-time update logic
+  useEffect(() => {
+    if (dashboardTab !== 'telemetry') return;
+
+    let intervalId;
+    // Delay start of dynamic telemetry updates by 3 seconds to let initial draw animation complete
+    const startTimeout = setTimeout(() => {
+      intervalId = setInterval(() => {
+        setStreamingRate(prev => {
+          const diff = (Math.random() - 0.5) * 4;
+          const next = Math.max(40.0, Math.min(50.0, prev + diff));
+          return parseFloat(next.toFixed(1));
+        });
+
+        setTelemetryPoints1(prev => {
+          const next = [...prev];
+          next.shift();
+          const lastVal = next[next.length - 1];
+          // Bounded random walk to avoid large jumps
+          const diff = (Math.random() - 0.5) * 20;
+          const newVal = Math.max(10, Math.min(85, lastVal + diff));
+          next.push(Math.round(newVal));
+          return next;
+        });
+
+        setTelemetryPoints2(prev => {
+          const next = [...prev];
+          next.shift();
+          const lastVal = next[next.length - 1];
+          // Bounded random walk to avoid large jumps
+          const diff = (Math.random() - 0.5) * 20;
+          const newVal = Math.max(15, Math.min(90, lastVal + diff));
+          next.push(Math.round(newVal));
+          return next;
+        });
+      }, 1200);
+    }, 3000);
+
+    return () => {
+      clearTimeout(startTimeout);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [dashboardTab]);
 
   useEffect(() => { 
     if (!isIntroLoading) return;
@@ -111,14 +177,6 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  const navItems = [
-    { label: 'About', path: '/about' },
-    { label: 'Features', path: '/features' },
-    { label: 'Pricing', path: '/subscriptions' },
-    { label: 'Industrial Parks', path: '/parks' },
-    { label: 'Contact', path: '/contact' },
-    { label: 'Grievance', path: '/grievance' },
-  ];
 
   return (
     <>
@@ -128,33 +186,49 @@ export default function Home() {
 
       {/* HERO SECTION */}
       <Box sx={{
-        position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden',
-        background: `linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(31,78,121,0.75) 50%, rgba(46,125,50,0.7) 100%),
+        position: 'relative',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        overflow: 'hidden',
+        bgcolor: '#070b13',
+        background: `linear-gradient(135deg, rgba(7,11,19,0.95) 0%, rgba(15,23,42,0.85) 50%, rgba(7,11,19,0.95) 100%),
           url("https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=2000")`,
-        backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
       }}>
         {/* Animated grid pattern overlay */}
         <Box sx={{
-          position: 'absolute', inset: 0, opacity: 0.05,
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.07,
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)`,
+          backgroundSize: '50px 50px',
         }} />
 
-        {/* Floating orbs */}
+        {/* Floating complex orbs */}
         {[
-          { size: 300, top: '10%', right: '-5%', delay: '0s', color: 'rgba(46,125,50,0.15)' },
-          { size: 200, bottom: '15%', left: '-3%', delay: '1s', color: 'rgba(31,78,121,0.2)' },
-          { size: 150, top: '60%', right: '20%', delay: '2s', color: 'rgba(245,124,0,0.1)' },
+          { size: 450, top: '5%', right: '-10%', delay: '0s', color: 'rgba(46,125,50,0.14)', animation: orbit1 },
+          { size: 350, bottom: '5%', left: '-8%', delay: '1.5s', color: 'rgba(31,78,121,0.12)', animation: orbit2 },
+          { size: 250, top: '50%', right: '15%', delay: '3s', color: 'rgba(46,125,50,0.08)', animation: orbit1 },
         ].map((orb, i) => (
           <Box key={i} sx={{
-            position: 'absolute', width: orb.size, height: orb.size, borderRadius: '50%',
+            position: 'absolute',
+            width: orb.size,
+            height: orb.size,
+            borderRadius: '50%',
             background: `radial-gradient(circle, ${orb.color}, transparent 70%)`,
-            top: orb.top, bottom: orb.bottom, left: orb.left, right: orb.right,
-            animation: `${float} ${4 + i}s ease-in-out ${orb.delay} infinite`,
-            filter: 'blur(40px)',
+            top: orb.top,
+            bottom: orb.bottom,
+            left: orb.left,
+            right: orb.right,
+            animation: `${orb.animation} ${12 + i * 4}s ease-in-out infinite alternate`,
+            filter: 'blur(90px)',
+            pointerEvents: 'none',
           }} />
         ))}
-
+ 
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2, color: 'white', py: { xs: 8, md: 12 } }}>
           <Fade in={isVisible} timeout={800}>
             <Grid container spacing={5} alignItems="center">
@@ -166,34 +240,36 @@ export default function Home() {
                   alignItems: 'center',
                   gap: 1.5,
                   mb: 3.5,
-                  bgcolor: 'rgba(46, 125, 50, 0.15)',
-                  border: '1px solid rgba(76, 175, 80, 0.35)',
+                  bgcolor: 'rgba(46, 125, 50, 0.08)',
+                  border: '1px solid rgba(46, 125, 50, 0.25)',
                   borderRadius: '50px',
                   px: 2.5,
                   py: 1,
-                  backdropFilter: 'blur(10px)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 0 15px rgba(46, 125, 50, 0.05)',
                   animation: `${slideUp} 0.8s ease-out`,
                 }}>
                   <Box sx={{
-                    width: 7,
-                    height: 7,
+                    width: 8,
+                    height: 8,
                     borderRadius: '50%',
-                    bgcolor: '#4CAF50',
+                    bgcolor: '#2E7D32',
+                    boxShadow: '0 0 8px #2E7D32',
                     animation: `${pulseGreen} 1.8s infinite ease-in-out`
                   }} />
                   <Typography sx={{
                     fontWeight: 800,
                     letterSpacing: '0.12em',
-                    fontSize: '0.75rem',
-                    color: '#c0f772',
+                    fontSize: '0.72rem',
+                    color: '#4CAF50',
                     textTransform: 'uppercase'
                   }}>
                     SIPCOT SIMS 2.0 • Live Monitoring Active
                   </Typography>
                 </Box>
-
+ 
                 <Typography variant="h1" sx={{
-                  fontSize: { xs: '2.8rem', sm: '3.6rem', md: '4.6rem' },
+                  fontSize: { xs: '2.8rem', sm: '3.8rem', md: '4.8rem' },
                   fontWeight: 900,
                   lineHeight: 1.1,
                   mb: 3,
@@ -202,50 +278,62 @@ export default function Home() {
                 }}>
                   Welcome to{' '}
                   <Box component="span" sx={{
-                    background: 'linear-gradient(90deg, #4CAF50, #81C784, #4CAF50)',
+                    background: 'linear-gradient(90deg, #4CAF50 0%, #2E7D32 50%, #81C784 100%)',
                     backgroundSize: '200% auto',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    animation: `${shimmer} 3s linear infinite`,
+                    animation: `${shimmer} 4s linear infinite`,
+                    display: 'inline-block',
+                    overflow: 'visible'
                   }}>
                     THOZHIRPORUL
                   </Box>
                 </Typography>
-
+ 
                 <Typography variant="h5" sx={{
-                  mb: 5, fontWeight: 300, opacity: 0.88, maxWidth: { xs: '100%', md: 620 },
-                  fontSize: { xs: '1.05rem', md: '1.3rem' }, lineHeight: 1.6,
+                  mb: 5, fontWeight: 400, color: 'rgba(255, 255, 255, 0.72)', maxWidth: { xs: '100%', md: 620 },
+                  fontSize: { xs: '1.05rem', md: '1.25rem' }, lineHeight: 1.6,
                   animation: `${slideUp} 1.2s ease-out`,
                   mx: { xs: 'auto', md: 0 }
                 }}>
                   The unified digital command center powering Tamil Nadu's industrial transformation
                   through real-time telemetry, statutory compliance auditing, and secure land orchestration.
                 </Typography>
-
+ 
                 {/* CTA Buttons */}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2.5} justifyContent={{ xs: 'center', md: 'flex-start' }} sx={{ animation: `${slideUp} 1.4s ease-out`, mb: 6 }}>
                   <Button variant="contained" size="large" onClick={() => navigate('/role-selection')}
                     endIcon={<ArrowForwardIcon />}
                     sx={{
                       px: 4.5, py: 2, fontSize: '1.05rem', fontWeight: 800, borderRadius: 3.5,
-                      background: 'linear-gradient(135deg, #1B5E20, #4CAF50)',
-                      boxShadow: '0 8px 30px rgba(46,125,50,0.35)',
-                      '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 36px rgba(46,125,50,0.5)', background: 'linear-gradient(135deg, #1B5E20, #4CAF50)' },
+                      background: 'linear-gradient(135deg, #4CAF50, #2E7D32)',
+                      boxShadow: '0 8px 30px rgba(46,125,50,0.3)',
                       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-3px)',
+                        boxShadow: '0 12px 36px rgba(46,125,50,0.5)',
+                        background: 'linear-gradient(135deg, #2E7D32, #1B5E20)'
+                      },
                     }}>
                     Launch Command Portal
                   </Button>
                   <Button variant="outlined" size="large" onClick={() => navigate('/parks')}
                     sx={{
                       px: 4, py: 2, fontSize: '1rem', fontWeight: 700, borderRadius: 3.5,
-                      color: 'white', borderColor: 'rgba(255,255,255,0.35)', borderWidth: 1.5,
+                      color: 'white', borderColor: 'rgba(255,255,255,0.25)', borderWidth: 1.5,
                       backdropFilter: 'blur(10px)',
-                      '&:hover': { borderColor: 'white', borderWidth: 1.5, bgcolor: 'rgba(255,255,255,0.08)', transform: 'translateY(-2px)' },
                       transition: 'all 0.3s ease',
+                      '&:hover': {
+                        borderColor: '#2E7D32',
+                        borderWidth: 1.5,
+                        bgcolor: 'rgba(46,125,50,0.08)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 24px rgba(46,125,50,0.1)'
+                      },
                     }}>
                     Explore Parks
                   </Button>
                 </Stack>
-
+ 
                 {/* Core Pillars */}
                 <Grid container spacing={1.5} justifyContent={{ xs: 'center', md: 'flex-start' }} sx={{ animation: `${slideUp} 1.6s ease-out` }}>
                   {[
@@ -255,13 +343,18 @@ export default function Home() {
                   ].map((item, idx) => (
                     <Grid key={idx} size={{ xs: 6, sm: 'auto' }}>
                       <Box sx={{
-                        px: 2, py: 1, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)',
-                        color: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', gap: 1,
+                        px: 2.5, py: 1.2, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)',
+                        color: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', gap: 1.2,
                         transition: 'all 0.3s ease',
-                        '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', transform: 'translateY(-2px)' },
+                        '&:hover': {
+                          bgcolor: 'rgba(255,255,255,0.08)',
+                          border: '1px solid rgba(46,125,50,0.3)',
+                          transform: 'translateY(-2px)',
+                          color: 'white'
+                        },
                       }}>
-                        <Box sx={{ color: '#4CAF50', display: 'flex', alignItems: 'center' }}>{item.icon}</Box>
+                        <Box sx={{ color: '#2E7D32', display: 'flex', alignItems: 'center' }}>{item.icon}</Box>
                         <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: '0.05em' }}>{item.title}</Typography>
                       </Box>
                     </Grid>
@@ -274,113 +367,304 @@ export default function Home() {
                 <Box sx={{
                   position: 'relative',
                   width: '100%',
-                  maxWidth: 480,
-                  bgcolor: 'rgba(15, 23, 42, 0.45)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  maxWidth: 500,
+                  bgcolor: 'rgba(10, 15, 30, 0.7)',
+                  backdropFilter: 'blur(30px)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: 6,
-                  boxShadow: '0 30px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
+                  boxShadow: '0 30px 60px rgba(0,0,0,0.5)',
                   p: 3,
                   mx: 'auto',
-                  animation: `${dashboardFloat} 6s ease-in-out infinite`,
+                  animation: `${dashboardFloat} 6s ease-in-out infinite, ${pulseCardGlow} 8s ease-in-out infinite`,
+                  overflow: 'hidden'
                 }}>
+                  {/* Glowing dynamic background nodes inside card */}
+                  <Box sx={{ position: 'absolute', top: '-10%', left: '-10%', width: '120px', height: '120px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(76,175,80,0.08), transparent 70%)', filter: 'blur(15px)', pointerEvents: 'none' }} />
+                  
                   {/* Dashboard Header */}
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#4CAF50', animation: `${pulseGreen} 1.5s infinite` }} />
-                      <Typography sx={{ fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.7)' }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2.5}>
+                    <Box display="flex" alignItems="center" gap={1.2}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#2E7D32', boxShadow: '0 0 8px #2E7D32', animation: `${pulseGreen} 1.5s infinite` }} />
+                      <Typography sx={{ fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.7)' }}>
                         SIMS CONTROL ROOM
                       </Typography>
                     </Box>
-                    <Typography sx={{ fontWeight: 700, fontSize: '0.65rem', color: '#4CAF50', bgcolor: 'rgba(76,175,80,0.15)', px: 1.5, py: 0.5, borderRadius: 2 }}>
-                      SYSTEM: ONLINE
+                    <Typography sx={{ fontWeight: 800, fontSize: '0.65rem', color: '#4CAF50', bgcolor: 'rgba(46,125,50,0.12)', border: '1px solid rgba(46,125,50,0.2)', px: 1.5, py: 0.5, borderRadius: 2 }}>
+                      SYS: LIVE
                     </Typography>
                   </Box>
-
+ 
                   {/* Stat Grid */}
                   <Grid container spacing={2} mb={3}>
                     <Grid size={{ xs: 6 }}>
-                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
-                        <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, mb: 0.5 }}>COMPLIANCE AVG</Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#4CAF50', letterSpacing: '-0.02em' }}>98.4%</Typography>
+                      <Paper variant="outlined" sx={{
+                        p: 2, bgcolor: 'rgba(255,255,255,0.01)', borderColor: 'rgba(255,255,255,0.05)', borderRadius: 3.5,
+                        transition: 'all 0.3s ease',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(46,125,50,0.2)' }
+                      }}>
+                        <Typography sx={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.45)', fontWeight: 700, mb: 0.5, letterSpacing: '0.05em' }}>COMPLIANCE AVG</Typography>
+                        <Box display="flex" alignItems="baseline" gap={0.5}>
+                          <Typography variant="h5" sx={{ fontWeight: 900, color: '#2E7D32', letterSpacing: '-0.02em' }}>98.4%</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', color: '#2E7D32', fontSize: '0.65rem', fontWeight: 700 }}>
+                            <TrendingUpIcon sx={{ fontSize: 10, mr: 0.2 }} />
+                            +0.4%
+                          </Box>
+                        </Box>
                       </Paper>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
-                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
-                        <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, mb: 0.5 }}>ACTIVE SESSIONS</Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#3B82F6', letterSpacing: '-0.02em' }}>1,842</Typography>
+                      <Paper variant="outlined" sx={{
+                        p: 2, bgcolor: 'rgba(255,255,255,0.01)', borderColor: 'rgba(255,255,255,0.05)', borderRadius: 3.5,
+                        transition: 'all 0.3s ease',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(31,78,121,0.2)' }
+                      }}>
+                        <Typography sx={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.45)', fontWeight: 700, mb: 0.5, letterSpacing: '0.05em' }}>ACTIVE UNITS</Typography>
+                        <Box display="flex" alignItems="baseline" gap={0.5}>
+                          <Typography variant="h5" sx={{ fontWeight: 900, color: '#1F4E79', letterSpacing: '-0.02em' }}>1,842</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', color: '#1F4E79', fontSize: '0.65rem', fontWeight: 700 }}>
+                            <TrendingUpIcon sx={{ fontSize: 10, mr: 0.2 }} />
+                            +12
+                          </Box>
+                        </Box>
                       </Paper>
                     </Grid>
                   </Grid>
-
-                  {/* SVG Chart */}
-                  <Box sx={{ mb: 3, p: 2, bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <Box display="flex" justifyContent="space-between" mb={1}>
-                      <Typography sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>DATA INGESTION (GB/s)</Typography>
-                      <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)' }}>Real-time Feed</Typography>
-                    </Box>
-                    <svg viewBox="0 0 300 100" style={{ width: '100%', height: '80px', display: 'block' }}>
-                      {/* Horizontal Grid lines */}
-                      <line x1="0" y1="20" x2="300" y2="20" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-                      <line x1="0" y1="50" x2="300" y2="50" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-                      <line x1="0" y1="80" x2="300" y2="80" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-                      
-                      {/* Flow Path 1 (Blue) */}
-                      <path
-                        d="M 0 80 Q 30 50 60 70 T 120 40 T 180 60 T 240 25 T 300 15"
-                        fill="none"
-                        stroke="#3B82F6"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        style={{
-                          strokeDasharray: '400',
-                          strokeDashoffset: '400',
-                          animation: `${drawPath} 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+ 
+                  {/* Interactive Switch Tabs */}
+                  <Box sx={{ display: 'flex', bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 3.5, p: 0.5, mb: 2.5, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {[
+                      { id: 'telemetry', label: 'Telemetry', icon: <SpeedIcon sx={{ fontSize: 13 }} /> },
+                      { id: 'compliance', label: 'Compliance', icon: <SecurityIcon sx={{ fontSize: 13 }} /> },
+                      { id: 'alerts', label: 'Alert Feed', icon: <WarningAmberIcon sx={{ fontSize: 13 }} /> },
+                    ].map((tab) => (
+                      <Box
+                        key={tab.id}
+                        onClick={() => setDashboardTab(tab.id)}
+                        sx={{
+                          flex: 1, py: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.8,
+                          borderRadius: 3, fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer',
+                          bgcolor: dashboardTab === tab.id ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          color: dashboardTab === tab.id ? '#2E7D32' : 'rgba(255,255,255,0.5)',
+                          border: dashboardTab === tab.id ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          '&:hover': {
+                            color: 'white',
+                            bgcolor: dashboardTab === tab.id ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)'
+                          }
                         }}
-                      />
-                      {/* Flow Path 2 (Green) */}
-                      <path
-                        d="M 0 90 Q 40 40 80 60 T 160 30 T 240 50 T 300 35"
-                        fill="none"
-                        stroke="#10B981"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        style={{
-                          strokeDasharray: '400',
-                          strokeDashoffset: '400',
-                          animation: `${drawPath} 2.5s 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
-                        }}
-                      />
-                    </svg>
-                  </Box>
-
-                  {/* Activity log feed */}
-                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, mb: 1.5, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.02em' }}>
-                    LIVE ACTIVITY MONITOR
-                  </Typography>
-                  <Stack spacing={1} sx={{ minHeight: 120 }}>
-                    {recentEvents.map((evt, idx) => (
-                      <Box key={idx} sx={{
-                        p: 1.2,
-                        borderRadius: 2,
-                        bgcolor: 'rgba(255,255,255,0.02)',
-                        borderLeft: `3px solid ${
-                          evt.type === 'success' ? '#10B981' : evt.type === 'warning' ? '#F57C00' : '#3B82F6'
-                        }`,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        animation: `${slideUp} 0.4s ease-out forwards`,
-                      }}>
-                        <Typography sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.85)', fontWeight: 500, maxWidth: '80%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {evt.msg}
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>
-                          {evt.time}
-                        </Typography>
+                      >
+                        {tab.icon}
+                        {tab.label}
                       </Box>
                     ))}
-                  </Stack>
+                  </Box>
+ 
+                  {/* TAB CONTENT: Telemetry */}
+                  {dashboardTab === 'telemetry' && (
+                    <Box sx={{ animation: `${slideUp} 0.4s ease-out` }}>
+                      <Box sx={{ mb: 2.5, p: 2, bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 3.5, border: '1px solid rgba(255,255,255,0.03)' }}>
+                        <Box display="flex" justifyContent="space-between" mb={1}>
+                          <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)', fontWeight: 800 }}>DATA STREAMING RATE</Typography>
+                          <Typography sx={{ fontSize: '0.65rem', color: '#2E7D32', fontWeight: 800 }}>{streamingRate} MB/s</Typography>
+                        </Box>
+                        <svg viewBox="0 0 300 100" style={{ width: '100%', height: '80px', display: 'block' }}>
+                          <line x1="0" y1="20" x2="300" y2="20" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <line x1="0" y1="50" x2="300" y2="50" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <line x1="0" y1="80" x2="300" y2="80" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                          <path
+                            d={telemetryPoints1.map((y, i) => `${i === 0 ? 'M' : 'L'} ${i * 30} ${y}`).join(' ')}
+                            fill="none"
+                            stroke="#1F4E79"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            style={{
+                              strokeDasharray: '400',
+                              strokeDashoffset: '400',
+                              animation: `${drawPath} 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+                              transition: 'd 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
+                          />
+                          <path
+                            d={telemetryPoints2.map((y, i) => `${i === 0 ? 'M' : 'L'} ${i * 30} ${y}`).join(' ')}
+                            fill="none"
+                            stroke="#2E7D32"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            style={{
+                              strokeDasharray: '400',
+                              strokeDashoffset: '400',
+                              animation: `${drawPath} 2.5s 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+                              transition: 'd 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
+                          />
+                          <circle
+                            cx="300"
+                            cy={telemetryPoints1[telemetryPoints1.length - 1]}
+                            r="4"
+                            fill="#1F4E79"
+                            style={{
+                              filter: 'drop-shadow(0 0 4px #1F4E79)',
+                              transition: 'cy 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
+                          />
+                          <circle
+                            cx="300"
+                            cy={telemetryPoints2[telemetryPoints2.length - 1]}
+                            r="4"
+                            fill="#2E7D32"
+                            style={{
+                              filter: 'drop-shadow(0 0 4px #2E7D32)',
+                              transition: 'cy 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
+                          />
+                        </svg>
+                      </Box>
+                      {/* Cluster Nodes */}
+                      <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={1.5}>
+                        {[
+                          { name: 'Kanchipuram Hub', status: 'Optimal', color: '#2E7D32' },
+                          { name: 'Coimbatore Hub', status: 'Optimal', color: '#2E7D32' },
+                          { name: 'Hosur Cluster', status: 'Synced', color: '#1F4E79' },
+                          { name: 'Madurai District', status: 'Optimal', color: '#2E7D32' }
+                        ].map((node, i) => (
+                          <Box key={i} sx={{
+                            p: 1.2, borderRadius: 2.5, bgcolor: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            transition: 'all 0.2s ease', '&:hover': { bgcolor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }
+                          }}>
+                            <Box display="flex" flexDirection="column">
+                              <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{node.name}</Typography>
+                              <Typography sx={{ fontSize: '0.55rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{node.status}</Typography>
+                            </Box>
+                            <Box sx={{ ml: 'auto', width: 6, height: 6, borderRadius: '50%', bgcolor: node.color, boxShadow: `0 0 6px ${node.color}` }} />
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+ 
+                  {/* TAB CONTENT: Compliance */}
+                  {dashboardTab === 'compliance' && (
+                    <Box sx={{ animation: `${slideUp} 0.4s ease-out` }}>
+                      <Grid container spacing={2.5} alignItems="center">
+                        <Grid size={{ xs: 5 }}>
+                          <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                            <svg viewBox="0 0 100 100" style={{ width: '100%', maxWidth: '100px', transform: 'rotate(-90deg)' }}>
+                              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="6" />
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="#2E7D32"
+                                strokeWidth="6"
+                                strokeDasharray="264"
+                                strokeDashoffset="4"
+                                strokeLinecap="round"
+                                style={{
+                                  filter: 'drop-shadow(0 0 6px rgba(46,125,50,0.5))',
+                                  transition: 'stroke-dashoffset 1s ease-in-out'
+                                }}
+                              />
+                            </svg>
+                            <Box sx={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <Typography sx={{ fontSize: '1.1rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>98.4%</Typography>
+                              <Typography sx={{ fontSize: '0.45rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em' }}>AVG SCORE</Typography>
+                            </Box>
+                          </Box>
+                        </Grid>
+                        <Grid size={{ xs: 7 }}>
+                          <Stack spacing={1}>
+                            {[
+                              { label: 'SLA NOC Clearances', val: '99.2%', color: '#2E7D32' },
+                              { label: 'Environmental Filings', val: '97.8%', color: '#2E7D32' },
+                              { label: 'Statutory GST Audits', val: '98.5%', color: '#1F4E79' },
+                            ].map((metric, i) => (
+                              <Box
+                                key={i}
+                                onClick={() => setHighlightedRow(i)}
+                                sx={{
+                                  p: 1.2, borderRadius: 2.5, cursor: 'pointer',
+                                  bgcolor: highlightedRow === i ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.01)',
+                                  border: highlightedRow === i ? '1px solid rgba(46,125,50,0.25)' : '1px solid rgba(255,255,255,0.04)',
+                                  transition: 'all 0.2s ease',
+                                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                }}
+                              >
+                                <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: highlightedRow === i ? '#2E7D32' : 'rgba(255,255,255,0.85)' }}>{metric.label}</Typography>
+                                <Typography sx={{ fontSize: '0.65rem', fontWeight: 900, color: metric.color }}>{metric.val}</Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Grid>
+                      </Grid>
+                      <Box sx={{ mt: 2.5, p: 1.5, borderRadius: 2.5, bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <SecurityIcon sx={{ color: '#2E7D32', fontSize: 16 }} />
+                        <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
+                          All industrial sectors currently operate within compliance boundaries.
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+ 
+                  {/* TAB CONTENT: Alert Feed */}
+                  {dashboardTab === 'alerts' && (
+                    <Box sx={{ animation: `${slideUp} 0.4s ease-out` }}>
+                      {/* Alert Filter Toggles */}
+                      <Box display="flex" gap={1} mb={2}>
+                        {['all', 'warning', 'info'].map((f) => (
+                          <Box
+                            key={f}
+                            onClick={() => setAlertFilter(f)}
+                            sx={{
+                              px: 1.5, py: 0.5, borderRadius: 1.5, fontSize: '0.6rem', fontWeight: 800, cursor: 'pointer',
+                              textTransform: 'uppercase', letterSpacing: '0.05em',
+                              bgcolor: alertFilter === f ? 'rgba(255,255,255,0.08)' : 'transparent',
+                              color: alertFilter === f ? '#2E7D32' : 'rgba(255,255,255,0.4)',
+                              border: '1px solid',
+                              borderColor: alertFilter === f ? 'rgba(46,125,50,0.3)' : 'rgba(255,255,255,0.05)',
+                              transition: 'all 0.2s ease',
+                              '&:hover': { color: 'white' }
+                            }}
+                          >
+                            {f}
+                          </Box>
+                        ))}
+                      </Box>
+ 
+                      {/* Activity log feed */}
+                      <Stack spacing={1} sx={{ minHeight: 120 }}>
+                        {recentEvents
+                          .filter(evt => alertFilter === 'all' || evt.type === alertFilter)
+                          .map((evt, idx) => (
+                            <Box key={idx} sx={{
+                              p: 1.2,
+                              borderRadius: 2.5,
+                              bgcolor: 'rgba(255,255,255,0.01)',
+                              borderLeft: `3px solid ${
+                                evt.type === 'success' ? '#2E7D32' : evt.type === 'warning' ? '#1F4E79' : '#1F4E79'
+                              }`,
+                              borderRight: '1px solid rgba(255,255,255,0.03)',
+                              borderTop: '1px solid rgba(255,255,255,0.03)',
+                              borderBottom: '1px solid rgba(255,255,255,0.03)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              animation: `${slideUp} 0.3s ease-out forwards`,
+                              transition: 'all 0.2s ease',
+                              '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' }
+                            }}>
+                              <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600, maxWidth: '80%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {evt.msg}
+                              </Typography>
+                              <Typography sx={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>
+                                {evt.time}
+                              </Typography>
+                            </Box>
+                          ))}
+                      </Stack>
+                    </Box>
+                  )}
                 </Box>
               </Grid>
             </Grid>
@@ -506,11 +790,11 @@ export default function Home() {
                 title: 'Predictive Analytics',
                 desc: 'AI-ready data models to forecast economic shifts, infrastructure demand, and investment trajectories.',
                 icon: <AssessmentIcon sx={{ fontSize: 32 }} />,
-                color: '#E65100',
-                bgColor: '#fff3e0',
-                shadow: '0 8px 24px rgba(230, 81, 0, 0.08)',
-                hoverShadow: '0 20px 40px rgba(230, 81, 0, 0.15)',
-                hoverIconShadow: '0 12px 28px rgba(230, 81, 0, 0.22)',
+                color: '#2E7D32',
+                bgColor: '#e8f5e9',
+                shadow: '0 8px 24px rgba(46, 125, 50, 0.08)',
+                hoverShadow: '0 20px 40px rgba(46, 125, 50, 0.15)',
+                hoverIconShadow: '0 12px 28px rgba(46, 125, 50, 0.22)',
                 path: '/analytics',
                 badge: 'AI-Powered',
                 action: 'View Analytics'
@@ -519,11 +803,11 @@ export default function Home() {
                 title: 'Unified Gateway',
                 desc: 'Single platform connecting factory owners, NEXORA administrators, and state officials seamlessly.',
                 icon: <FactoryIcon sx={{ fontSize: 32 }} />,
-                color: '#374151',
-                bgColor: '#f3f4f6',
-                shadow: '0 8px 24px rgba(55, 65, 81, 0.06)',
-                hoverShadow: '0 20px 40px rgba(55, 65, 81, 0.12)',
-                hoverIconShadow: '0 12px 28px rgba(55, 65, 81, 0.18)',
+                color: '#1F4E79',
+                bgColor: '#e6f0fa',
+                shadow: '0 8px 24px rgba(31, 78, 121, 0.08)',
+                hoverShadow: '0 20px 40px rgba(31, 78, 121, 0.15)',
+                hoverIconShadow: '0 12px 28px rgba(31, 78, 121, 0.22)',
                 path: '/workspace',
                 badge: 'Multi-Portal',
                 action: 'Access Workspace'
@@ -713,7 +997,7 @@ export default function Home() {
                 period: 'Free Plan',
                 desc: 'Baseline digital forms and standard compliance tracker. Perfect for small businesses fulfilling statutory requirements.',
                 bullets: ['Unified submission forms', 'Overall compliance scoring', 'Standard Services NOC tracker', '10 MB Vault file limit'],
-                color: '#455A64',
+                color: '#1F4E79',
                 bg: 'white'
               },
               {
@@ -856,66 +1140,7 @@ export default function Home() {
       </Box>
 
       {/* FOOTER */}
-      <Box sx={{ bgcolor: 'white', pt: 10, pb: 5, borderTop: '1px solid #E2E8F0' }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={{ xs: 3, md: 6 }} sx={{ mb: 8 }}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1.5 }}>
-                <Box sx={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={logoTransparent} alt="NEXORA Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={900} sx={{
-                    lineHeight: 1, letterSpacing: '-0.02em',
-                    background: 'linear-gradient(90deg, #1F4E79, #2E7D32)',
-                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                  }}>
-                    THOZHIRPORUL
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em' }}>
-                    BY NEXORA
-                  </Typography>
-                </Box>
-              </Box>
-              <Typography color="text.secondary" sx={{ lineHeight: 1.8, fontSize: '0.9rem' }}>
-                The Smart Industrial Monitoring System is Tamil Nadu's unified digital framework for industrial governance, transparency, and data-driven growth.
-              </Typography>
-            </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Typography fontWeight={800} sx={{ mb: 3, fontSize: '0.85rem' }}>Platform</Typography>
-              <Stack spacing={2}>
-                {navItems.map((item) => (
-                  <Link key={item.label} onClick={() => navigate(item.path)} sx={{ cursor: 'pointer', color: 'text.secondary', textDecoration: 'none', fontWeight: 500, fontSize: '0.85rem', '&:hover': { color: 'primary.main' } }}>{item.label}</Link>
-                ))}
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Typography fontWeight={800} sx={{ mb: 3, fontSize: '0.85rem' }}>Resources</Typography>
-              <Stack spacing={2}>
-                <Link onClick={() => navigate('/features')} sx={{ cursor: 'pointer', color: 'text.secondary', textDecoration: 'none', fontWeight: 500, fontSize: '0.85rem', '&:hover': { color: 'primary.main' } }}>Knowledge Hub</Link>
-                <Link onClick={() => navigate('/about')} sx={{ cursor: 'pointer', color: 'text.secondary', textDecoration: 'none', fontWeight: 500, fontSize: '0.85rem', '&:hover': { color: 'primary.main' } }}>Status Center</Link>
-                <Link onClick={() => navigate('/contact')} sx={{ cursor: 'pointer', color: 'text.secondary', textDecoration: 'none', fontWeight: 500, fontSize: '0.85rem', '&:hover': { color: 'primary.main' } }}>Developer API</Link>
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Typography fontWeight={800} sx={{ mb: 3, fontSize: '0.85rem' }}>Official Support</Typography>
-              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, bgcolor: '#f8fafc' }}>
-                <Typography variant="body2" fontWeight={700}>Helpdesk: 1800-425-XXXX</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>thozhiporul-support@sipcot.tn.gov.in</Typography>
-              </Paper>
-              <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 1.5 }}>Maintenance: Sunday 02:00-04:00 AM IST</Typography>
-            </Grid>
-          </Grid>
-          <Divider sx={{ mb: 4 }} />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="caption" color="text.disabled">&copy; 2026 NEXORA, Government of Tamil Nadu. THOZHIRPORUL Platform.</Typography>
-            <Stack direction="row" spacing={3}>
-              <Link onClick={() => navigate('/about')} sx={{ cursor: 'pointer', color: 'text.disabled', textDecoration: 'none', fontSize: '0.75rem', '&:hover': { color: 'text.primary' } }}>Privacy Policy</Link>
-              <Link onClick={() => navigate('/about')} sx={{ cursor: 'pointer', color: 'text.disabled', textDecoration: 'none', fontSize: '0.75rem', '&:hover': { color: 'text.primary' } }}>Terms of Service</Link>
-            </Stack>
-          </Box>
-        </Container>
-      </Box>
+      <UnifiedFooter />
     </Box>
     </>
   );

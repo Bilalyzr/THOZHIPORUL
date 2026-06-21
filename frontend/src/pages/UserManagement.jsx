@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Paper, 
@@ -30,16 +30,10 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-
-const initialUsers = [
-  { id: 1, name: "Ravi Kumar", rootEmail: "tech@abc-industry.com", role: "Industry", status: "Active" },
-  { id: 2, name: "Meena Devi", rootEmail: "m.devi@sipcot.com", role: "Admin", status: "Active" },
-  { id: 3, name: "Suresh", rootEmail: "suresh@tn.gov.in", role: "Govt", status: "Pending" },
-  { id: 4, name: "Arun Prakash", rootEmail: "admin@xyz-mfg.com", role: "Industry", status: "Active" },
-];
+import { userService } from '../services/api';
 
 function UserManagement() {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   
@@ -51,6 +45,31 @@ function UserManagement() {
   // Snackbar States
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
+  const showSnackbar = useCallback((message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const response = await userService.getAll();
+      setUsers(response.data);
+    } catch {
+      showSnackbar('Failed to fetch users', 'error');
+    }
+  }, [showSnackbar]);
+
+  useEffect(() => {
+    let active = true;
+    userService.getAll()
+      .then(response => {
+        if (active) setUsers(response.data);
+      })
+      .catch(() => {
+        if (active) showSnackbar('Failed to fetch users', 'error');
+      });
+    return () => { active = false; };
+  }, [showSnackbar]);
+
   const handleMenuClick = (event, user) => {
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
@@ -58,10 +77,6 @@ function UserManagement() {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-  };
-
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
   };
 
   const handleOpenAdd = () => {
@@ -77,28 +92,42 @@ function UserManagement() {
     handleMenuClose();
   };
 
-  const handleDeleteFromMenu = () => {
-    setUsers(users.filter(u => u.id !== selectedUser.id));
-    showSnackbar(`User ${selectedUser.name} deleted successfully`, 'error');
-    handleMenuClose();
-  };
-
-  const handleApproveFromMenu = () => {
-    setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: 'Active' } : u));
-    showSnackbar(`User ${selectedUser.name} access approved!`);
-    handleMenuClose();
-  };
-
-  const handleSaveUser = () => {
-    if (isEditMode) {
-      setUsers(users.map(u => u.id === formData.id ? formData : u));
-      showSnackbar("User updated successfully");
-    } else {
-      const newUser = { ...formData, id: Date.now() };
-      setUsers([...users, newUser]);
-      showSnackbar("New user added successfully");
+  const handleDeleteFromMenu = async () => {
+    try {
+      await userService.delete(selectedUser.id);
+      showSnackbar(`User ${selectedUser.name || selectedUser.rootEmail} deleted successfully`);
+      fetchUsers();
+    } catch {
+      showSnackbar('Failed to delete user', 'error');
     }
-    setOpenAddEdit(false);
+    handleMenuClose();
+  };
+
+  const handleApproveFromMenu = async () => {
+    try {
+      await userService.updateStatus(selectedUser.id, 'Active');
+      showSnackbar(`User ${selectedUser.name || selectedUser.rootEmail} access approved!`);
+      fetchUsers();
+    } catch {
+      showSnackbar('Failed to approve user', 'error');
+    }
+    handleMenuClose();
+  };
+
+  const handleSaveUser = async () => {
+    try {
+      if (isEditMode) {
+        await userService.update(formData.id, formData);
+        showSnackbar("User updated successfully");
+      } else {
+        await userService.create(formData);
+        showSnackbar("New user added successfully");
+      }
+      fetchUsers();
+      setOpenAddEdit(false);
+    } catch (err) {
+      showSnackbar(err.response?.data?.msg || 'Failed to save user', 'error');
+    }
   };
 
   const getStatusChip = (status) => {

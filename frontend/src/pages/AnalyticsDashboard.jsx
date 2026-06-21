@@ -17,28 +17,29 @@ import {
 function AnalyticsDashboard() {
 
   const investmentByParkData = [
-    { park: 'Oragadam', investment: 8500 },
-    { park: 'Sriperumbudur', investment: 7200 },
-    { park: 'Hosur', investment: 4100 },
+    { park: 'Oragadam', investment: 15400 },
+    { park: 'Sriperumbudur', investment: 12200 },
+    { park: 'Hosur', investment: 8500 },
     { park: 'Cheyyar', investment: 3200 },
-    { park: 'Thoothukudi', investment: 1500 },
+    { park: 'Thoothukudi', investment: 2800 },
+    { park: 'Gangaikondan', investment: 1500 }
   ];
 
   const employmentGrowthData = [
-    { year: '2021', jobs: 98000 },
-    { year: '2022', jobs: 105000 },
-    { year: '2023', jobs: 118000 },
-    { year: '2024', jobs: 130000 },
-    { year: '2025', jobs: 145000 },
+    { year: '2021', jobs: 105000 },
+    { year: '2022', jobs: 118000 },
+    { year: '2023', jobs: 130000 },
+    { year: '2024', jobs: 142000 },
+    { year: '2025', jobs: 150000 }
   ];
 
   const industryTypeData = [
-    { name: 'Manufacturing', value: 450 },
-    { name: 'Automotive', value: 300 },
-    { name: 'IT/ITES', value: 200 },
-    { name: 'Textile', value: 150 },
-    { name: 'Pharma', value: 100 },
-    { name: 'Other', value: 50 },
+    { name: 'Automotive', value: 450 },
+    { name: 'Electronics', value: 320 },
+    { name: 'Textiles', value: 210 },
+    { name: 'Pharmaceuticals', value: 140 },
+    { name: 'Chemicals', value: 90 },
+    { name: 'Others', value: 40 }
   ];
 
   const COLORS = ['#1F4E79', '#2E7D32', '#F57C00', '#0288D1', '#7B1FA2', '#D32F2F'];

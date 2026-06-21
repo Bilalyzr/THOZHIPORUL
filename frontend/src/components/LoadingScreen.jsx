@@ -70,7 +70,7 @@ export default function LoadingScreen({ message = 'Loading THOZHIRPORUL' }) {
       sx={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
+        zIndex: 10000,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { analyticService, commandService } from '../services/api';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -49,9 +50,9 @@ const KPICard = ({ title, value, unit, growth, icon, color }) => (
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
           <Typography variant="body2" color="text.secondary" fontWeight={600}>{title}</Typography>
-          <Typography variant="h4" fontWeight={800} sx={{ my: 1 }}>
+          <Typography fontWeight={800} sx={{ my: 1, fontSize: { xs: '1.1rem', sm: '1.25rem', md: '1.35rem', lg: '1.5rem' }, lineHeight: 1.2 }}>
             {typeof value === 'number' ? value.toLocaleString() : value}
-            {unit && <Typography component="span" variant="body2" color="text.secondary"> {unit}</Typography>}
+            {unit && <Typography component="span" sx={{ fontSize: { xs: '0.75rem', md: '0.85rem' } }} color="text.secondary"> {unit}</Typography>}
           </Typography>
           <Chip
             size="small"
@@ -91,10 +92,7 @@ export default function GovCommandCenter() {
   const [aiTasks, setAiTasks] = useState(() => {
     const saved = localStorage.getItem('aiTasks');
     if (saved) return JSON.parse(saved);
-    return [
-      { id: 1, type: 'critical', title: 'Critical Issue: Oragadam Water Usage', desc: 'Multiple industries reported >200% water usage spike.', actions: ['Schedule Inspection', 'Issue Warning'] },
-      { id: 2, type: 'success', title: 'Low Risk: 12 Lease Renewals', desc: 'Consistent high compliance scores for these industries.', actions: ['Auto-Approve Batch'] }
-    ];
+    return [];
   });
 
   const handleToggleAutoActions = (e) => {
@@ -110,22 +108,8 @@ export default function GovCommandCenter() {
     alert(`AI Action Executed: ${actionName}`);
   };
 
-  const [electricityFlow, setElectricityFlow] = useState(450.5); // MW
-  const [waterFlow, setWaterFlow] = useState(125.2); // ML/d
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setElectricityFlow(prev => {
-        const change = (Math.random() - 0.5) * 5;
-        return Math.max(0, Number((prev + change).toFixed(2)));
-      });
-      setWaterFlow(prev => {
-        const change = (Math.random() - 0.5) * 1.5;
-        return Math.max(0, Number((prev + change).toFixed(2)));
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  const [electricityFlow] = useState(0); // MW
+  const [waterFlow] = useState(0); // ML/d
 
   const govElectricityRate = 7.50; // ₹ per kWh (unit)
   const govWaterRate = 45.00; // ₹ per kL
@@ -136,57 +120,79 @@ export default function GovCommandCenter() {
   // 1 ML = 1000 kL. Cost per day = flow(ML) * 1000 * rate
   const currentWaterCostPerDay = waterFlow * 1000 * govWaterRate;
 
-  // Mock data
-  const kpis = {
-    total_capex_cr: 24500, capex_growth_pct: 4.2,
-    total_revenue_cr: 18200, revenue_growth_pct: 2.1,
-    direct_employment: 89000, direct_growth_pct: 1.8,
-    indirect_employment: 56000, indirect_growth_pct: 3.1,
-    red_flags: 12, red_flags_change: -2,
-  };
+  const [kpis, setKpis] = useState({
+    total_capex_cr: 0, capex_growth_pct: 0,
+    total_revenue_cr: 0, revenue_growth_pct: 0,
+    direct_employment: 0, direct_growth_pct: 0,
+    indirect_employment: 0, indirect_growth_pct: 0,
+    red_flags: 0, red_flags_change: 0,
+  });
 
-  const rankings = [
-    { rank: 1, name: 'Oragadam', infrastructure_score: 94, total_industries: 187, total_investment_cr: 4200, total_employment: 23400 },
-    { rank: 2, name: 'Siruseri IT Park', infrastructure_score: 92, total_industries: 95, total_investment_cr: 5600, total_employment: 42000 },
-    { rank: 3, name: 'Sriperumbudur', infrastructure_score: 91, total_industries: 156, total_investment_cr: 3800, total_employment: 19800 },
-    { rank: 4, name: 'Hosur', infrastructure_score: 88, total_industries: 143, total_investment_cr: 3200, total_employment: 18500 },
-    { rank: 5, name: 'Gangaikondan', infrastructure_score: 72, total_industries: 34, total_investment_cr: 850, total_employment: 4200 },
-  ];
+  const [rankings, setRankings] = useState([]);
+  const [heatmapData, setHeatmapData] = useState([]);
 
-  const alerts = [
-    { id: 1, severity: 'critical', message: '12 industries missed Q1 2026 data submission deadline', count: 12 },
-    { id: 2, severity: 'high', message: '3 parks operating below 70% infrastructure capacity', count: 3 },
-    { id: 3, severity: 'high', message: '5 NOC service requests overdue by 15+ days', count: 5 },
-    { id: 4, severity: 'medium', message: 'LMN Textiles reported 300% water usage spike', count: 1 },
-    { id: 5, severity: 'low', message: '8 new industry registration requests pending', count: 8 },
-  ];
+  const [alerts, setAlerts] = useState([]);
+  const [investmentTrend, setInvestmentTrend] = useState([]);
+  const [employmentTrend, setEmploymentTrend] = useState([]);
+  const [activityFeed, setActivityFeed] = useState([]);
 
-  const investmentTrend = [
-    { year: '2021', value: 16800 }, { year: '2022', value: 18500 },
-    { year: '2023', value: 20200 }, { year: '2024', value: 22100 },
-    { year: '2025', value: 24500 },
-  ];
+  useEffect(() => {
+    const fetchCommandCenterData = async () => {
+      try {
+        const response = await analyticService.getCommandCenterStats();
+        if (response.data) {
+          setKpis({
+            total_capex_cr: parseFloat(response.data.kpis.total_capex_cr) || 0,
+            capex_growth_pct: 0,
+            total_revenue_cr: parseFloat(response.data.kpis.total_revenue_cr) || 0,
+            revenue_growth_pct: 0,
+            direct_employment: parseInt(response.data.kpis.direct_employment) || 0,
+            direct_growth_pct: 0,
+            indirect_employment: parseInt(response.data.kpis.indirect_employment) || 0,
+            indirect_growth_pct: 0,
+            red_flags: response.data.kpis.red_flags || 0,
+            red_flags_change: 0
+          });
+          
+          const fetchedRankings = (response.data.rankings || []).map((r, i) => ({
+            ...r,
+            rank: i + 1,
+            total_investment_cr: parseFloat(r.total_investment_cr) || 0,
+            infrastructure_score: parseInt(r.infrastructure_score)
+          }));
+          setRankings(fetchedRankings);
+          
+          const formattedHeatmap = (response.data.heatmapData || []).map(h => ({
+            ...h,
+            investment_cr: parseFloat(h.investment_cr) || 0
+          }));
+          setHeatmapData(formattedHeatmap);
+        }
+      } catch (error) {
+        console.error("Error fetching command center data:", error);
+      }
+    };
 
-  const employmentTrend = [
-    { year: '2021', value: 112000 }, { year: '2022', value: 121000 },
-    { year: '2023', value: 130000 }, { year: '2024', value: 138000 },
-    { year: '2025', value: 145000 },
-  ];
+    const fetchAdditionalData = async () => {
+      try {
+        const [alertsRes, feedRes, invTrendsRes, empTrendsRes] = await Promise.all([
+          commandService.getAlerts(),
+          commandService.getActivityFeed(),
+          commandService.getTrends('investment'),
+          commandService.getTrends('employment')
+        ]);
+        setAlerts(alertsRes.data || []);
+        setActivityFeed(feedRes.data || []);
+        setInvestmentTrend(invTrendsRes.data || []);
+        setEmploymentTrend(empTrendsRes.data || []);
+      } catch (error) {
+        console.error("Error fetching additional command center data:", error);
+      }
+    };
 
-  const heatmapData = [
-    { district: 'Kancheepuram', parks: 4, industries: 373, investment_cr: 8700 },
-    { district: 'Chengalpattu', parks: 1, industries: 95, investment_cr: 5600 },
-    { district: 'Krishnagiri', parks: 1, industries: 143, investment_cr: 3200 },
-    { district: 'Tirunelveli', parks: 1, industries: 34, investment_cr: 850 },
-    { district: 'Tiruvannamalai', parks: 1, industries: 5, investment_cr: 120 },
-  ];
-
-  const activityFeed = [
-    { id: 1, type: 'submission', message: 'ABC Industries submitted Q1 2026 data', severity: 'info', time: '10:30 AM' },
-    { id: 2, type: 'violation', message: 'LMN Textiles flagged for water usage spike', severity: 'warning', time: '9:15 AM' },
-    { id: 3, type: 'registration', message: 'Sunrise Foods completed registration', severity: 'info', time: 'Yesterday' },
-    { id: 4, type: 'service', message: 'NOC Fire Safety approved for PQR Auto', severity: 'success', time: 'Yesterday' },
-  ];
+    fetchCommandCenterData();
+    fetchAdditionalData();
+  }, []);
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -261,20 +267,36 @@ export default function GovCommandCenter() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {rankings.map((row) => (
-                    <TableRow key={row.rank} hover>
-                      <TableCell>
-                        <Chip label={`#${row.rank}`} size="small" color={row.rank <= 3 ? 'primary' : 'default'} />
-                      </TableCell>
-                      <TableCell fontWeight={600}>{row.name}</TableCell>
-                      <TableCell align="right">
-                        <Chip label={`${row.infrastructure_score}/100`} size="small"
-                          color={row.infrastructure_score >= 90 ? 'success' : row.infrastructure_score >= 70 ? 'warning' : 'error'} />
-                      </TableCell>
-                      <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{row.total_industries}</TableCell>
-                      <TableCell align="right">{row.total_investment_cr.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
+                  {[...rankings]
+                    .sort((a, b) => {
+                      if (sortBy === 'infrastructure_score') {
+                        return b.infrastructure_score - a.infrastructure_score;
+                      }
+                      if (sortBy === 'total_investment_cr') {
+                        return b.total_investment_cr - a.total_investment_cr;
+                      }
+                      if (sortBy === 'total_employment') {
+                        return (b.total_employment || 0) - (a.total_employment || 0);
+                      }
+                      return 0;
+                    })
+                    .map((row, index) => {
+                      const displayRank = index + 1;
+                      return (
+                        <TableRow key={row.id || index} hover>
+                          <TableCell>
+                            <Chip label={`#${displayRank}`} size="small" color={displayRank <= 3 ? 'primary' : 'default'} />
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{row.name}</TableCell>
+                          <TableCell align="right">
+                            <Chip label={`${row.infrastructure_score}/100`} size="small"
+                              color={row.infrastructure_score >= 90 ? 'success' : row.infrastructure_score >= 70 ? 'warning' : 'error'} />
+                          </TableCell>
+                          <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{row.total_industries}</TableCell>
+                          <TableCell align="right">{row.total_investment_cr.toLocaleString()}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                 </TableBody>
               </Table>
             </TableContainer>

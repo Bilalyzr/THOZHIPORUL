@@ -1,226 +1,289 @@
 import { useState } from 'react';
-import { 
-  Box, Typography, Paper, TextField, Button, Grid, Alert, 
-  Snackbar, Card, CardContent, Divider, List, ListItem, 
-  ListItemIcon, ListItemText 
+import {
+  Box, Typography, Paper, TextField, Button, Grid, Alert,
+  Snackbar, Card, CardContent, Divider, List, ListItem,
+  ListItemIcon, ListItemText, Container, Chip, Stack, Fade
 } from '@mui/material';
-import { 
-  Campaign, ReportProblem, CheckCircle, HourglassEmpty, 
-  Speed, HelpOutline, AssignmentTurnedIn, Info 
+import { keyframes } from '@emotion/react';
+import {
+  Campaign, ReportProblem, CheckCircle, HourglassEmpty,
+  Speed, HelpOutline, AssignmentTurnedIn
 } from '@mui/icons-material';
 import UnifiedNav from '../components/UnifiedNav';
+import UnifiedFooter from '../components/UnifiedFooter';
+import PageHero from '../components/PageHero';
+
+
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const sectionPattern = {
+  backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)',
+  backgroundSize: '28px 28px',
+};
+
+import { grievanceService } from '../services/api';
 
 export default function PublicGrievance() {
   const [form, setForm] = useState({ name: '', phone: '', location: '', description: '' });
   const [submitted, setSubmitted] = useState(false);
   const [refId, setRefId] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setRefId(`GRV-${Math.floor(Math.random() * 10000)}`);
-    setSubmitted(true);
-    setForm({ name: '', phone: '', location: '', description: '' });
+    try {
+      const title = form.description.substring(0, 50) + (form.description.length > 50 ? '...' : '');
+      const response = await grievanceService.create({
+        title,
+        location: form.location,
+        name: form.name,
+        description: `Phone: ${form.phone}. Details: ${form.description}`
+      });
+      setRefId(`GRV-${response.data.id || Math.floor(Math.random() * 10000)}`);
+      setSubmitted(true);
+      setForm({ name: '', phone: '', location: '', description: '' });
+    } catch (err) {
+      console.error('Failed to submit grievance:', err);
+    }
   };
 
   const stats = [
-    { label: 'Grievances Resolved', value: '4,850+', icon: <AssignmentTurnedIn />, color: '#2E7D32' },
-    { label: 'Active Inquiries', value: '124', icon: <HourglassEmpty />, color: '#1F4E79' },
-    { label: 'Avg. Response Time', value: '24 hrs', icon: <Speed />, color: '#F57C00' }
+    { label: 'Grievances Resolved', value: '4,850+', icon: <AssignmentTurnedIn sx={{ fontSize: 30 }} />, color: '#2E7D32' },
+    { label: 'Active Inquiries', value: '124', icon: <HourglassEmpty sx={{ fontSize: 30 }} />, color: '#1F4E79' },
+    { label: 'Avg. Response Time', value: '24 hrs', icon: <Speed sx={{ fontSize: 30 }} />, color: '#2E7D32' },
   ];
 
   const faqs = [
     { q: 'How long does it take?', a: 'Most infrastructure issues are addressed within 48 working hours.' },
-    { q: 'Can I report anonymously?', a: 'Yes, but providing contact info helps us reach out for more details if needed.' },
-    { q: 'Who reviews my report?', a: 'Directly assigned to the relevant Industrial Park Officer and the SIPCOT Head Office.' }
+    { q: 'Can I report anonymously?', a: 'Yes, but providing contact info helps us reach out for more details.' },
+    { q: 'Who reviews my report?', a: 'Assigned to the relevant Industrial Park Officer and SIPCOT Head Office.' },
   ];
 
   return (
     <>
       <UnifiedNav transparent={false} />
-      
-      {/* Hero Section */}
-      <Box sx={{
-        background: 'linear-gradient(135deg, #1F4E79 0%, #2E7D32 100%)',
-        pt: { xs: 14, md: 20 },
-        pb: { xs: 8, md: 12 },
-        px: 3,
-        color: 'white',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'visible',
-        zIndex: 1
-      }}>
-        {/* Decorative Circles */}
-        <Box sx={{ position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', zIndex: 0 }} />
-        <Box sx={{ position: 'absolute', bottom: -50, left: -50, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', zIndex: 0 }} />
 
-        <Box sx={{ maxWidth: 900, mx: 'auto', position: 'relative', zIndex: 2 }}>
-          <Campaign sx={{ fontSize: 60, mb: 2, opacity: 0.9 }} />
-          <Typography variant="h3" fontWeight={800} gutterBottom sx={{ fontSize: { xs: '2rem', md: '3rem' } }}>
-            Public Grievance Portal
-          </Typography>
-          <Typography variant="h6" sx={{ opacity: 0.8, fontWeight: 400, maxWidth: 600, mx: 'auto' }}>
-            Empowering citizens and industries to report issues directly to SIPCOT. Your feedback drives our excellence.
-          </Typography>
-        </Box>
+      {/* ── Hero ── */}
+      <PageHero
+        icon={<Campaign />}
+        label="Public Grievance Portal"
+        title="Report, Track &"
+        titleHighlight="Resolve Issues"
+        subtitle="Report infrastructure issues, service delays, or other concerns directly to SIPCOT. Your feedback drives our excellence."
+        accentColor="#2E7D32"
+        accentColor2="#1F4E79"
+        bgImage="https://images.unsplash.com/photo-1573166953836-06864dc83b06?auto=format&fit=crop&q=60&w=1600"
+      />
+
+      {/* ── Floating Stat Cards ── */}
+      <Box sx={{ bgcolor: '#f8fafc', pt: 0, pb: 0 }}>
+        <Container maxWidth="lg">
+          <Grid container spacing={3} sx={{ mt: { xs: -5, md: -8 }, position: 'relative', zIndex: 2, pb: 2 }}>
+            {stats.map((stat, i) => (
+              <Grid key={i} size={{ xs: 12, sm: 4 }}>
+                <Fade in timeout={300 + i * 120}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3.5, borderRadius: 4, textAlign: 'center',
+                      bgcolor: 'rgba(255,255,255,0.92)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.8)',
+                      boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+                      transition: 'all 0.3s ease',
+                      animation: `${fadeInUp} 0.5s ease-out ${i * 0.1}s both`,
+                      '&:hover': { transform: 'translateY(-8px)', boxShadow: `0 20px 48px ${stat.color}20`, borderColor: `${stat.color}30` },
+                    }}
+                  >
+                    <Box sx={{ color: stat.color, mb: 1.5, display: 'flex', justifyContent: 'center' }}>
+                      <Box sx={{ p: 1.5, borderRadius: 2.5, background: `linear-gradient(135deg, ${stat.color}18, ${stat.color}08)`, display: 'inline-flex', boxShadow: `0 4px 12px ${stat.color}20` }}>
+                        {stat.icon}
+                      </Box>
+                    </Box>
+                    <Typography variant="h4" fontWeight={800} color={stat.color} sx={{ mb: 0.5 }}>{stat.value}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}</Typography>
+                  </Paper>
+                </Fade>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
       </Box>
 
-      <Box sx={{ maxWidth: 1200, mx: 'auto', px: 3, mt: -6, pb: 10, position: 'relative', zIndex: 3 }}>
-        
-        {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 6 }}>
-          {stats.map((stat, i) => (
-            <Grid size={{ xs: 12, sm: 4 }} key={i}>
-              <Card sx={{ 
-                boxShadow: '0 10px 30px rgba(0,0,0,0.1)', 
-                borderRadius: 4, 
-                border: 'none',
-                transition: 'transform 0.3s ease',
-                position: 'relative',
-                zIndex: 4,
-                bgcolor: 'white',
-                '&:hover': { transform: 'translateY(-5px)' }
-              }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
-                  <Box sx={{ 
-                    width: 50, height: 50, borderRadius: 2, 
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    bgcolor: `${stat.color}15`, color: stat.color, mr: 2
-                  }}>
-                    {stat.icon}
-                  </Box>
-                  <Box>
-                    <Typography variant="h5" fontWeight={800} color={stat.color}>{stat.value}</Typography>
-                    <Typography variant="caption" color="text.secondary" fontWeight={600}>{stat.label}</Typography>
-                  </Box>
-                </CardContent>
-              </Card>
+      {/* ── Main Content ── */}
+      <Box sx={{ bgcolor: '#ffffff', py: 14, ...sectionPattern }}>
+        <Container maxWidth="lg">
+          <Grid container spacing={6}>
+            {/* Form */}
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Box sx={{ animation: `${fadeInUp} 0.6s ease-out` }}>
+                <Chip
+                  label="SUBMIT GRIEVANCE"
+                  sx={{ mb: 3, background: 'linear-gradient(135deg, #1F4E79, #2E7D32)', color: 'white', fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.15em', px: 2.5, py: 1, borderRadius: '50px' }}
+                />
+                <Typography variant="h5" fontWeight={900} sx={{ mb: 5, fontSize: '1.5rem', letterSpacing: '-0.01em' }}>
+                  Fill in the details below
+                </Typography>
+
+                <Card
+                  elevation={0}
+                  sx={{
+                    borderRadius: 4,
+                    bgcolor: 'rgba(255,255,255,0.9)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+                    overflow: 'hidden',
+                    '&:hover': { boxShadow: '0 16px 56px rgba(0,0,0,0.1)' },
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  <Box sx={{ height: 5, background: 'linear-gradient(90deg, #1F4E79, #2E7D32, #1F4E79)', backgroundSize: '200% 100%' }} />
+                  <CardContent sx={{ p: 4 }}>
+                    {submitted ? (
+                      <Box sx={{ textAlign: 'center', py: 6 }}>
+                        <Box sx={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(46,125,50,0.15), rgba(46,125,50,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 3, boxShadow: '0 8px 24px rgba(46,125,50,0.2)' }}>
+                          <CheckCircle sx={{ fontSize: 48, color: '#2E7D32' }} />
+                        </Box>
+                        <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>Grievance Submitted!</Typography>
+                        <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+                          Your reference ID: <Box component="span" sx={{ fontWeight: 800, color: '#2E7D32' }}>{refId}</Box>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                          We will review and respond within 48 working hours.
+                        </Typography>
+                        <Button
+                          variant="outlined" borderRadius={3}
+                          sx={{ borderColor: '#2E7D32', color: '#2E7D32', borderWidth: 2, fontWeight: 700, borderRadius: 3, '&:hover': { bgcolor: '#f1f8f2' } }}
+                          onClick={() => setSubmitted(false)}
+                        >
+                          Submit Another
+                        </Button>
+                      </Box>
+                    ) : (
+                      <form onSubmit={handleSubmit}>
+                        <Grid container spacing={3}>
+                          <Grid size={12}>
+                            <TextField
+                              fullWidth label="Your Name" value={form.name}
+                              onChange={(e) => setForm({ ...form, name: e.target.value })}
+                              variant="outlined" size="small" required
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2E7D32' } } }}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                              fullWidth label="Phone Number" value={form.phone}
+                              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                              variant="outlined" size="small" required
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                              fullWidth label="Location / Park" value={form.location}
+                              onChange={(e) => setForm({ ...form, location: e.target.value })}
+                              variant="outlined" size="small" required
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
+                            />
+                          </Grid>
+                          <Grid size={12}>
+                            <TextField
+                              fullWidth label="Describe the Issue" value={form.description}
+                              onChange={(e) => setForm({ ...form, description: e.target.value })}
+                              variant="outlined" multiline rows={5} required
+                              placeholder="Please provide details about the issue, including location and any relevant information..."
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
+                            />
+                          </Grid>
+                          <Grid size={12}>
+                            <Button
+                              fullWidth type="submit" variant="contained" size="large"
+                              startIcon={<ReportProblem />}
+                              sx={{
+                                py: 1.8, fontWeight: 700,
+                                background: 'linear-gradient(135deg, #1F4E79, #2E7D32)',
+                                borderRadius: 3, fontSize: '1rem',
+                                boxShadow: '0 8px 24px rgba(31,78,121,0.4)',
+                                transition: 'all 0.3s ease',
+                                '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 16px 40px rgba(46,125,50,0.5)' },
+                              }}
+                            >
+                              Submit Grievance
+                            </Button>
+                          </Grid>
+                        </Grid>
+                      </form>
+                    )}
+                  </CardContent>
+                </Card>
+              </Box>
             </Grid>
-          ))}
-        </Grid>
 
-        <Grid container spacing={4}>
-          {/* Main Form Area */}
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Paper sx={{ 
-              p: { xs: 3, md: 5 }, 
-              borderRadius: 5, 
-              boxShadow: '0 20px 50px rgba(0,0,0,0.05)',
-              border: '1px solid rgba(0,0,0,0.05)'
-            }}>
-              <Typography variant="h5" fontWeight={700} sx={{ mb: 4, display: 'flex', alignItems: 'center' }}>
-                <ReportProblem sx={{ mr: 1.5, color: 'error.main' }} /> File a New Grievance
-              </Typography>
+            {/* FAQ */}
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Box sx={{ animation: `${fadeInUp} 0.6s ease-out 0.2s both` }}>
+                <Chip
+                  label="FAQ"
+                  sx={{ mb: 3, background: 'linear-gradient(135deg, #1F4E79, #2E7D32)', color: 'white', fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.15em', px: 2.5, py: 1, borderRadius: '50px' }}
+                />
+                <Typography variant="h5" fontWeight={900} sx={{ mb: 5, fontSize: '1.5rem', letterSpacing: '-0.01em' }}>
+                  Common Questions
+                </Typography>
 
-              <form onSubmit={handleSubmit}>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth label="Full Name" required
-                      variant="outlined" value={form.name}
-                      onChange={e => setForm({...form, name: e.target.value})}
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth label="Phone Number" required
-                      variant="outlined" value={form.phone}
-                      onChange={e => setForm({...form, phone: e.target.value})}
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      fullWidth label="Industrial Park Location / Area" required
-                      variant="outlined" value={form.location}
-                      onChange={e => setForm({...form, location: e.target.value})}
-                      placeholder="e.g., Oragadam Phase II, Main Road"
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      fullWidth label="Describe the Issue" required
-                      multiline rows={5} variant="outlined" value={form.description}
-                      onChange={e => setForm({...form, description: e.target.value})}
-                      placeholder="Please provide as much detail as possible..."
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Button
-                      type="submit" variant="contained" size="large" fullWidth
+                <Stack spacing={2.5}>
+                  {faqs.map((faq, idx) => (
+                    <Card
+                      key={idx} elevation={0}
                       sx={{
-                        py: 2, borderRadius: 3, fontWeight: 700, fontSize: '1.1rem',
-                        background: 'linear-gradient(90deg, #1F4E79 0%, #2E7D32 100%)',
-                        boxShadow: '0 8px 20px rgba(31, 78, 121, 0.3)',
-                        '&:hover': { transform: 'scale(1.01)', boxShadow: '0 10px 25px rgba(31, 78, 121, 0.4)' }
+                        borderRadius: 3.5,
+                        bgcolor: 'rgba(255,255,255,0.9)',
+                        backdropFilter: 'blur(12px)',
+                        border: '1px solid #e2e8f0',
+                        borderLeft: '4px solid #2E7D32',
+                        boxShadow: '0 2px 16px rgba(0,0,0,0.04)',
+                        transition: 'all 0.25s ease',
+                        animation: `${fadeInUp} 0.5s ease-out ${0.3 + idx * 0.1}s both`,
+                        '&:hover': { transform: 'translateX(6px)', boxShadow: '0 8px 32px rgba(46,125,50,0.12)', borderColor: '#2E7D32' },
                       }}
                     >
-                      Submit Grievance
-                    </Button>
-                  </Grid>
-                </Grid>
-              </form>
-            </Paper>
-          </Grid>
+                      <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                          <HelpOutline sx={{ color: '#2E7D32', fontSize: 20, flexShrink: 0, mt: 0.2 }} />
+                          <Typography variant="subtitle2" fontWeight={800} sx={{ lineHeight: 1.5 }}>{faq.q}</Typography>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 4.5, lineHeight: 1.7 }}>{faq.a}</Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
 
-          {/* Sidebar Area */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            {/* Track Status Card */}
-            <Card sx={{ borderRadius: 5, mb: 4, bgcolor: '#f8f9fa', border: '1px dashed #dee2e6' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Info sx={{ mr: 1, color: 'primary.main' }} /> Track Existing Status
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Already filed a report? Enter your Reference ID to check the progress.
-                </Typography>
-                <TextField fullWidth size="small" placeholder="GRV-XXXX" sx={{ mb: 1, bgcolor: 'white' }} />
-                <Button fullWidth variant="outlined" size="small" sx={{ borderRadius: 2 }}>Track Progress</Button>
-              </CardContent>
-            </Card>
-
-            {/* FAQ Section */}
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 2, px: 1 }}>Quick Help</Typography>
-            <List disablePadding>
-              {faqs.map((faq, i) => (
-                <ListItem key={i} sx={{ 
-                  flexDirection: 'column', alignItems: 'flex-start', 
-                  mb: 2, p: 2, bgcolor: 'white', borderRadius: 3,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
-                }}>
-                  <Typography variant="body2" fontWeight={700} gutterBottom color="primary">
-                    {faq.q}
+                {/* Info card */}
+                <Card
+                  elevation={0}
+                  sx={{
+                    mt: 4, borderRadius: 3.5, p: 3,
+                    bgcolor: 'rgba(46,125,50,0.05)',
+                    border: '1px solid rgba(46,125,50,0.2)',
+                    boxShadow: 'none',
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5, color: '#2E7D32' }}>
+                    How Grievance Redressal Works
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {faq.a}
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.75 }}>
+                    Upon submission, your grievance is assigned a unique reference ID and routed to the concerned Industrial Park Officer. Most grievances are resolved within 48 working hours.
                   </Typography>
-                </ListItem>
-              ))}
-            </List>
-
-            {/* Emergency Contact */}
-            <Box sx={{ mt: 4, p: 3, borderRadius: 5, background: 'linear-gradient(135deg, #FFF 0%, #F1F8E9 100%)', border: '1px solid #C8E6C9' }}>
-               <Typography variant="subtitle2" fontWeight={800} color="success.main" gutterBottom>Emergency Helpline</Typography>
-               <Typography variant="h5" fontWeight={800} color="primary">1800-425-1234</Typography>
-               <Typography variant="caption" color="text.secondary">Available 24/7 for industrial emergencies.</Typography>
-            </Box>
+                </Card>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
-
-        <Snackbar open={submitted} autoHideDuration={6000} onClose={() => setSubmitted(false)}>
-          <Alert 
-            onClose={() => setSubmitted(false)} 
-            severity="success" 
-            variant="filled" 
-            sx={{ width: '100%', borderRadius: 3, fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}
-          >
-            Grievance submitted successfully. Reference ID: {refId}
-          </Alert>
-        </Snackbar>
+        </Container>
       </Box>
+
+      <UnifiedFooter />
     </>
   );
 }

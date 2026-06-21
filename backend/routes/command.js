@@ -76,6 +76,24 @@ router.get('/rankings', requireRole(['admin', 'govt']), async (req, res) => {
 // @access  Private (Admin, Govt)
 router.get('/alerts', requireRole(['admin', 'govt']), async (req, res) => {
     try {
+        const { rows: pendingSRs } = await db.query(`
+            SELECT COUNT(*) as count FROM service_requests 
+            WHERE current_status NOT IN ('completed', 'approved', 'rejected')
+        `);
+        const count = parseInt(pendingSRs[0].count) || 0;
+
+        const alertsList = [];
+        if (count > 0) {
+            alertsList.push({
+                id: 'sr-pending-alert',
+                severity: 'high',
+                category: 'services',
+                message: `${count} pending service requests require administrative review`,
+                count: count,
+                action_url: '/services'
+            });
+        }
+
         const mockAlerts = [
             { id: 1, severity: 'critical', category: 'compliance', message: '12 industries missed Q1 2026 data submission deadline', count: 12, action_url: '/compliance-engine' },
             { id: 2, severity: 'high', category: 'infrastructure', message: '3 parks operating below 70% infrastructure capacity', count: 3, action_url: '/parks' },
@@ -83,7 +101,8 @@ router.get('/alerts', requireRole(['admin', 'govt']), async (req, res) => {
             { id: 4, severity: 'medium', category: 'environmental', message: 'LMN Textiles reported 300% water usage spike', count: 1, action_url: '/compliance-engine' },
             { id: 5, severity: 'low', category: 'registration', message: '8 new industry registration requests pending', count: 8, action_url: '/users' },
         ];
-        res.json(mockAlerts);
+
+        res.json([...alertsList, ...mockAlerts]);
     } catch (err) {
         console.error('Alerts Error:', err.message);
         res.status(500).send('Server Error');
@@ -126,6 +145,32 @@ router.get('/trends', requireRole(['admin', 'govt']), async (req, res) => {
 // @access  Private (Admin, Govt)
 router.get('/activity-feed', requireRole(['admin', 'govt']), async (req, res) => {
     try {
+        const { rows: srs } = await db.query(`
+            SELECT sr.*, ip.company_name 
+            FROM service_requests sr
+            JOIN industry_profiles ip ON sr.industry_id = ip.id
+            ORDER BY sr.created_at DESC
+            LIMIT 10
+        `);
+
+        const realFeed = srs.map(sr => {
+            const typeLabel = sr.service_type === 'noc_fire' ? 'NOC Fire Safety' :
+                              sr.service_type === 'land_allotment' ? 'Land Allotment' :
+                              sr.service_type === 'water_connection' ? 'Water Connection' :
+                              sr.service_type === 'power_connection' ? 'Power Connection' :
+                              sr.service_type === 'lease_renewal' ? 'Lease Renewal' :
+                              sr.service_type === 'noc_pollution' ? 'NOC Pollution' :
+                              sr.service_type === 'building_approval' ? 'Building Approval' :
+                              sr.service_type === 'transfer_request' ? 'Transfer Request' : 'Service Request';
+            return {
+                id: `sr-${sr.id}`,
+                type: 'service',
+                message: `${sr.company_name} submitted a new ${typeLabel} request (${sr.reference_number})`,
+                severity: sr.priority === 'urgent' ? 'warning' : 'info',
+                time: new Date(sr.created_at).toLocaleString()
+            };
+        });
+
         const mockFeed = [
             { id: 1, type: 'submission', message: 'ABC Industries submitted Q1 2026 data', severity: 'info', timestamp: '2026-04-12T10:30:00' },
             { id: 2, type: 'violation', message: 'LMN Textiles flagged for water usage spike', severity: 'warning', timestamp: '2026-04-12T09:15:00' },
@@ -133,7 +178,13 @@ router.get('/activity-feed', requireRole(['admin', 'govt']), async (req, res) =>
             { id: 4, type: 'service', message: 'NOC Fire Safety approved for PQR Auto', severity: 'success', timestamp: '2026-04-11T14:20:00' },
             { id: 5, type: 'compliance', message: 'Monthly compliance scores recalculated', severity: 'info', timestamp: '2026-04-10T08:00:00' },
         ];
-        res.json(mockFeed);
+
+        const formattedMockFeed = mockFeed.map(item => ({
+            ...item,
+            time: new Date(item.timestamp).toLocaleString()
+        }));
+
+        res.json([...realFeed, ...formattedMockFeed]);
     } catch (err) {
         console.error('Activity Feed Error:', err.message);
         res.status(500).send('Server Error');

@@ -31,4 +31,24 @@ router.post('/', (req, res) => {
     res.status(201).json(newGrievance);
 });
 
+// @route   PUT /api/grievances/:id/status
+// @desc    Update grievance status
+// @access  Public or Private (Admin/Govt)
+router.put('/:id/status', (req, res) => {
+    const { status } = req.body;
+    const id = parseInt(req.params.id);
+    
+    const grievance = mockGrievances.find(g => g.id === id);
+    if (!grievance) {
+        return res.status(404).json({ error: 'Grievance not found' });
+    }
+    
+    if (!['Open', 'In Progress', 'Resolved'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Must be Open, In Progress, or Resolved.' });
+    }
+    
+    grievance.status = status;
+    res.json({ msg: `Grievance status updated to ${status}`, grievance });
+});
+
 module.exports = router;

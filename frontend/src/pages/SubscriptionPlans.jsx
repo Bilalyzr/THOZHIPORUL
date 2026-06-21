@@ -1,430 +1,327 @@
 import React, { useState } from 'react';
 import {
   Box, Container, Typography, Grid, Card, CardContent,
-  Button, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Chip, Switch, FormControlLabel, Paper, Divider,
-  IconButton, Snackbar, Alert, Stack, Fade, Zoom
+  Button, Chip, Paper, Stack,
+  Snackbar, Alert, List, ListItem, ListItemText, ListItemIcon, Divider, Fade
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import {
-  CheckCircle, LockOpen, AutoAwesome,
-  HelpOutline, CloudUpload, History, Analytics, Security,
-  PictureAsPdf, FlashOn, SupportAgent
-} from '@mui/icons-material';
+import { Check, Star, ArrowForward, WorkspacePremium, AutoAwesome } from '@mui/icons-material';
+import { keyframes } from '@emotion/react';
 import UnifiedNav from '../components/UnifiedNav';
+import UnifiedFooter from '../components/UnifiedFooter';
+import PageHero from '../components/PageHero';
+
+const float = keyframes`
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+`;
+
+const glowPulse = keyframes`
+  0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.3); }
+  50% { box-shadow: 0 0 44px rgba(245,158,11,0.7); }
+`;
+
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+
+const sectionPattern = {
+  backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)',
+  backgroundSize: '28px 28px',
+};
 
 export default function SubscriptionPlans() {
   const navigate = useNavigate();
-  const [billingPeriod, setBillingPeriod] = useState('monthly'); // 'monthly' or 'annual'
+  const [billingPeriod, setBillingPeriod] = useState('monthly');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const handleSelectPlan = (planName, price) => {
-    setSnackbar({
-      open: true,
-      message: `🔐 Initiating mock secure payment sandbox for ${planName} (${billingPeriod === 'annual' ? 'Annual Plan' : 'Monthly Plan'}). Price: ${price} INR`,
-      severity: 'info'
-    });
-    setTimeout(() => {
-      setSnackbar({
-        open: true,
-        message: `✅ Sandbox Authorized! Workspace upgraded successfully to ${planName}.`,
-        severity: 'success'
-      });
-    }, 2000);
+  const handleSelectPlan = (planName) => {
+    setSnackbar({ open: true, message: `${planName} plan selected. Redirecting to payment...`, severity: 'success' });
+    setTimeout(() => navigate('/role-selection'), 1500);
   };
 
   const plans = [
     {
-      name: 'Compliance Starter',
-      tier: 'free_starter',
-      subtitle: 'MSME Regulatory Baseline',
-      monthlyPrice: '0',
-      annualPrice: '0',
-      features: [
-        'Unified Data Submission (Basic Forms)',
-        'Overall Compliance Score Tracker',
-        'Standard Services NOC Pipeline',
-        'Standard Email Notifications',
-        'Secure Vault Storage (Up to 10 MB)',
-        'Basic Support Ticket Gateways'
-      ],
+      name: 'Starter',
+      subtitle: 'Perfect for MSMEs',
+      monthlyPrice: 'Free',
+      annualPrice: 'Free',
+      badge: 'ESSENTIAL',
+      features: ['Basic Data Submission Forms', 'Overall Compliance Score', 'Standard NOC Pipeline', 'Email Notifications', 'Secure Vault (10 MB)', 'Community Support'],
       isPopular: false,
-      buttonText: 'Current Plan (Free)',
-      buttonColor: 'inherit',
-      color: '#455A64',
-      bgGrad: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-      image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=400'
+      color: '#64748B',
+      gradient: 'linear-gradient(135deg, #64748B 0%, #475569 100%)',
     },
     {
-      name: 'SME Professional',
-      tier: 'sme_pro',
-      subtitle: 'Growth & Operational Excellence',
-      monthlyPrice: '4,999',
-      annualPrice: '3,999',
-      features: [
-        'Excel & Bulk CSV Uploads',
-        'Compliance Category Breakdown & Tips',
-        'Kanban Services Pipeline + Alerts',
-        'SMS & Slack Webhook Notifications',
-        'Automated PDF & Excel Reporting exports',
-        'Secure Vault Storage (Up to 1 GB)',
-        'Statutory Expiry Alerts & Reminders',
-        'Audit logs history (14 days)'
-      ],
+      name: 'Professional',
+      subtitle: 'For growing industries',
+      monthlyPrice: '₹4,999',
+      annualPrice: '₹3,999',
+      badge: 'RECOMMENDED',
+      features: ['Excel & Bulk CSV Uploads', 'Advanced Compliance Analytics', 'Kanban Services Pipeline', 'SMS & Email Notifications', 'Secure Vault (1 GB)', 'Priority Support', 'Custom Report Exports'],
       isPopular: true,
-      buttonText: 'Upgrade to SME Pro',
-      buttonColor: 'success',
       color: '#2E7D32',
-      bgGrad: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
-      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400'
+      gradient: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)',
     },
     {
-      name: 'Enterprise Suite',
-      tier: 'enterprise_suite',
-      subtitle: 'Conglomerate Command Intelligence',
-      monthlyPrice: '24,999',
-      annualPrice: '19,999',
-      features: [
-        'ERP & Auto-API Synchronization',
-        'AI Compliance Mitigation Engine',
-        'Priority Service Processing SLAs',
-        'Custom Escalation Notification Matrices',
-        'Scheduled Automatic Report generation',
-        'Secure Vault (100 GB S3 Storage)',
-        'Automatic OCR Document Extraction',
-        'Immutable Security Auditing Logs',
-        'Predictive Analytics & Heatmaps',
-        '24/7 Priority Support & Phone Access'
-      ],
+      name: 'Enterprise',
+      subtitle: 'For large conglomerates',
+      monthlyPrice: '₹24,999',
+      annualPrice: '₹19,999',
+      badge: 'PREMIUM',
+      features: ['API & ERP Integration', 'AI Compliance Engine', '24/7 Dedicated Support', 'Secure Vault (100 GB)', 'Custom Workflows', 'White-label Reports', 'SLA Guarantees'],
       isPopular: false,
-      buttonText: 'Purchase Enterprise',
-      buttonColor: 'primary',
       color: '#1F4E79',
-      bgGrad: 'linear-gradient(135deg, #172554 0%, #0f172a 100%)',
-      image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=400'
-    }
-  ];
-
-  const matrix = [
-    { module: 'Unified Data Submission', starter: 'Basic Forms', pro: 'Excel & Bulk Uploads', enterprise: 'Direct ERP & API Sync', icon: <CloudUpload sx={{ color: '#64748b' }} /> },
-    { module: 'Compliance Score Analytics', starter: 'Overall Score', pro: 'Detailed Breakdown', enterprise: 'AI Mitigations & Trends', icon: <Analytics sx={{ color: '#64748b' }} /> },
-    { module: 'Services NOC Tracker', starter: 'Standard Pipeline', pro: 'Kanban + SLA Alerts', enterprise: 'VIP Express Priority Processing', icon: <FlashOn sx={{ color: '#64748b' }} /> },
-    { module: 'Secure Document Vault', starter: '10 MB Limits', pro: '1 GB + Expiry Reminders', enterprise: '100 GB + Auto OCR Scanner', icon: <Security sx={{ color: '#64748b' }} /> },
-    { module: 'Automated Reporting', starter: 'Disabled', pro: 'Manual PDF/Excel Exports', enterprise: 'Scheduled Multi-Format Auto-Reports', icon: <PictureAsPdf sx={{ color: '#64748b' }} /> },
-    { module: 'Security Audit Logs', starter: 'Disabled', pro: '14-Day Vault History', enterprise: 'Immutable Compliance Trail (Indefinite)', icon: <History sx={{ color: '#64748b' }} /> },
-    { module: 'Priority Support', starter: 'Email (48-hour)', pro: 'Ticketing & Chat Support', enterprise: '24/7 Dedicated Account Manager', icon: <SupportAgent sx={{ color: '#64748b' }} /> }
+      gradient: 'linear-gradient(135deg, #1F4E79 0%, #143656 100%)',
+    },
   ];
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', pb: 12 }}>
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <UnifiedNav transparent={false} />
 
-      {/* HEADER SECTION */}
-      <Box sx={{
-        background: 'linear-gradient(135deg, rgba(15,23,40,0.95) 0%, rgba(21,60,36,0.92) 100%), url("https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=2000")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        color: 'white',
-        pt: { xs: 14, md: 20 },
-        pb: { xs: 12, md: 18 },
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Decorative elements */}
-        <Box sx={{ position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: '50%', bg: '#2E7D32', filter: 'blur(100px)', opacity: 0.15 }} />
-        <Box sx={{ position: 'absolute', bottom: -100, left: -100, width: 300, height: 300, borderRadius: '50%', bg: '#1F4E79', filter: 'blur(100px)', opacity: 0.15 }} />
+      {/* ── Hero ── */}
+      <PageHero
+        icon={<WorkspacePremium />}
+        label="Subscription Plans"
+        title="Choose Your"
+        titleHighlight="Perfect Plan"
+        subtitle="Select the perfect subscription for your industry. All plans include core compliance features with scalable options as you grow."
+        accentColor="#2E7D32"
+        accentColor2="#1F4E79"
+        bgImage="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&q=60&w=1600"
+      >
+        {/* Billing toggle in hero */}
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 3, px: 4, py: 2, borderRadius: 4, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+          <Typography variant="body1" sx={{ fontWeight: billingPeriod === 'monthly' ? 700 : 500, opacity: billingPeriod === 'monthly' ? 1 : 0.6, transition: 'all 0.3s ease' }}>
+            Monthly
+          </Typography>
+          <Box
+            sx={{ position: 'relative', width: 64, height: 32, borderRadius: 16, background: billingPeriod === 'annual' ? 'rgba(46,125,50,0.3)' : 'rgba(255,255,255,0.15)', border: `2px solid ${billingPeriod === 'annual' ? '#2E7D32' : 'rgba(255,255,255,0.3)'}`, cursor: 'pointer', transition: 'all 0.3s ease' }}
+            onClick={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
+          >
+            <Box sx={{ position: 'absolute', top: 2, left: billingPeriod === 'annual' ? 'calc(100% - 28px)' : 2, width: 24, height: 24, borderRadius: '50%', background: billingPeriod === 'annual' ? '#2E7D32' : 'white', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', boxShadow: billingPeriod === 'annual' ? '0 0 16px rgba(46,125,50,0.7)' : '0 2px 8px rgba(0,0,0,0.2)' }} />
+          </Box>
+          <Typography variant="body1" sx={{ fontWeight: billingPeriod === 'annual' ? 700 : 500, opacity: billingPeriod === 'annual' ? 1 : 0.6, transition: 'all 0.3s ease' }}>
+            Annual
+          </Typography>
+          <Chip
+            label="SAVE 20%"
+            sx={{ background: 'linear-gradient(135deg, #2E7D32, #1B5E20)', color: 'white', fontWeight: 800, fontSize: '0.7rem', height: 28, px: 1, borderRadius: '50px', animation: `${glowPulse} 2.5s ease-in-out infinite` }}
+          />
+        </Box>
+
+        {/* ── Pricing Cards ── */}
+        <Box sx={{ mt: { xs: 8, md: 10 }, position: 'relative', zIndex: 2 }}>
+          <Grid container spacing={4}>
+          {plans.map((plan, idx) => (
+            <Grid key={idx} size={{ xs: 12, md: 4 }}>
+              <Fade in timeout={400 + idx * 150}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    height: '100%', borderRadius: 4,
+                    border: plan.isPopular ? '2px solid #2E7D32' : '1px solid #e2e8f0',
+                    position: 'relative', overflow: 'visible',
+                    transition: 'all 0.4s cubic-bezier(0.4,0,0.2,1)',
+                    bgcolor: plan.isPopular ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.9)',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: plan.isPopular ? '0 16px 64px rgba(46,125,50,0.2)' : '0 8px 40px rgba(0,0,0,0.07)',
+                    '&:hover': {
+                      transform: plan.isPopular ? 'translateY(-20px)' : 'translateY(-14px)',
+                      boxShadow: plan.isPopular ? '0 40px 80px rgba(46,125,50,0.3)' : `0 32px 64px ${plan.color}18`,
+                      borderColor: plan.isPopular ? '#2E7D32' : plan.color,
+                    },
+                  }}
+                >
+                  {plan.isPopular && (
+                    <Box sx={{
+                      position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)',
+                      px: 3, py: 1, borderRadius: '50px',
+                      background: 'linear-gradient(135deg, #4CAF50, #2E7D32)',
+                      color: 'white', fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.1em',
+                      boxShadow: '0 4px 20px rgba(46,125,50,0.5)',
+                      display: 'flex', alignItems: 'center', gap: 0.5,
+                    }}>
+                      <Star sx={{ fontSize: 14 }} /> MOST POPULAR
+                    </Box>
+                  )}
+
+                  {/* Colored top strip */}
+                  <Box sx={{ height: 5, borderRadius: '16px 16px 0 0', background: plan.gradient }} />
+
+                  <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                    <Box sx={{ mb: 3 }}>
+                      <Chip label={plan.badge} size="small" sx={{ background: plan.gradient, color: 'white', fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.1em', px: 1.5 }} />
+                    </Box>
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h5" fontWeight={900} sx={{ mb: 0.5, fontSize: '1.5rem' }}>{plan.name}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{plan.subtitle}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                        <Typography variant="h3" fontWeight={900} sx={{ fontSize: '2.5rem', background: plan.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                          {billingPeriod === 'annual' ? plan.annualPrice : plan.monthlyPrice}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                          /{billingPeriod === 'annual' ? 'year' : 'month'}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Divider sx={{ my: 3, borderColor: 'rgba(0,0,0,0.06)' }} />
+
+                    <List dense disablePadding sx={{ mb: 4 }}>
+                      {plan.features.map((feature, i) => (
+                        <ListItem key={i} disableGutters sx={{ py: 1.2 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <Box sx={{ width: 22, height: 22, borderRadius: '50%', background: `${plan.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Check sx={{ fontSize: 14, color: plan.color }} />
+                            </Box>
+                          </ListItemIcon>
+                          <ListItemText primary={feature} primaryTypographyProps={{ variant: 'body2', fontWeight: 600, color: 'text.primary' }} />
+                        </ListItem>
+                      ))}
+                    </List>
+
+                    <Button
+                      fullWidth variant={plan.isPopular ? 'contained' : 'outlined'} size="large"
+                      onClick={() => handleSelectPlan(plan.name)}
+                      endIcon={<ArrowForward />}
+                      sx={{
+                        py: 1.8, fontWeight: 700, borderRadius: 3,
+                        background: plan.isPopular ? plan.gradient : undefined,
+                        color: plan.isPopular ? 'white' : plan.color,
+                        borderColor: plan.color, borderWidth: plan.isPopular ? 0 : 2,
+                        fontSize: '0.95rem',
+                        boxShadow: plan.isPopular ? `0 8px 24px ${plan.color}40` : 'none',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-3px)',
+                          boxShadow: plan.isPopular ? `0 16px 40px ${plan.color}50` : `0 8px 24px ${plan.color}20`,
+                        },
+                      }}
+                    >
+                      {plan.name === 'Starter' ? 'Get Started Free' : `Subscribe to ${plan.name}`}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Fade>
+            </Grid>
+          ))}
+        </Grid>
+        </Box>
+      </PageHero>
+
+      {/* ── Feature Comparison ── */}
+      <Box sx={{ bgcolor: '#ffffff', py: 14, position: 'relative', overflow: 'hidden', ...sectionPattern }}>
+        <Box sx={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'radial-gradient(ellipse at 15% 50%, rgba(46,125,50,0.06) 0%, transparent 55%), radial-gradient(ellipse at 85% 50%, rgba(31,78,121,0.06) 0%, transparent 55%)',
+          pointerEvents: 'none',
+        }} />
 
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 2, py: 0.8, borderRadius: 3, mb: 3, bgcolor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-            <AutoAwesome sx={{ color: '#4CAF50', fontSize: '0.9rem' }} />
-            <Typography variant="caption" sx={{ fontWeight: 800, color: '#81c784', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Monetization Feature Mapping</Typography>
+          <Box sx={{ mb: 10, textAlign: 'center', animation: `${fadeInUp} 0.8s ease-out` }}>
+            <Chip
+              label="COMPARE FEATURES"
+              sx={{ mb: 3, background: 'linear-gradient(135deg, #1F4E79, #2E7D32)', color: 'white', fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.15em', px: 2.5, py: 1, borderRadius: '50px' }}
+            />
+            <Typography variant="h3" fontWeight={900} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' }, mb: 2, letterSpacing: '-0.02em' }}>
+              Feature Comparison
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto', lineHeight: 1.7 }}>
+              Compare all features across plans and choose the one that fits your needs
+            </Typography>
           </Box>
 
-          <Typography variant="h2" fontWeight={900} gutterBottom sx={{ fontSize: { xs: '2.5rem', md: '4rem' }, letterSpacing: '-0.03em' }}>
-            Flexible SaaS Subscription Workspace Tiers
-          </Typography>
-          <Typography variant="h6" sx={{ opacity: 0.8, maxW: 720, mx: 'auto', fontWeight: 300, mb: 6, lineHeight: 1.8, fontSize: '1.15rem' }}>
-            Choose the perfect tier to monitor, submit, and secure statutory assets inside the SIPCOT Thozhirporul platform.
-          </Typography>
-
-          {/* MONTHLY / ANNUAL SWITCH */}
-          <Paper 
-            elevation={4} 
-            sx={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              px: 3, 
-              py: 1.2, 
-              borderRadius: 5, 
-              bgcolor: 'rgba(255,255,255,0.05)', 
-              border: '1px solid rgba(255,255,255,0.1)'
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 4,
+              border: '1px solid #e2e8f0',
+              bgcolor: 'rgba(255,255,255,0.9)',
+              backdropFilter: 'blur(16px)',
+              overflow: 'hidden',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.07)',
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 700, color: billingPeriod === 'monthly' ? '#81c784' : 'rgba(255,255,255,0.6)' }}>Monthly Billing</Typography>
-            <Switch 
-              checked={billingPeriod === 'annual'} 
-              onChange={() => setBillingPeriod(billingPeriod === 'monthly' ? 'annual' : 'monthly')}
-              color="success"
-              sx={{ mx: 1 }}
-            />
-            <Typography variant="body2" component="span" sx={{ fontWeight: 700, color: billingPeriod === 'annual' ? '#81c784' : 'rgba(255,255,255,0.6)' }}>
-              Annual Billing <Chip label="SAVE 20%" size="small" sx={{ bgcolor: 'rgba(76, 175, 80, 0.15)', color: '#81c784', fontWeight: 900, ml: 1, height: 18, fontSize: '0.65rem' }} />
-            </Typography>
+            <Box sx={{ display: 'flex', background: 'linear-gradient(135deg, #0d2435 0%, #1a3a12 100%)', color: 'white' }}>
+              <Box sx={{ flex: 2, p: 3, fontWeight: 700 }}>Feature</Box>
+              <Box sx={{ flex: 1, p: 3, textAlign: 'center', fontWeight: 700 }}>Starter</Box>
+              <Box sx={{ flex: 1, p: 3, textAlign: 'center', fontWeight: 700 }}>Professional</Box>
+              <Box sx={{ flex: 1, p: 3, textAlign: 'center', fontWeight: 700 }}>Enterprise</Box>
+            </Box>
+            {[
+              { feature: 'Data Submission', starter: 'Basic Forms', pro: 'Bulk Uploads', enterprise: 'API Integration' },
+              { feature: 'Analytics Dashboard', starter: 'Basic', pro: 'Advanced', enterprise: 'AI-Powered' },
+              { feature: 'Support Level', starter: 'Community', pro: 'Priority', enterprise: '24/7 Dedicated' },
+              { feature: 'Storage Limit', starter: '10 MB', pro: '1 GB', enterprise: '100 GB' },
+              { feature: 'Notifications', starter: 'Email Only', pro: 'SMS + Email', enterprise: 'Custom Channels' },
+              { feature: 'Custom Reports', starter: '❌', pro: 'PDF/Excel', enterprise: 'All Formats' },
+              { feature: 'SLA Guarantee', starter: '❌', pro: '❌', enterprise: '99.9% Uptime' },
+            ].map((row, idx) => (
+              <Box
+                key={idx}
+                sx={{
+                  display: 'flex',
+                  borderBottom: '1px solid #e2e8f0',
+                  '&:last-child': { borderBottom: 'none' },
+                  bgcolor: idx % 2 === 0 ? 'white' : '#f8fafc',
+                  transition: 'all 0.2s ease',
+                  '&:hover': { bgcolor: 'rgba(46,125,50,0.03)' },
+                }}
+              >
+                <Box sx={{ flex: 2, p: 3, fontWeight: 600, fontSize: '0.9rem' }}>{row.feature}</Box>
+                <Box sx={{ flex: 1, p: 3, textAlign: 'center', fontSize: '0.9rem', color: 'text.secondary' }}>{row.starter}</Box>
+                <Box sx={{ flex: 1, p: 3, textAlign: 'center', fontSize: '0.9rem', fontWeight: 700, color: '#2E7D32' }}>{row.pro}</Box>
+                <Box sx={{ flex: 1, p: 3, textAlign: 'center', fontSize: '0.9rem', fontWeight: 700, color: '#1F4E79' }}>{row.enterprise}</Box>
+              </Box>
+            ))}
           </Paper>
         </Container>
       </Box>
 
-      {/* WORKSPACE PLANS CARDS */}
-      <Container maxWidth="lg" sx={{ mt: { xs: -8, md: -12 }, position: 'relative', zIndex: 10 }}>
-        <Grid container spacing={4} alignItems="stretch">
-          {plans.map((plan, i) => {
-            const price = billingPeriod === 'annual' ? plan.annualPrice : plan.monthlyPrice;
-            return (
-              <Grid size={{ xs: 12, md: 4 }} key={plan.tier}>
-                <Zoom in timeout={300 + i * 150}>
-                  <Card 
-                    elevation={8}
-                    sx={{
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      borderRadius: 5,
-                      border: plan.isPopular ? '2px solid #4CAF50' : '1px solid #E2E8F0',
-                      position: 'relative',
-                      boxShadow: plan.isPopular ? '0 20px 48px rgba(76, 175, 80, 0.18)' : '0 10px 30px rgba(0,0,0,0.05)',
-                      transition: 'all 0.3s ease',
-                      '&:hover': { transform: 'translateY(-8px)', boxShadow: plan.isPopular ? '0 24px 56px rgba(76, 175, 80, 0.25)' : '0 20px 40px rgba(0,0,0,0.08)' }
-                    }}
-                  >
-                    {plan.isPopular && (
-                      <Box sx={{
-                        position: 'absolute',
-                        top: 20,
-                        right: 20,
-                        bgcolor: '#4CAF50',
-                        color: 'white',
-                        fontWeight: 800,
-                        fontSize: '0.65rem',
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 2,
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase'
-                      }}>
-                        Most Popular
-                      </Box>
-                    )}
+      {/* ── CTA Band ── */}
+      <Box sx={{
+        py: 16,
+        background: 'linear-gradient(135deg, #060d1a 0%, #0a1c14 50%, #0d2435 100%)',
+        color: 'white', textAlign: 'center', position: 'relative', overflow: 'hidden',
+      }}>
+        <Box sx={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.6, pointerEvents: 'none' }} />
+        <Box sx={{ position: 'absolute', top: '15%', right: '8%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(46,125,50,0.3) 0%, transparent 65%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+        <Box sx={{ position: 'absolute', bottom: '15%', left: '5%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(31,78,121,0.3) 0%, transparent 65%)', filter: 'blur(55px)', pointerEvents: 'none' }} />
 
-                    <CardContent sx={{ p: { xs: 4, sm: 5 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                      {/* Plan Image */}
-                      <Box sx={{
-                        width: '100%',
-                        height: 140,
-                        mb: 3,
-                        borderRadius: 3,
-                        overflow: 'hidden',
-                        position: 'relative'
-                      }}>
-                        <Box
-                          component="img"
-                          src={plan.image}
-                          alt={plan.name}
-                          sx={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            transition: 'transform 0.4s ease',
-                          }}
-                        />
-                        <Box sx={{
-                          position: 'absolute',
-                          inset: 0,
-                          background: `linear-gradient(135deg, ${plan.color}30 0%, transparent 100%)`,
-                        }} />
-                      </Box>
-
-                      <Typography variant="h5" fontWeight={900} sx={{ color: plan.color, mb: 1, letterSpacing: '-0.02em' }}>
-                        {plan.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ mb: 3.5, display: 'block' }}>
-                        {plan.subtitle}
-                      </Typography>
-
-                      <Box display="flex" alignItems="baseline" mb={4}>
-                        <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: '-0.03em', color: 'text.primary' }}>
-                          ₹{price}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" fontWeight={600} sx={{ ml: 1 }}>
-                          / month {billingPeriod === 'annual' && '(billed annually)'}
-                        </Typography>
-                      </Box>
-
-                      <Divider sx={{ mb: 4 }} />
-
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="body2" fontWeight={800} color="text.primary" sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
-                          Key Benefits Included:
-                        </Typography>
-                        <Stack spacing={2} sx={{ mb: 4 }}>
-                          {plan.features.map((feature, fIdx) => (
-                            <Box display="flex" alignItems="flex-start" gap={1.5} key={fIdx}>
-                              <CheckCircle sx={{ color: plan.color, fontSize: '1.05rem', mt: 0.3 }} />
-                              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5, fontSize: '0.85rem' }}>
-                                {feature}
-                              </Typography>
-                            </Box>
-                          ))}
-                        </Stack>
-                      </Box>
-
-                      <Button
-                        fullWidth
-                        variant={plan.isPopular ? 'contained' : 'outlined'}
-                        color={plan.buttonColor}
-                        size="large"
-                        onClick={() => handleSelectPlan(plan.name, price)}
-                        sx={{
-                          py: 1.8,
-                          borderRadius: 3.5,
-                          fontWeight: 800,
-                          textTransform: 'none',
-                          fontSize: '0.95rem',
-                          background: plan.isPopular ? 'linear-gradient(135deg, #2E7D32, #4CAF50)' : 'transparent',
-                          color: plan.isPopular ? 'white' : plan.color,
-                          borderColor: plan.isPopular ? 'none' : plan.color,
-                          boxShadow: plan.isPopular ? '0 8px 24px rgba(76, 175, 80, 0.25)' : 'none',
-                          '&:hover': {
-                            background: plan.isPopular ? 'linear-gradient(135deg, #1B5E20, #2E7D32)' : `${plan.color}08`,
-                            borderColor: plan.isPopular ? 'none' : plan.color
-                          }
-                        }}
-                      >
-                        {plan.buttonText}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </Zoom>
-              </Grid>
-            );
-          })}
-        </Grid>
-      </Container>
-
-      {/* FEATURE COMPARISON MATRIX */}
-      <Container maxWidth="lg" sx={{ mt: 10 }}>
-        <Box textAlign="center" sx={{ mb: 5 }}>
-          <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.02em', mb: 1 }}>
-            Exhaustive Feature Comparison Matrix
+        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
+          <WorkspacePremium sx={{ fontSize: 64, mb: 3, opacity: 0.9, animation: `${float} 4s ease-in-out infinite` }} />
+          <Typography variant="h3" fontWeight={900} sx={{ mb: 3, fontSize: { xs: '1.75rem', md: '2.75rem' }, letterSpacing: '-0.02em' }}>
+            Need a Custom Enterprise Solution?
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Deep dive into every operational boundary and threshold mapping.
+          <Typography variant="h6" sx={{ mb: 6, opacity: 0.8, fontWeight: 300, fontSize: '1.1rem', lineHeight: 1.7 }}>
+            Contact our sales team to discuss enterprise requirements, custom integrations, and volume pricing.
           </Typography>
-        </Box>
+          <Button
+            variant="contained" size="large"
+            onClick={() => navigate('/contact')}
+            endIcon={<ArrowForward />}
+            sx={{
+              px: 5, py: 2, fontWeight: 700,
+              bgcolor: 'white', color: '#0d2435',
+              borderRadius: 3, fontSize: '1rem',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              transition: 'all 0.3s ease',
+              '&:hover': { bgcolor: '#f1f8f2', transform: 'translateY(-4px)', boxShadow: '0 16px 48px rgba(0,0,0,0.4)' },
+            }}
+          >
+            Contact Sales Team
+          </Button>
+        </Container>
+      </Box>
 
-        <TableContainer component={Paper} elevation={3} sx={{ borderRadius: 4, overflowX: 'auto', border: '1px solid #E2E8F0' }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#0F1728' }}>
-                <TableCell sx={{ color: '#ffffff !important', fontWeight: 800, py: 2.5 }}>Platform Feature Module</TableCell>
-                <TableCell sx={{ color: '#ffffff !important', fontWeight: 800 }}>Compliance Starter (Free)</TableCell>
-                <TableCell sx={{ color: '#ffffff !important', fontWeight: 800 }}>SME Professional (Paid)</TableCell>
-                <TableCell sx={{ color: '#ffffff !important', fontWeight: 800 }}>Enterprise Suite (Paid)</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {matrix.map((row, index) => (
-                <TableRow key={index} hover sx={{ '&:hover': { bgcolor: '#f8fafc' } }}>
-                  <TableCell sx={{ py: 2, borderBottom: '1px solid #eee' }}>
-                    <Box display="flex" alignItems="center" gap={1.5}>
-                      {row.icon}
-                      <Typography variant="body2" fontWeight={700} color="#1F4E79">{row.module}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid #eee', color: 'text.secondary', fontSize: '0.85rem' }}>{row.starter}</TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid #eee', color: 'text.primary', fontWeight: 600, fontSize: '0.85rem' }}>{row.pro}</TableCell>
-                  <TableCell sx={{ borderBottom: '1px solid #eee', color: 'text.primary', fontWeight: 700, fontSize: '0.85rem' }}>{row.enterprise}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Container>
+      <UnifiedFooter />
 
-      {/* GOVT PLATFORM GPaaS SECTION */}
-      <Container maxWidth="lg" sx={{ mt: 10 }}>
-        <Paper
-          elevation={4}
-          sx={{
-            p: 0,
-            borderRadius: 5,
-            overflow: 'hidden',
-            background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)',
-            color: 'white',
-            border: '1px solid rgba(255,255,255,0.05)'
-          }}
-        >
-          <Grid container>
-            <Grid size={{ xs: 12, md: 5 }} sx={{ position: 'relative', minHeight: { xs: 200, md: 'auto' } }}>
-              <Box
-                component="img"
-                src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&q=80&w=600"
-                alt="Government Dashboard"
-                sx={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  position: 'absolute',
-                  inset: 0
-                }}
-              />
-              <Box sx={{
-                position: 'absolute',
-                inset: 0,
-                background: 'linear-gradient(to right, rgba(17,24,39,0.3) 0%, rgba(17,24,39,0.8) 100%)'
-              }} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 7 }} sx={{ p: { xs: 4, md: 6 } }}>
-              <Chip label="STATE GOVERNANCE G2G" sx={{ mb: 2, bgcolor: 'rgba(76, 175, 80, 0.15)', color: '#81c784', fontWeight: 900, px: 1 }} />
-              <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.02em', mb: 2 }}>
-                Are you a Government Official or Park Manager?
-              </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.8, fontWeight: 300, lineHeight: 1.8, mb: 3 }}>
-                The Government/Admin tracks operate on a Government-Platform-as-a-Service (GPaaS) cost structure. Park officers (G1) and Command Center officials (G2) obtain full bypass access to all industry audit files and verification logs.
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-start' } }}>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  size="large"
-                  onClick={() => navigate('/role-selection')}
-                  sx={{
-                    py: 1.8,
-                    px: 4,
-                    borderRadius: 3.5,
-                    fontWeight: 800,
-                    textTransform: 'none',
-                    bgcolor: '#E67E22',
-                    boxShadow: '0 8px 24px rgba(230, 126, 34, 0.25)',
-                    '&:hover': { bgcolor: '#D35400' }
-                  }}
-                >
-                  Access Govt. Portal
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-      </Container>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={snackbar.severity || 'success'} variant="filled" onClose={() => setSnackbar({ ...snackbar, open: false })}>
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} sx={{ borderRadius: 3 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

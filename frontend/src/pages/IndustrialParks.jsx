@@ -8,6 +8,8 @@ import {
   List, ListItemButton, ListItemIcon, ListItemText, ClickAwayListener, Popper, IconButton
 } from '@mui/material';
 import UnifiedNav from '../components/UnifiedNav';
+import UnifiedFooter from '../components/UnifiedFooter';
+import PageHero from '../components/PageHero';
 import {
   Search, Map as MapIcon, TableChart, LocationOn,
   Water, Bolt, ArrowForwardIos, Explore, Layers,
@@ -15,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { keyframes } from '@emotion/react';
 
 const PARKS = [
   { id: 1, name: 'Oragadam Industrial Park', code: 'ORGDM', district: 'Kancheepuram', total_area: 2500, available_area: 340, status: 'active', score: 94, industries: 187, investment: 4200, employment: 23400, water_pct: 78, power_pct: 85, type: 'Automobile & Aerospace', lat: 12.795, lng: 79.988 },
@@ -38,6 +41,11 @@ const TILE_LAYERS = {
   satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', name: 'Satellite' },
   terrain: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', name: 'Terrain' },
 };
+
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
 
 const TN_CENTER = [11.1, 78.6];
 const TN_ZOOM = 7;
@@ -136,52 +144,82 @@ export default function IndustrialParks() {
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
       {!isAuthenticated && <UnifiedNav transparent={false} />}
-      {/* Hero Header */}
-      <Box sx={{
-        background: 'linear-gradient(135deg, #0f172a 0%, #1F4E79 100%)',
-        color: 'white', pt: isAuthenticated ? { xs: 2, md: 4 } : { xs: 8, md: 14 }, pb: { xs: 3, md: 5 }, px: { xs: 1.5, sm: 2, md: 3 },
-      }}>
-        <Container maxWidth="lg">
-          {/* Back to Home */}
-          {!isAuthenticated && (
-            <Button startIcon={<ArrowBack />} onClick={() => navigate('/home')}
-              sx={{ color: 'rgba(255,255,255,0.7)', mb: 2, '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.08)' } }}>
-              Back to Home
-            </Button>
-          )}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
-            <Explore sx={{ fontSize: 28, color: '#4CAF50' }} />
-            <Typography variant="overline" fontWeight={800} letterSpacing={3}>GIS INDUSTRIAL PARKS EXPLORER</Typography>
-          </Box>
-          <Typography variant="h3" fontWeight={900} sx={{ mb: 1, letterSpacing: '-0.02em', fontSize: { xs: '1.75rem', sm: '2.25rem', md: '3rem' } }}>
-            Tamil Nadu's Industrial Landscape
-          </Typography>
-          <Typography variant="h6" sx={{ opacity: 0.7, fontWeight: 300, mb: 3, maxWidth: 700 }}>
-            Interactive map with {PARKS.length} parks across {new Set(PARKS.map(p => p.district)).size} districts. Click any marker to explore.
-          </Typography>
 
-          <Grid container spacing={{ xs: 1, sm: 2 }}>
+      {/* ── Premium Hero (public view only) ── */}
+      {!isAuthenticated ? (
+        <PageHero
+          icon={<Explore />}
+          label="GIS Parks Explorer"
+          title="Tamil Nadu"
+          titleHighlight="Industrial Parks"
+          subtitle={`Interactive map with ${PARKS.length} parks across ${new Set(PARKS.map(p => p.district)).size} districts. Explore infrastructure, compliance scores, and available land.`}
+          accentColor="#2E7D32"
+          accentColor2="#1F4E79"
+          bgImage="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&q=60&w=1600"
+        >
+          {/* KPI stat strip inside hero */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
             {[
-              { icon: <SquareFoot />, label: 'Total Land', value: `${totals.area.toLocaleString()} Acres` },
-              { icon: <LocationOn />, label: 'Available', value: `${totals.available.toLocaleString()} Acres` },
-              { icon: <Factory />, label: 'Industries', value: totals.industries.toLocaleString() },
-              { icon: <People />, label: 'Employment', value: totals.employment.toLocaleString() },
+              { icon: <SquareFoot sx={{ fontSize: 20 }} />, label: 'Total Land', value: `${totals.area.toLocaleString()} Ac` },
+              { icon: <LocationOn sx={{ fontSize: 20 }} />, label: 'Available', value: `${totals.available.toLocaleString()} Ac` },
+              { icon: <Factory sx={{ fontSize: 20 }} />, label: 'Industries', value: totals.industries.toLocaleString() },
+              { icon: <People sx={{ fontSize: 20 }} />, label: 'Employment', value: totals.employment.toLocaleString() },
             ].map((kpi, i) => (
-              <Grid key={i} size={{ xs: 6, sm: 3 }}>
-                <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 3, textAlign: 'center' }}>
-                  <Box sx={{ color: '#4CAF50', mb: 0.5 }}>{kpi.icon}</Box>
-                  <Typography variant="h5" fontWeight={800} color="white">{kpi.value}</Typography>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>{kpi.label}</Typography>
-                </Paper>
-              </Grid>
+              <Box
+                key={i}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 1.5,
+                  px: 3, py: 1.5,
+                  borderRadius: 3,
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  transition: 'all 0.3s ease',
+                  animation: `${fadeInUp} 0.5s ease-out ${i * 0.08}s both`,
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.18)', transform: 'translateY(-3px)' },
+                }}
+              >
+                <Box sx={{ color: '#81C784' }}>{kpi.icon}</Box>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 800, color: 'white', lineHeight: 1.2 }}>{kpi.value}</Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.65rem' }}>{kpi.label}</Typography>
+                </Box>
+              </Box>
             ))}
-          </Grid>
-        </Container>
-      </Box>
+          </Box>
+        </PageHero>
+      ) : (
+        /* Compact header for authenticated users inside dashboard */
+        <Box sx={{
+          background: 'linear-gradient(135deg, #060d1a 0%, #0d2435 50%, #0a1e14 100%)',
+          color: 'white',
+          pt: { xs: 4, md: 6 }, pb: { xs: 6, md: 8 },
+          px: { xs: 2, md: 3 }, position: 'relative', overflow: 'hidden',
+        }}>
+          <Box sx={{ position: 'absolute', top: '-20%', right: '-5%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(46,125,50,0.25) 0%, transparent 65%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+          <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
+            <Chip label="GIS PARKS EXPLORER" sx={{ mb: 2, bgcolor: 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.1em', px: 2, py: 1 }} />
+            <Typography variant="h4" fontWeight={900} sx={{ mb: 1, letterSpacing: '-0.02em' }}>
+              Tamil Nadu <Box component="span" sx={{ background: 'linear-gradient(90deg, #4CAF50, #81C784)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Industrial Parks</Box>
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.8, maxWidth: 600, lineHeight: 1.7 }}>
+              {PARKS.length} parks across {new Set(PARKS.map(p => p.district)).size} districts — explore, search, and analyze.
+            </Typography>
+          </Container>
+        </Box>
+      )}
 
-      <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Toolbar */}
-        <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', borderRadius: 3 }}>
+        <Paper sx={{
+          p: 2.5, mb: 4,
+          display: 'flex', gap: 2.5, alignItems: 'center', flexWrap: 'wrap',
+          borderRadius: 4,
+          bgcolor: 'rgba(255,255,255,0.85)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+          border: '1px solid rgba(255,255,255,0.9)',
+        }}>
           {/* Search with live dropdown */}
           <ClickAwayListener onClickAway={() => setSearchFocused(false)}>
             <Box sx={{ flex: 1, minWidth: 220, position: 'relative' }} ref={searchRef}>
@@ -191,7 +229,7 @@ export default function IndustrialParks() {
                 onChange={(e) => { setSearch(e.target.value); setSearchFocused(true); }}
                 onFocus={() => setSearchFocused(true)}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><Search /></InputAdornment>,
+                  startAdornment: <InputAdornment position="start" sx={{ color: '#1F4E79' }}><Search /></InputAdornment>,
                   endAdornment: search && (
                     <InputAdornment position="end">
                       <IconButton size="small" onClick={() => { setSearch(''); setSearchFocused(false); }}>
@@ -200,40 +238,62 @@ export default function IndustrialParks() {
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 3,
+                    bgcolor: '#f8fafc',
+                    transition: 'all 0.3s ease',
+                    '& fieldset': { borderColor: '#e2e8f0' },
+                    '&:hover fieldset': { borderColor: '#1F4E79' },
+                    '&.Mui-focused fieldset': { borderColor: '#1F4E79', borderWidth: '1.5px' }
+                  }
+                }}
               />
               {/* Search Results Dropdown */}
               {searchFocused && search && searchSuggestions.length > 0 && (
                 <Paper sx={{
                   position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1200,
-                  mt: 0.5, maxHeight: 320, overflow: 'auto',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0',
+                  mt: 1, maxHeight: 350, overflow: 'auto',
+                  borderRadius: 3.5,
+                  boxShadow: '0 16px 48px rgba(31, 78, 121, 0.15)', 
+                  border: '1px solid rgba(31, 78, 121, 0.08)',
+                  bgcolor: 'white'
                 }}>
-                  <Typography variant="caption" sx={{ px: 2, pt: 1.5, pb: 0.5, display: 'block', color: 'text.secondary', fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ px: 2.5, pt: 2, pb: 0.8, display: 'block', color: 'text.secondary', fontWeight: 700, letterSpacing: '0.02em' }}>
                     {searchSuggestions.length} park{searchSuggestions.length !== 1 ? 's' : ''} found
                   </Typography>
                   <List dense disablePadding>
                     {searchSuggestions.map((park) => (
                       <ListItemButton key={park.id} onClick={() => handleSearchSelect(park)}
-                        sx={{ px: 2, py: 1, '&:hover': { bgcolor: '#f0f7ff' } }}>
+                        sx={{ 
+                          px: 2.5, py: 1.5, 
+                          transition: 'all 0.2s ease',
+                          '&:hover': { bgcolor: 'rgba(31, 78, 121, 0.04)' } 
+                        }}>
                         <ListItemIcon sx={{ minWidth: 32 }}>
                           <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: STATUS_CONFIG[park.status].color, border: '2px solid white', boxShadow: 1 }} />
                         </ListItemIcon>
                         <ListItemText
                           primary={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                              <Typography variant="body2" fontWeight={700}>{park.name}</Typography>
-                              <Chip label={park.code} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
+                              <Typography variant="body2" fontWeight={800} color="#0F172A">{park.name}</Typography>
+                              <Chip label={park.code} size="small" variant="outlined" 
+                                sx={{ 
+                                  height: 18, fontSize: '0.65rem', fontWeight: 700, 
+                                  color: '#1F4E79', borderColor: 'rgba(31,78,121,0.2)' 
+                                }} 
+                              />
                             </Box>
                           }
                           secondary={
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                               {park.district} | {park.type} | {park.industries} industries | Score: {park.score}/100
                             </Typography>
                           }
                         />
                         <Box sx={{ textAlign: 'right', ml: 1 }}>
-                          <Typography variant="caption" fontWeight={700} color="primary">{park.available_area.toLocaleString()} ac</Typography>
-                          <Typography variant="caption" display="block" color="text.secondary">available</Typography>
+                          <Typography variant="caption" fontWeight={800} color="primary" sx={{ display: 'block' }}>{park.available_area.toLocaleString()} ac</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>available</Typography>
                         </Box>
                       </ListItemButton>
                     ))}
@@ -243,25 +303,72 @@ export default function IndustrialParks() {
               {searchFocused && search && searchSuggestions.length === 0 && (
                 <Paper sx={{
                   position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1200,
-                  mt: 0.5, p: { xs: 2, sm: 3 }, textAlign: 'center',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0',
+                  mt: 1, p: 3, textAlign: 'center',
+                  borderRadius: 3.5,
+                  boxShadow: '0 16px 48px rgba(31, 78, 121, 0.12)', 
+                  border: '1px solid rgba(31, 78, 121, 0.08)',
+                  bgcolor: 'white'
                 }}>
-                  <Typography variant="body2" color="text.secondary">No parks found for "{search}"</Typography>
-                  <Typography variant="caption" color="text.disabled">Try: Oragadam, Hosur, IT, Manufacturing, Kancheepuram</Typography>
+                  <Typography variant="body2" color="text.secondary" fontWeight={600}>No parks found for "{search}"</Typography>
+                  <Typography variant="caption" color="text.disabled" display="block" sx={{ mt: 0.5 }}>Try: Oragadam, Hosur, IT, Manufacturing, Kancheepuram</Typography>
                 </Paper>
               )}
             </Box>
           </ClickAwayListener>
 
-          <ToggleButtonGroup size="small" value={statusFilter} exclusive onChange={(e, v) => v && setStatusFilter(v)}>
+          <ToggleButtonGroup size="small" value={statusFilter} exclusive onChange={(e, v) => v && setStatusFilter(v)}
+            sx={{
+              bgcolor: '#f1f5f9',
+              p: 0.5,
+              borderRadius: 3,
+              border: 'none',
+              '& .MuiToggleButton-root': {
+                border: 'none',
+                borderRadius: 2.5,
+                px: 2,
+                py: 0.75,
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                textTransform: 'none',
+                color: 'text.secondary',
+                '&.Mui-selected': {
+                  bgcolor: 'white',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  color: 'primary.main',
+                  '&:hover': { bgcolor: 'white' }
+                }
+              }
+            }}
+          >
             <ToggleButton value="all">All</ToggleButton>
-            <ToggleButton value="active" sx={{ color: '#2E7D32' }}>Active</ToggleButton>
-            <ToggleButton value="developing" sx={{ color: '#F57C00' }}>Developing</ToggleButton>
-            <ToggleButton value="proposed" sx={{ color: '#1565C0' }}>Proposed</ToggleButton>
+            <ToggleButton value="active" sx={{ '&.Mui-selected': { color: '#2E7D32 !important' } }}>Active</ToggleButton>
+            <ToggleButton value="developing" sx={{ '&.Mui-selected': { color: '#F57C00 !important' } }}>Developing</ToggleButton>
+            <ToggleButton value="proposed" sx={{ '&.Mui-selected': { color: '#1565C0 !important' } }}>Proposed</ToggleButton>
           </ToggleButtonGroup>
-          <ToggleButtonGroup size="small" value={viewMode} exclusive onChange={(e, v) => v && setViewMode(v)}>
-            <ToggleButton value="map"><Tooltip title="GIS Map"><MapIcon /></Tooltip></ToggleButton>
-            <ToggleButton value="table"><Tooltip title="Table View"><TableChart /></Tooltip></ToggleButton>
+
+          <ToggleButtonGroup size="small" value={viewMode} exclusive onChange={(e, v) => v && setViewMode(v)}
+            sx={{
+              bgcolor: '#f1f5f9',
+              p: 0.5,
+              borderRadius: 3,
+              border: 'none',
+              ml: { xs: 0, sm: 'auto' },
+              '& .MuiToggleButton-root': {
+                border: 'none',
+                borderRadius: 2.5,
+                p: 0.75,
+                color: 'text.secondary',
+                '&.Mui-selected': {
+                  bgcolor: 'white',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  color: '#1F4E79',
+                  '&:hover': { bgcolor: 'white' }
+                }
+              }
+            }}
+          >
+            <ToggleButton value="map"><Tooltip title="GIS Map"><MapIcon sx={{ fontSize: 20 }} /></Tooltip></ToggleButton>
+            <ToggleButton value="table"><Tooltip title="Table View"><TableChart sx={{ fontSize: 20 }} /></Tooltip></ToggleButton>
           </ToggleButtonGroup>
         </Paper>
 
@@ -269,31 +376,43 @@ export default function IndustrialParks() {
         {viewMode === 'map' && (
           <Grid container spacing={{ xs: 1.5, sm: 2 }}>
             <Grid size={{ xs: 12, md: selectedPark ? 7 : 12 }}>
-              <Paper sx={{ borderRadius: 3, overflow: 'hidden', position: 'relative' }}>
+              <Paper sx={{ 
+                borderRadius: 4.5, 
+                overflow: 'hidden', 
+                position: 'relative',
+                boxShadow: '0 16px 40px rgba(0,0,0,0.05)',
+                border: '1px solid rgba(0,0,0,0.06)'
+              }}>
                 {/* Map Layer Controls */}
-                <Box sx={{ position: 'absolute', top: 10, left: 10, zIndex: 1000, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                <Box sx={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {Object.entries(TILE_LAYERS).map(([key, layer]) => (
                     <Button key={key} size="small" variant={tileLayer === key ? 'contained' : 'outlined'}
                       onClick={() => setTileLayer(key)}
-                      sx={{ bgcolor: tileLayer === key ? '#1F4E79' : 'white', color: tileLayer === key ? 'white' : '#1F4E79',
-                        boxShadow: 2, minWidth: 'auto', px: 1.5, fontSize: '0.7rem', '&:hover': { bgcolor: tileLayer === key ? '#143656' : '#f0f4f8' } }}>
+                      sx={{ 
+                        bgcolor: tileLayer === key ? '#1F4E79' : 'white', 
+                        color: tileLayer === key ? 'white' : '#1F4E79',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)', 
+                        minWidth: 'auto', px: 2, py: 0.6, fontSize: '0.72rem', fontWeight: 700, borderRadius: 2,
+                        transition: 'all 0.3s ease',
+                        '&:hover': { bgcolor: tileLayer === key ? '#143656' : '#f8fafc', transform: 'translate3d(0, -1px, 0)' } 
+                      }}>
                       {layer.name}
                     </Button>
                   ))}
                 </Box>
 
                 {/* Availability Toggle */}
-                <Box sx={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000 }}>
-                  <Paper sx={{ p: 1, px: 1.5, borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    <Typography variant="caption" fontWeight={700}>Map Overlays</Typography>
+                <Box sx={{ position: 'absolute', bottom: 12, left: 12, zIndex: 1000 }}>
+                  <Paper sx={{ p: 2, borderRadius: 3.5, display: 'flex', flexDirection: 'column', gap: 1, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', border: '1px solid rgba(0,0,0,0.05)' }}>
+                    <Typography variant="caption" fontWeight={800} sx={{ letterSpacing: '0.04em', textTransform: 'uppercase', color: '#1F4E79' }}>Map Overlays</Typography>
                     <FormControlLabel control={<Switch size="small" checked={showAvailability} onChange={(e) => setShowAvailability(e.target.checked)} />}
-                      label={<Typography variant="caption">Show Plot Availability</Typography>} sx={{ m: 0 }} />
-                    <Divider />
-                    <Typography variant="caption" fontWeight={700} sx={{ mt: 0.5 }}>Legend</Typography>
+                      label={<Typography variant="caption" sx={{ fontWeight: 600 }}>Show Plot Availability</Typography>} sx={{ m: 0 }} />
+                    <Divider sx={{ my: 0.5 }} />
+                    <Typography variant="caption" fontWeight={800} sx={{ letterSpacing: '0.04em', textTransform: 'uppercase', color: '#1F4E79' }}>Legend</Typography>
                     {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                      <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: cfg.color }} />
-                        <Typography variant="caption">{cfg.label}</Typography>
+                      <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: cfg.color, boxShadow: `0 1px 4px ${cfg.color}50` }} />
+                        <Typography variant="caption" sx={{ fontWeight: 550, color: 'text.secondary' }}>{cfg.label}</Typography>
                       </Box>
                     ))}
                   </Paper>
@@ -377,29 +496,52 @@ export default function IndustrialParks() {
             {/* Detail Side Panel */}
             {selectedPark && (
               <Grid size={{ xs: 12, md: 5 }}>
-                <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, height: '100%', borderTop: `4px solid ${STATUS_CONFIG[selectedPark.status].color}`, position: 'relative' }}>
-                  <Button size="small" sx={{ position: 'absolute', top: 8, right: 8, minWidth: 'auto', p: 0.5 }}
+                <Paper sx={{ 
+                  p: { xs: 2.5, sm: 3.5 }, 
+                  borderRadius: 4.5, 
+                  height: '100%', 
+                  borderTop: `4px solid ${STATUS_CONFIG[selectedPark.status].color}`, 
+                  position: 'relative',
+                  boxShadow: '0 16px 40px rgba(0,0,0,0.05)',
+                  border: '1px solid rgba(0,0,0,0.06)'
+                }}>
+                  <Button size="small" sx={{ position: 'absolute', top: 12, right: 12, minWidth: 'auto', p: 0.5 }}
                     onClick={() => setSelectedPark(null)}><Close /></Button>
 
                   <Chip label={STATUS_CONFIG[selectedPark.status].label} size="small"
-                    sx={{ bgcolor: STATUS_CONFIG[selectedPark.status].bg, color: STATUS_CONFIG[selectedPark.status].color, fontWeight: 700, mb: 1 }} />
-                  <Typography variant="h5" fontWeight={800} sx={{ mb: 0.5 }}>{selectedPark.name}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{selectedPark.district} District | {selectedPark.type}</Typography>
+                    sx={{ bgcolor: STATUS_CONFIG[selectedPark.status].bg, color: STATUS_CONFIG[selectedPark.status].color, fontWeight: 800, mb: 1.5, borderRadius: 2 }} />
+                  <Typography variant="h5" fontWeight={900} sx={{ mb: 0.5, color: '#0F172A' }}>{selectedPark.name}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontWeight: 550 }}>{selectedPark.district} District | {selectedPark.type}</Typography>
 
                   {/* Basic info - visible to everyone */}
-                  <Grid container spacing={{ xs: 1, sm: 1.5 }} sx={{ mt: 2, mb: 2 }}>
+                  <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mt: 1, mb: 3 }}>
                     {[
                       { label: 'Total Area', value: `${selectedPark.total_area.toLocaleString()} ac`, icon: <SquareFoot sx={{ fontSize: 16 }} />, color: '#1F4E79' },
-                      { label: 'Industries', value: selectedPark.industries, icon: <Factory sx={{ fontSize: 16 }} />, color: '#7B1FA2' },
+                      { label: 'Industries', value: selectedPark.industries, icon: <Factory sx={{ fontSize: 16 }} />, color: '#2E7D32' },
                       { label: 'Available Plots', value: `${selectedPark.available_area.toLocaleString()} ac`, icon: <LocationOn sx={{ fontSize: 16 }} />, color: '#2E7D32' },
-                      { label: 'Occupancy', value: `${Math.round((1 - selectedPark.available_area / selectedPark.total_area) * 100)}%`, icon: <Layers sx={{ fontSize: 16 }} />, color: '#455A64' },
+                      { label: 'Occupancy', value: `${Math.round((1 - selectedPark.available_area / selectedPark.total_area) * 100)}%`, icon: <Layers sx={{ fontSize: 16 }} />, color: '#1F4E79' },
                     ].map((m, i) => (
                       <Grid key={i} size={{ xs: 6 }}>
-                        <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={{ color: m.color }}>{m.icon}</Box>
+                        <Box sx={{ 
+                          p: 2, 
+                          bgcolor: '#f8fafc', 
+                          borderRadius: 3, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 1.5,
+                          border: '1px solid #f1f5f9',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            transform: 'translate3d(0, -2px, 0)',
+                            bgcolor: 'white',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+                            borderColor: 'rgba(31,78,121,0.12)'
+                          }
+                        }}>
+                          <Box sx={{ color: m.color, display: 'flex' }}>{m.icon}</Box>
                           <Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1, display: 'block' }}>{m.label}</Typography>
-                            <Typography variant="body2" fontWeight={700}>{m.value}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.1, display: 'block', mb: 0.3 }}>{m.label}</Typography>
+                            <Typography variant="body2" fontWeight={800}>{m.value}</Typography>
                           </Box>
                         </Box>
                       </Grid>
@@ -409,53 +551,125 @@ export default function IndustrialParks() {
                   {/* Detailed info - only for authenticated users */}
                   {isAuthenticated ? (
                     <>
-                      <Divider sx={{ mb: 2 }} />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                        <Typography variant="caption" color="text.secondary">Infra Score:</Typography>
+                      <Divider sx={{ mb: 2.5 }} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Infra Score:</Typography>
                         <ScoreChip score={selectedPark.score} />
-                        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', fontWeight: 550 }}>
                           {selectedPark.lat.toFixed(3)}, {selectedPark.lng.toFixed(3)}
                         </Typography>
                       </Box>
 
-                      <Grid container spacing={{ xs: 1, sm: 1.5 }} sx={{ mb: 2.5 }}>
+                      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3 }}>
                         {[
                           { label: 'Investment', value: `Rs.${selectedPark.investment.toLocaleString()} Cr`, icon: <CurrencyRupee sx={{ fontSize: 16 }} />, color: '#E65100' },
                           { label: 'Employment', value: selectedPark.employment.toLocaleString(), icon: <People sx={{ fontSize: 16 }} />, color: '#00838F' },
                         ].map((m, i) => (
                           <Grid key={i} size={{ xs: 6 }}>
-                            <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Box sx={{ color: m.color }}>{m.icon}</Box>
+                            <Box sx={{ 
+                              p: 2, 
+                              bgcolor: '#f8fafc', 
+                              borderRadius: 3, 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: 1.5,
+                              border: '1px solid #f1f5f9',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                transform: 'translate3d(0, -2px, 0)',
+                                bgcolor: 'white',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+                                borderColor: 'rgba(31,78,121,0.12)'
+                              }
+                            }}>
+                              <Box sx={{ color: m.color, display: 'flex' }}>{m.icon}</Box>
                               <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1, display: 'block' }}>{m.label}</Typography>
-                                <Typography variant="body2" fontWeight={700}>{m.value}</Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.1, display: 'block', mb: 0.3 }}>{m.label}</Typography>
+                                <Typography variant="body2" fontWeight={800}>{m.value}</Typography>
                               </Box>
                             </Box>
                           </Grid>
                         ))}
                       </Grid>
 
-                      <Typography variant="subtitle2" fontWeight={700} gutterBottom>Infrastructure Utilization</Typography>
+                      <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 2, color: '#0F172A', letterSpacing: '0.02em' }}>Infrastructure Utilization</Typography>
                       <InfraBar label="Water Capacity" value={selectedPark.water_pct} icon={<Water sx={{ fontSize: 16, color: '#1565C0' }} />} />
                       <InfraBar label="Power Grid" value={selectedPark.power_pct} icon={<Bolt sx={{ fontSize: 16, color: '#F57C00' }} />} />
 
-                      <Divider sx={{ my: 2 }} />
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Button variant="contained" size="small" fullWidth onClick={() => navigate('/services', { state: { parkId: selectedPark.id, serviceType: 'land_allotment' } })}>Apply for Plot</Button>
-                        <Button variant="outlined" size="small" fullWidth onClick={() => navigate('/report-center')}>Full Analytics</Button>
+                      <Divider sx={{ my: 3 }} />
+                      <Box sx={{ display: 'flex', gap: 1.5, mt: 3 }}>
+                        <Button 
+                          variant="contained" 
+                          size="medium" 
+                          fullWidth 
+                          onClick={() => navigate('/services', { state: { parkId: selectedPark.id, serviceType: 'land_allotment' } })}
+                          sx={{
+                            borderRadius: 2.5,
+                            py: 1.2,
+                            fontWeight: 800,
+                            background: 'linear-gradient(135deg, #1F4E79, #2E7D32)',
+                            boxShadow: '0 6px 16px rgba(31,78,121,0.2)',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translate3d(0, -2px, 0)',
+                              boxShadow: '0 10px 24px rgba(31,78,121,0.3)'
+                            }
+                          }}
+                        >
+                          Apply for Plot
+                        </Button>
+                        <Button 
+                          variant="outlined" 
+                          size="medium" 
+                          fullWidth 
+                          onClick={() => navigate('/report-center')}
+                          sx={{
+                            borderRadius: 2.5,
+                            py: 1.2,
+                            fontWeight: 800,
+                            borderColor: '#1F4E79',
+                            color: '#1F4E79',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translate3d(0, -2px, 0)',
+                              borderColor: '#1F4E79',
+                              bgcolor: 'rgba(31,78,121,0.04)'
+                            }
+                          }}
+                        >
+                          Full Analytics
+                        </Button>
                       </Box>
                     </>
                   ) : (
                     <>
-                      <Divider sx={{ my: 2 }} />
-                      <Paper sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid #dbeafe', textAlign: 'center' }}>
-                        <LockIcon sx={{ color: '#1F4E79', mb: 0.5 }} />
-                        <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>Login for detailed analytics</Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                          Investment data, employment stats, infrastructure metrics, and plot applications require authentication.
+                      <Divider sx={{ my: 3 }} />
+                      <Paper sx={{
+                        p: 4,
+                        bgcolor: 'rgba(31, 78, 121, 0.02)',
+                        borderRadius: 4.5,
+                        border: '1px solid rgba(31, 78, 121, 0.1)',
+                        textAlign: 'center',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)'
+                      }}>
+                        <LockIcon sx={{ color: '#1F4E79', fontSize: 32, mb: 1.5 }} />
+                        <Typography variant="body1" fontWeight={850} sx={{ color: '#1F4E79', mb: 1 }}>
+                          Detailed Analytics Locked
                         </Typography>
-                        <Button variant="contained" size="small" fullWidth onClick={() => navigate('/role-selection')}
-                          sx={{ borderRadius: 2 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3, px: 1.5, lineHeight: 1.6, fontWeight: 550, fontSize: '0.8rem' }}>
+                          Investment data, employment statistics, infrastructure metrics, and plot applications require secure authentication.
+                        </Typography>
+                        <Button variant="contained" size="large" fullWidth onClick={() => navigate('/role-selection')}
+                          sx={{
+                            borderRadius: 2.5, py: 1.6, fontWeight: 800,
+                            background: 'linear-gradient(135deg, #1F4E79, #2E7D32)',
+                            boxShadow: '0 8px 24px rgba(31,78,121,0.25)',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'translate3d(0, -2px, 0)',
+                              boxShadow: '0 12px 32px rgba(31,78,121,0.35)'
+                            }
+                          }}>
                           Login to THOZHIRPORUL
                         </Button>
                       </Paper>
@@ -469,11 +683,11 @@ export default function IndustrialParks() {
 
         {/* TABLE VIEW */}
         {viewMode === 'table' && (
-          <Paper sx={{ borderRadius: 3, overflow: 'hidden' }}>
-            <TableContainer>
-              <Table>
+          <Paper sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+            <TableContainer sx={{ maxHeight: 600 }}>
+              <Table stickyHeader>
                 <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: '#1F4E79', color: 'white', fontWeight: 700 } }}>
+                  <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: '#f8fafc', color: '#475569', fontWeight: 800, borderBottom: '2px solid #e2e8f0', py: 2.2 } }}>
                     <TableCell>Park</TableCell>
                     <TableCell>District</TableCell>
                     <TableCell>Status</TableCell>
@@ -487,24 +701,32 @@ export default function IndustrialParks() {
                 </TableHead>
                 <TableBody>
                   {filtered.map((park) => (
-                    <TableRow key={park.id} hover sx={{ cursor: 'pointer' }} onClick={() => { setSelectedPark(park); setViewMode('map'); }}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: STATUS_CONFIG[park.status].color, flexShrink: 0 }} />
+                    <TableRow key={park.id} hover 
+                      onClick={() => { setSelectedPark(park); setViewMode('map'); }}
+                      sx={{ 
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          bgcolor: 'rgba(31, 78, 121, 0.03) !important',
+                        }
+                      }}>
+                      <TableCell sx={{ py: 2.2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: STATUS_CONFIG[park.status].color, flexShrink: 0, boxShadow: `0 1px 4px ${STATUS_CONFIG[park.status].color}40` }} />
                           <Box>
-                            <Typography variant="body2" fontWeight={700}>{park.name}</Typography>
-                            <Typography variant="caption" color="text.secondary">{park.type}</Typography>
+                            <Typography variant="body2" fontWeight={800} color="#0F172A">{park.name}</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 550 }}>{park.type}</Typography>
                           </Box>
                         </Box>
                       </TableCell>
-                      <TableCell>{park.district}</TableCell>
-                      <TableCell><Chip label={STATUS_CONFIG[park.status].label} size="small" sx={{ bgcolor: STATUS_CONFIG[park.status].bg, color: STATUS_CONFIG[park.status].color, fontWeight: 600 }} /></TableCell>
-                      <TableCell align="right">{park.total_area.toLocaleString()}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600, color: park.available_area > 500 ? '#2E7D32' : 'inherit' }}>{park.available_area.toLocaleString()}</TableCell>
-                      <TableCell align="right">{park.industries}</TableCell>
-                      {isAuthenticated && <TableCell align="right">{park.investment.toLocaleString()}</TableCell>}
-                      {isAuthenticated && <TableCell><ScoreChip score={park.score} /></TableCell>}
-                      <TableCell><Button size="small" endIcon={<ArrowForwardIos sx={{ fontSize: 10 }} />}>View on Map</Button></TableCell>
+                      <TableCell sx={{ py: 2.2, fontWeight: 550 }}>{park.district}</TableCell>
+                      <TableCell sx={{ py: 2.2 }}><Chip label={STATUS_CONFIG[park.status].label} size="small" sx={{ bgcolor: STATUS_CONFIG[park.status].bg, color: STATUS_CONFIG[park.status].color, fontWeight: 750, borderRadius: 2 }} /></TableCell>
+                      <TableCell align="right" sx={{ py: 2.2, fontWeight: 600 }}>{park.total_area.toLocaleString()}</TableCell>
+                      <TableCell align="right" sx={{ py: 2.2, fontWeight: 700, color: park.available_area > 500 ? '#2E7D32' : 'inherit' }}>{park.available_area.toLocaleString()}</TableCell>
+                      <TableCell align="right" sx={{ py: 2.2, fontWeight: 600 }}>{park.industries}</TableCell>
+                      {isAuthenticated && <TableCell align="right" sx={{ py: 2.2, fontWeight: 700, color: 'text.primary' }}>{park.investment.toLocaleString()}</TableCell>}
+                      {isAuthenticated && <TableCell sx={{ py: 2.2 }}><ScoreChip score={park.score} /></TableCell>}
+                      <TableCell sx={{ py: 2.2 }}><Button size="small" endIcon={<ArrowForwardIos sx={{ fontSize: 10 }} />} sx={{ fontWeight: 700 }}>View on Map</Button></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -513,6 +735,7 @@ export default function IndustrialParks() {
           </Paper>
         )}
       </Container>
+      {!isAuthenticated && <UnifiedFooter />}
     </Box>
   );
 }

@@ -33,15 +33,13 @@ function IndustryDashboard() {
 
   // Mock Data for the Industry Layout
   const complianceStatus = "Compliant";
-  
   const mockChartData = [
-    { month: 'Jan', power: 4200, water: 2400 },
-    { month: 'Feb', power: 3000, water: 1398 },
-    { month: 'Mar', power: 2000, water: 9800 },
-    { month: 'Apr', power: 2780, water: 3908 },
-    { month: 'May', power: 1890, water: 4800 },
-    { month: 'Jun', power: 2390, water: 3800 },
-    { month: 'Jul', power: 3490, water: 4300 },
+    { month: 'Jan', power: 120, water: 720 },
+    { month: 'Feb', power: 110, water: 680 },
+    { month: 'Mar', power: 135, water: 820 },
+    { month: 'Apr', power: 145, water: 850 },
+    { month: 'May', power: 140, water: 810 },
+    { month: 'Jun', power: 155, water: 900 }
   ];
 
   return (
@@ -88,7 +86,7 @@ function IndustryDashboard() {
                   <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={600}>
                     {kpi.title}
                   </Typography>
-                  <Typography variant="h5" component="div" fontWeight="bold" color="text.primary">
+                  <Typography component="div" fontWeight="bold" color="text.primary" sx={{ fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem', lg: '1.35rem' }, lineHeight: 1.2 }}>
                     {kpi.value}
                   </Typography>
                   <Typography variant="caption" sx={{ color: kpi.change.includes('+') ? 'success.main' : 'error.main', fontWeight: 'bold' }}>

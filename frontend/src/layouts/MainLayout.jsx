@@ -35,6 +35,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import logoTransparent from '../assets/logo-transparent.png';
 import LoadingScreen from '../components/LoadingScreen';
+import AccessibilityNew from '@mui/icons-material/AccessibilityNew';
 
 const drawerWidth = 280;
 const miniDrawerWidth = 80;
@@ -214,6 +215,7 @@ function MainLayout() {
                   py: 1.2, px: 2, borderRadius: 2, mb: 0.5,
                   transition: 'all 0.2s ease',
                   color: 'white',
+                  position: 'relative',
                   '&.Mui-selected': {
                     background: 'rgba(255, 255, 255, 0.25)',
                     color: 'white',
@@ -227,7 +229,6 @@ function MainLayout() {
                   '&:hover': {
                     background: 'rgba(255, 255, 255, 0.15)',
                   },
-                  position: 'relative',
                 }}
               >
                 <ListItemIcon sx={{ color: 'rgba(255,255,255,0.9)', minWidth: 40 }}>
@@ -416,6 +417,7 @@ function MainLayout() {
             borderColor: 'divider',
             transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             height: 64,
+            zIndex: 1200,
           }}
         >
           <Toolbar sx={{ height: 64 }}>
@@ -438,6 +440,19 @@ function MainLayout() {
 
             {/* Right side actions */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Tooltip title="Accessibility Options" arrow>
+                <IconButton
+                  size="large"
+                  aria-label="open accessibility panel"
+                  onClick={() => window.dispatchEvent(new Event('open-accessibility-panel'))}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': { bgcolor: `${theme.primary}15` },
+                  }}
+                >
+                  <AccessibilityNew className="acc-icon-keep" />
+                </IconButton>
+              </Tooltip>
               <IconButton
                 size="large"
                 aria-label="show new notifications"
@@ -456,10 +471,11 @@ function MainLayout() {
                 open={Boolean(notifAnchorEl)}
                 onClose={handleNotifClose}
                 PaperProps={{
-                  sx: { width: { xs: 280, sm: 340 }, maxHeight: 400, borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }
+                  sx: { width: { xs: 280, sm: 340 }, maxHeight: 400, borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', zIndex: 1400 }
                 }}
                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                sx={{ zIndex: 1400 }}
               >
                 <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: `${theme.primary}08` }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: theme.primary }}>Notifications</Typography>
@@ -495,10 +511,11 @@ function MainLayout() {
                 open={Boolean(profileAnchorEl)}
                 onClose={handleProfileClose}
                 PaperProps={{
-                  sx: { width: 220, borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }
+                  sx: { width: 220, borderRadius: 2, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', zIndex: 1400 }
                 }}
                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                sx={{ zIndex: 1400 }}
               >
                 <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{userName}</Typography>
@@ -530,7 +547,7 @@ function MainLayout() {
             ModalProps={{ keepMounted: true }}
             sx={{
               display: { xs: 'block', sm: 'none' },
-              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, zIndex: 1300 },
             }}
           >
             {mobileDrawer}
@@ -545,6 +562,7 @@ function MainLayout() {
                 transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 overflowX: 'hidden',
                 borderRight: 'none',
+                zIndex: 1100,
               },
             }}
             open
@@ -560,7 +578,7 @@ function MainLayout() {
             flexGrow: 1,
             p: { xs: 2, sm: 2.5, md: 3.5 },
             width: { sm: `calc(100% - ${currentWidth}px)` },
-            backgroundColor: 'background.default',
+            background: 'linear-gradient(135deg, #FFFFFF 0%, #E6F4F1 100%)',
             minHeight: '100vh',
             overflow: 'hidden',
             transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',

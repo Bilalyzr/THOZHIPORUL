@@ -10,6 +10,7 @@ import {
   CloudUpload, Download, CheckCircle, Edit, Visibility,
   NavigateBefore, NavigateNext, Send, Save
 } from '@mui/icons-material';
+import { submissionService } from '../services/api';
 
 const steps = ['Period', 'Financial', 'Employment', 'Resources', 'CSR', 'Review & Submit'];
 
@@ -21,65 +22,56 @@ const EMPTY_FORM = {
   csrActivities: '', csrSpent: '', csrBeneficiaries: '',
 };
 
-const INITIAL_HISTORY = [
-  { id: 1, period: 'Q4 2025', periodYear: 2025, periodQuarter: 4, status: 'Approved', submitted: '2026-01-15', approved_by: 'Admin', data: { investmentAmount: '45', annualTurnover: '38', permanentEmployees: '180', contractEmployees: '54', waterConsumption: '85', powerUsage: '120', csrSpent: '12' } },
-  { id: 2, period: 'Q3 2025', periodYear: 2025, periodQuarter: 3, status: 'Approved', submitted: '2025-10-12', approved_by: 'Admin', data: { investmentAmount: '42', annualTurnover: '35', permanentEmployees: '172', contractEmployees: '50', waterConsumption: '80', powerUsage: '115', csrSpent: '10' } },
-  { id: 3, period: 'Q2 2025', periodYear: 2025, periodQuarter: 2, status: 'Approved', submitted: '2025-07-08', approved_by: 'Admin', data: { investmentAmount: '40', annualTurnover: '33', permanentEmployees: '165', contractEmployees: '48', waterConsumption: '78', powerUsage: '110', csrSpent: '8' } },
-];
-
-function loadState(key, fallback) {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : fallback;
-  } catch { return fallback; }
-}
-
 export default function UnifiedDataSubmission() {
   const [mode, setMode] = useState('form');
   const [activeStep, setActiveStep] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [uploadedFile, setUploadedFile] = useState(null);
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
-  const [history, setHistory] = useState(() => loadState('sipcot_submissions', INITIAL_HISTORY));
+  const [history, setHistory] = useState([]);
   const [viewDialog, setViewDialog] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
-  // Persist submissions to localStorage on every change
+  const refreshHistory = async () => {
+    try {
+      const res = await submissionService.getMySubmissions();
+      setHistory(res.data);
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem('sipcot_submissions', JSON.stringify(history));
-  }, [history]);
+    let active = true;
+    submissionService.getMySubmissions()
+      .then(res => {
+        if (active) setHistory(res.data);
+      })
+      .catch(err => {
+        console.error('Failed to fetch history:', err);
+        if (active) {
+          setSnackbar({ open: true, message: 'Failed to load submission history.', severity: 'error' });
+        }
+      });
+    return () => { active = false; };
+  }, []);
 
   const handleChange = (field) => (e) => setFormData({ ...formData, [field]: e.target.value });
 
   // SUBMIT data
-  const handleSubmit = () => {
-    const periodLabel = `Q${formData.periodQuarter} ${formData.periodYear}`;
-    const today = new Date().toISOString().split('T')[0];
-
-    if (editingId) {
-      // Update existing draft
-      setHistory(history.map(h => h.id === editingId ? {
-        ...h, status: 'Submitted', submitted: today, period: periodLabel, data: { ...formData }
-      } : h));
+  const handleSubmit = async () => {
+    try {
+      await submissionService.submit(formData);
+      const periodLabel = `Q${formData.periodQuarter} ${formData.periodYear}`;
+      setSnackbar({ open: true, message: `Data for ${periodLabel} submitted successfully!`, severity: 'success' });
+      setFormData({ ...EMPTY_FORM });
+      setActiveStep(0);
       setEditingId(null);
-      setSnackbar({ open: true, message: `Draft "${periodLabel}" updated and submitted!`, severity: 'success' });
-    } else {
-      // Create new submission
-      const newEntry = {
-        id: Date.now(),
-        period: periodLabel,
-        periodYear: formData.periodYear,
-        periodQuarter: formData.periodQuarter,
-        status: 'Submitted',
-        submitted: today,
-        approved_by: 'Pending',
-        data: { ...formData },
-      };
-      setHistory([newEntry, ...history]);
-      setSnackbar({ open: true, message: `Data for ${periodLabel} submitted successfully! It will be reviewed by an administrator.`, severity: 'success' });
+      refreshHistory(); // Refresh table
+    } catch (err) {
+      console.error('Submission failed:', err);
+      setSnackbar({ open: true, message: 'Failed to submit data. Please try again.', severity: 'error' });
     }
-    setFormData({ ...EMPTY_FORM });
-    setActiveStep(0);
   };
 
   // SAVE DRAFT
@@ -323,12 +315,44 @@ Beneficiaries,${d.csrBeneficiaries || '-'}`;
             {uploadedFile && (
               <Box sx={{ mt: 2 }}>
                 <Chip label={uploadedFile.name} color="primary" onDelete={() => setUploadedFile(null)} sx={{ mb: 1 }} />
-                <br />
-                <Button variant="contained" onClick={() => {
-                  const today = new Date().toISOString().split('T')[0];
-                  setHistory([{ id: Date.now(), period: 'Q1 2026', periodYear: 2026, periodQuarter: 1, status: 'Submitted', submitted: today, approved_by: 'Pending', data: { investmentAmount: '48', annualTurnover: '40', permanentEmployees: '190', contractEmployees: '58', waterConsumption: '90', powerUsage: '130' } }, ...history]);
-                  setUploadedFile(null);
-                  setSnackbar({ open: true, message: 'File validated and submitted successfully! All rows passed validation.', severity: 'success' });
+                <Button variant="contained" onClick={async () => {
+                  try {
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                      const text = event.target.result;
+                      const lines = text.split('\n');
+                      if (lines.length > 1) {
+                        const values = lines[1].split(',');
+                        const parsedData = {
+                          periodYear: Number(values[0]) || 2026,
+                          periodQuarter: Number(values[1]) || 1,
+                          investmentAmount: Number(values[2]) || 0,
+                          annualTurnover: Number(values[3]) || 0,
+                          exportRevenue: Number(values[4]) || 0,
+                          rdExpenditure: Number(values[5]) || 0,
+                          permanentEmployees: Number(values[6]) || 0,
+                          contractEmployees: Number(values[7]) || 0,
+                          scStEmployees: Number(values[8]) || 0,
+                          womenEmployees: Number(values[9]) || 0,
+                          waterConsumption: Number(values[10]) || 0,
+                          powerUsage: Number(values[11]) || 0,
+                          wasteGenerated: Number(values[12]) || 0,
+                          wasteRecycledPct: Number(values[13]) || 0,
+                          csrActivities: values[14] || '',
+                          csrSpent: Number(values[15]) || 0,
+                          csrBeneficiaries: Number(values[16]) || 0,
+                        };
+                        
+                        await submissionService.submit(parsedData);
+                        refreshHistory();
+                        setUploadedFile(null);
+                        setSnackbar({ open: true, message: 'File parsed and submitted to database successfully!', severity: 'success' });
+                      }
+                    };
+                    reader.readAsText(uploadedFile);
+                  } catch {
+                    setSnackbar({ open: true, message: 'Failed to process file.', severity: 'error' });
+                  }
                 }}>Upload & Validate</Button>
               </Box>
             )}

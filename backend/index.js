@@ -1,4 +1,14 @@
 require('dotenv').config();
+
+// Validate required environment variables on startup (env-config.md workflows)
+const requiredEnv = ['DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET'];
+const missingEnv = requiredEnv.filter(key => !process.env[key]);
+if (missingEnv.length > 0) {
+    console.error(`[SERVER] [FATAL] Startup failed. Missing required environment variables: ${missingEnv.join(', ')}`);
+    console.error('[SERVER] Refer to .env.example to configure the required variables. Exiting...');
+    process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 
@@ -22,6 +32,7 @@ app.use('/api/auth', auth.router);
 app.use('/api/industries', require('./routes/industries'));
 app.use('/api/submissions', require('./routes/submissions'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
 
@@ -38,6 +49,7 @@ app.use('/api/ai-decisions', require('./routes/ai-decisions'));
 app.use('/api/workflow', require('./routes/workflow-automation'));
 app.use('/api/integrations', require('./routes/integrations'));
 app.use('/api/grievances', require('./routes/grievances'));
+app.use('/api/payments', require('./routes/payments'));
 app.use('/api/sipcot-sync', require('./routes/sipcot-sync'));
 
 // Protected Test Route Ensure RBAC System is functional

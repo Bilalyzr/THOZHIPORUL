@@ -43,20 +43,23 @@ const theme = createTheme({
     divider: '#E2E8F0',
   },
   typography: {
-    fontFamily: '"Inter", "Outfit", "Roboto", sans-serif',
-    h1: { fontWeight: 900, letterSpacing: '-0.03em' },
-    h2: { fontWeight: 800, letterSpacing: '-0.02em' },
-    h3: { fontWeight: 800, letterSpacing: '-0.02em' },
-    h4: { fontWeight: 700, letterSpacing: '-0.01em' },
-    h5: { fontWeight: 700 },
-    h6: { fontWeight: 600 },
-    subtitle1: { fontWeight: 600 },
-    subtitle2: { fontWeight: 600 },
-    button: { fontWeight: 600 },
+    fontFamily: '"Inter", "Roboto", sans-serif',
+    fontSize: 12,
+    htmlFontSize: 14,
+    h1: { fontFamily: '"Outfit", sans-serif', fontWeight: 900, letterSpacing: '-0.03em' },
+    h2: { fontFamily: '"Outfit", sans-serif', fontWeight: 800, letterSpacing: '-0.02em' },
+    h3: { fontFamily: '"Outfit", sans-serif', fontWeight: 800, letterSpacing: '-0.02em' },
+    h4: { fontFamily: '"Outfit", sans-serif', fontWeight: 700, letterSpacing: '-0.01em' },
+    h5: { fontFamily: '"Outfit", sans-serif', fontWeight: 700 },
+    h6: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
+    subtitle1: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
+    subtitle2: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
+    button: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
   },
   shape: {
     borderRadius: 12,
   },
+  spacing: 7, // Default is 8px. Set to 7px to reduce all paddings and margins by ~12.5%
   shadows: [
     'none',
     '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
@@ -88,8 +91,8 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          padding: '8px 20px',
-          borderRadius: 10,
+          padding: '6px 16px',
+          borderRadius: 8,
           fontWeight: 600,
         },
         containedPrimary: {
@@ -100,11 +103,11 @@ const theme = createTheme({
           },
         },
         sizeSmall: {
-          padding: '5px 14px',
+          padding: '4px 12px',
           fontSize: '0.8125rem',
         },
         sizeLarge: {
-          padding: '12px 28px',
+          padding: '10px 22px',
           fontSize: '1rem',
         },
       },

@@ -36,11 +36,11 @@ export default function ComplianceEngine() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const INITIAL_VIOLATIONS = [
-    { id: 1, company: 'XYZ Manufacturing', rule_code: 'SUB-Q', rule_name: 'Quarterly Submission', severity: 'high', status: 'open', date: '2026-04-01', description: 'Missed Q1 2026 quarterly submission' },
-    { id: 2, company: 'LMN Textiles', rule_code: 'ENV-WAT', rule_name: 'Water Usage Threshold', severity: 'critical', status: 'open', date: '2026-03-28', description: 'Water consumption exceeded by 300%' },
-    { id: 3, company: 'PQR Auto Parts', rule_code: 'FIN-INV', rule_name: 'Investment Declaration', severity: 'medium', status: 'acknowledged', date: '2026-03-15', description: 'Investment change >10% not declared' },
-    { id: 4, company: 'Sunrise Foods', rule_code: 'SAF-NOC', rule_name: 'Fire Safety NOC', severity: 'high', status: 'resolving', date: '2026-02-28', description: 'Fire safety NOC expired' },
-    { id: 5, company: 'Delta Pharma', rule_code: 'ENV-WST', rule_name: 'Waste Management', severity: 'medium', status: 'open', date: '2026-03-20', description: 'Waste recycling below 60%' },
+    { id: 1, company: 'Renault-Nissan India', rule_code: 'ENV_01', rule_name: 'Stack emissions exceed TNPCB limits', severity: 'critical', status: 'open', date: '2026-06-15' },
+    { id: 2, company: 'Samsung Electronics', rule_code: 'SAF_04', rule_name: 'Fire safety NOC expired', severity: 'high', status: 'acknowledged', date: '2026-06-12' },
+    { id: 3, company: 'TVS Motor Company', rule_code: 'ENV_03', rule_name: 'Effluent treatment plant bypass detected', severity: 'critical', status: 'resolving', date: '2026-06-18' },
+    { id: 4, company: 'Foxconn India', rule_code: 'FIN_02', rule_name: 'Water charges lease payment delayed', severity: 'medium', status: 'open', date: '2026-06-05' },
+    { id: 5, company: 'Apollo Tyres Ltd', rule_code: 'OPR_02', rule_name: 'Quarterly production report overdue', severity: 'low', status: 'resolved', date: '2026-06-01' }
   ];
 
   const [violations, setViolations] = useState(() => {
@@ -53,35 +53,43 @@ export default function ComplianceEngine() {
   }, [violations]);
 
   const overview = {
-    compliant: { count: 892, pct: 76.8 },
-    warning: { count: 156, pct: 13.4 },
-    violation: { count: violations.filter(v => v.status === 'open' || v.status === 'escalated').length, pct: ((violations.filter(v => v.status === 'open' || v.status === 'escalated').length / 1160) * 100).toFixed(1) },
-    missing: { count: 67, pct: 5.8 },
+    compliant: { count: 1120, pct: 89 },
+    warning: { count: 85, pct: 7 },
+    violation: { count: violations.filter(v => v.status !== 'resolved').length, pct: 3 },
+    missing: { count: 12, pct: 1 },
   };
 
   const trendData = [
-    { month: 'Jul', score: 71.2 }, { month: 'Aug', score: 72.5 },
-    { month: 'Sep', score: 73.1 }, { month: 'Oct', score: 74.8 },
-    { month: 'Nov', score: 75.2 }, { month: 'Dec', score: 75.9 },
-    { month: 'Jan', score: 76.5 }, { month: 'Feb', score: 77.1 },
-    { month: 'Mar', score: 77.8 },
+    { month: 'Oct 2025', score: 72 },
+    { month: 'Nov 2025', score: 74 },
+    { month: 'Dec 2025', score: 76 },
+    { month: 'Jan 2026', score: 75 },
+    { month: 'Feb 2026', score: 78 },
+    { month: 'Mar 2026', score: 81 },
+    { month: 'Apr 2026', score: 80 },
+    { month: 'May 2026', score: 83 },
+    { month: 'Jun 2026', score: 85 }
   ];
 
   const categoryData = [
-    { name: 'Submission', value: 18 }, { name: 'Environmental', value: 12 },
-    { name: 'Safety', value: 9 }, { name: 'Financial', value: 6 },
+    { name: 'Environmental', value: 8 },
+    { name: 'Safety', value: 5 },
+    { name: 'Financial', value: 4 },
+    { name: 'Operational', value: 2 }
   ];
 
   const severityDist = [
-    { name: 'Critical', value: 8 }, { name: 'High', value: 15 },
-    { name: 'Medium', value: 14 }, { name: 'Low', value: 8 },
+    { name: 'Critical', value: 3 },
+    { name: 'High', value: 5 },
+    { name: 'Medium', value: 7 },
+    { name: 'Low', value: 4 }
   ];
 
   const predictions = [
-    { metric: 'Total Investment', current: '24,500 Cr', projected: '28,200 Cr', growth: 15.1 },
-    { metric: 'Employment', current: '145,000', projected: '162,000', growth: 11.7 },
-    { metric: 'Compliance Rate', current: '76.8%', projected: '82.3%', growth: 5.5 },
-    { metric: 'Active Industries', current: '1,160', projected: '1,340', growth: 15.5 },
+    { metric: 'Compliance Rating', current: '82%', projected: '91%', growth: 11 },
+    { metric: 'Resource Efficiency', current: '76%', projected: '84%', growth: 10 },
+    { metric: 'Violation Resolution Time', current: '14.2 days', projected: '6.5 days', growth: 54 },
+    { metric: 'Statutory Submission Rate', current: '92%', projected: '98%', growth: 6 }
   ];
 
   const filteredViolations = violations.filter(v =>
@@ -179,11 +187,11 @@ export default function ComplianceEngine() {
             <Paper sx={{ p: { xs: 2, sm: 3 }, mt: 2, borderLeft: '4px solid #F57C00' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
                 <Box>
-                  <Typography variant="subtitle1" fontWeight={600}>67 industries have not submitted Q1 2026 data</Typography>
+                  <Typography variant="subtitle1" fontWeight={600}>0 industries have not submitted Q1 2026 data</Typography>
                   <Typography variant="body2" color="text.secondary">Deadline: April 15, 2026</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="contained" size="small" startIcon={<Send />} onClick={() => setSnackbar({ open: true, message: 'Compliance reminders sent to 67 industries via email and portal notification.', severity: 'success' })}>Send Bulk Reminder</Button>
+                  <Button variant="contained" size="small" startIcon={<Send />} onClick={() => setSnackbar({ open: true, message: 'Compliance reminders sent to 0 industries via email and portal notification.', severity: 'success' })}>Send Bulk Reminder</Button>
                   <Button variant="outlined" size="small" startIcon={<Download />} onClick={() => { const csvContent = 'Company,Location,Last Submission,Periods Missed\nXYZ Manufacturing,Sriperumbudur,2025-10-12,2\nDelta Pharma,Hosur,2025-07-20,3\nStar Electronics,Oragadam,2026-01-05,1'; const blob = new Blob([csvContent], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'missing_submissions.csv'; a.click(); URL.revokeObjectURL(url); setSnackbar({ open: true, message: 'Missing submissions list exported as CSV.', severity: 'success' }); }}>Export List</Button>
                 </Box>
               </Box>

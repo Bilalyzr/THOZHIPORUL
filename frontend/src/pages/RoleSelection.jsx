@@ -64,21 +64,44 @@ export default function RoleSelection() {
 
   return (
     <Box sx={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center',
-      background: `linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%)`,
-      py: { xs: 4, md: 8 },
-      position: 'relative', overflow: 'hidden',
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center',
+      background: 'linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 50%, #CBD5E1 100%)',
+      py: { xs: 6, md: 10 },
+      position: 'relative', 
+      overflow: 'hidden',
     }}>
-      {/* Background decoration */}
+      {/* Background decorations */}
       <Box sx={{
-        position: 'absolute', width: 600, height: 600, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(31, 78, 121, 0.06) 0%, transparent 70%)',
-        top: -200, right: -200,
+        position: 'absolute', 
+        width: 600, 
+        height: 600, 
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(31, 78, 121, 0.08) 0%, transparent 70%)',
+        top: -200, 
+        right: -200,
+        pointerEvents: 'none',
       }} />
       <Box sx={{
-        position: 'absolute', width: 500, height: 500, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(46, 125, 50, 0.06) 0%, transparent 70%)',
-        bottom: -150, left: -150,
+        position: 'absolute', 
+        width: 500, 
+        height: 500, 
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(46, 125, 50, 0.08) 0%, transparent 70%)',
+        bottom: -150, 
+        left: -150,
+        pointerEvents: 'none',
+      }} />
+      <Box sx={{
+        position: 'absolute', 
+        width: 400, 
+        height: 400, 
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(230, 126, 34, 0.05) 0%, transparent 70%)',
+        top: '35%', 
+        left: '40%',
+        pointerEvents: 'none',
       }} />
 
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
@@ -87,8 +110,14 @@ export default function RoleSelection() {
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/home')}
             sx={{
-              mb: 3, color: 'text.secondary',
-              '&:hover': { color: 'primary.main', bgcolor: 'primary.light' },
+              mb: 3, 
+              color: 'text.secondary',
+              fontWeight: 700,
+              borderRadius: 2.5,
+              px: 2,
+              py: 0.8,
+              transition: 'all 0.2s',
+              '&:hover': { color: '#1F4E79', bgcolor: 'rgba(31, 78, 121, 0.06)' },
             }}
           >
             Back to Home
@@ -96,115 +125,171 @@ export default function RoleSelection() {
         </Slide>
 
         <Fade in={isLoaded} timeout={800}>
-          <Stack spacing={2} textAlign="center" sx={{ mb: { xs: 4, md: 8 } }}>
+          <Stack spacing={2.5} textAlign="center" sx={{ mb: { xs: 6, md: 9 } }}>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
               <Box sx={{
-                width: 100, height: 100, borderRadius: 3,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'linear-gradient(135deg, rgba(31, 78, 121, 0.1) 0%, rgba(46, 125, 50, 0.1) 100%)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.5)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                animation: `${float} 4s ease-in-out infinite`,
+                width: 90, 
+                height: 90, 
+                borderRadius: 4,
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                boxShadow: '0 8px 32px rgba(31, 78, 121, 0.08)',
+                animation: `${float} 6s ease-in-out infinite`,
               }}>
-                <img src={logoTransparent} alt="THOZHIRPORUL Logo" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+                <img src={logoTransparent} alt="THOZHIRPORUL Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
               </Box>
             </Box>
 
-            <Typography variant="h2" fontWeight={900} sx={{
-              background: 'linear-gradient(90deg, #1F4E79, #2E7D32, #E67E22)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            <Typography variant="h3" fontWeight={900} sx={{
+              fontSize: { xs: '2.2rem', sm: '2.8rem', md: '3.5rem' },
+              letterSpacing: '-0.03em',
+              background: 'linear-gradient(90deg, #1F4E79 0%, #2E7D32 50%, #E67E22 100%)',
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               backgroundSize: '200% auto',
-              animation: `${shimmer} 4s linear infinite`,
+              animation: `${shimmer} 6s linear infinite`,
             }}>
               Welcome to THOZHIRPORUL
             </Typography>
 
-            <Typography variant="h6" color="text.secondary" fontWeight={400} sx={{ maxWidth: 600, mx: 'auto', lineHeight: 1.6 }}>
-              Select your portal to access the Smart Industrial Monitoring System
-            </Typography>
+
           </Stack>
         </Fade>
 
-        <Grid container spacing={{ xs: 2, md: 4 }} justifyContent="center">
+        <Grid container spacing={{ xs: 3, md: 4 }} justifyContent="center">
           {portalOptions.map((option, idx) => (
             <Grid size={{ xs: 12, md: 4 }} key={option.role}>
               <Fade in={isLoaded} timeout={{ enter: 1000 + idx * 200 }}>
                 <Card sx={{
-                  height: '100%', borderRadius: 4, overflow: 'hidden',
-                  transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  background: 'rgba(255, 255, 255, 0.9)',
+                  height: '100%', 
+                  borderRadius: 5, 
+                  overflow: 'hidden',
+                  transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                  border: '1px solid rgba(255, 255, 255, 0.4)',
+                  background: 'rgba(255, 255, 255, 0.75)',
                   backdropFilter: 'blur(20px)',
+                  boxShadow: '0 10px 30px rgba(15, 23, 42, 0.03)',
                   '&:hover': {
-                    transform: 'translateY(-12px) scale(1.02)',
-                    boxShadow: `0 24px 48px ${option.color}20`,
+                    transform: 'translateY(-10px)',
+                    boxShadow: `0 30px 60px ${option.color}18`,
                     borderColor: option.color,
                   },
                 }}>
                   <CardActionArea
                     onClick={() => navigate(`/login/${option.role}`)}
-                    sx={{ height: '100%', p: { xs: 2, sm: 3, md: 4 }, textAlign: 'center' }}
+                    sx={{ 
+                      height: '100%', 
+                      p: { xs: 3, sm: 4 }, 
+                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      alignItems: 'stretch',
+                      '&:hover .role-avatar': {
+                        transform: 'scale(1.08) rotate(5deg)',
+                        boxShadow: `0 16px 36px ${option.color}45`,
+                      },
+                      '&:hover .role-arrow': {
+                        transform: 'translateX(4px)',
+                      }
+                    }}
                   >
-                    <Avatar sx={{
-                      width: 96, height: 96, mx: 'auto', mb: 3,
-                      background: option.gradient,
-                      boxShadow: `0 12px 32px ${option.color}30`,
-                      transition: 'all 0.3s ease',
-                      '&:hover': { transform: 'scale(1.1) rotate(5deg)' },
-                    }}>
-                      {option.icon}
-                    </Avatar>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Avatar 
+                        className="role-avatar"
+                        sx={{
+                          width: 90, 
+                          height: 90, 
+                          mx: 'auto', 
+                          mb: 3.5,
+                          background: option.gradient,
+                          boxShadow: `0 12px 28px ${option.color}25`,
+                          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        }}
+                      >
+                        {option.icon}
+                      </Avatar>
 
-                    <CardContent sx={{ px: 0 }}>
                       <Chip
                         label={option.role.toUpperCase()}
                         size="small"
                         sx={{
-                          mb: 2, fontWeight: 700, fontSize: '0.65rem',
-                          bgcolor: `${option.color}15`,
+                          mb: 2, 
+                          fontWeight: 800, 
+                          fontSize: '0.65rem',
+                          letterSpacing: '0.08em',
+                          bgcolor: `${option.color}08`,
                           color: option.color,
-                          border: `1px solid ${option.color}30`,
+                          border: `1px solid ${option.color}18`,
+                          borderRadius: 1.5,
                         }}
                       />
 
-                      <Typography variant="h5" fontWeight={800} gutterBottom sx={{ color: option.color }}>
+                      <Typography variant="h5" fontWeight={900} gutterBottom sx={{ color: option.color, fontSize: '1.35rem', mb: 1.5 }}>
                         {option.title}
                       </Typography>
 
-                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 3 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 4, px: 1 }}>
                         {option.description}
                       </Typography>
 
-                      <Divider sx={{ my: 2, borderColor: 'rgba(0,0,0,0.06)' }} />
+                      <Divider sx={{ my: 3, borderColor: 'rgba(0,0,0,0.06)' }} />
 
-                      <Box sx={{ mt: 2, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.08)' }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', mb: 3 }}>
                         {option.features.map((feature, i) => (
-                          <Typography
+                          <Chip
                             key={i}
-                            variant="caption"
+                            label={feature}
+                            size="small"
                             sx={{
-                              display: 'inline-block', mx: 0.5, mb: 0.5, px: 1.5, py: 0.5,
-                              bgcolor: `${option.color}08`,
-                              color: 'text.secondary',
-                              borderRadius: 1,
-                              fontSize: '0.7rem',
+                              bgcolor: `${option.color}06`,
+                              border: `1px solid ${option.color}12`,
+                              color: '#334155',
+                              fontWeight: 600,
+                              fontSize: '0.72rem',
+                              borderRadius: 2,
+                              '& .MuiChip-label': {
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                              }
                             }}
-                          >
-                            ✓ {feature}
-                          </Typography>
+                            icon={<span style={{ color: option.color, fontWeight: 900 }}>✓</span>}
+                          />
                         ))}
                       </Box>
-                    </CardContent>
+                    </Box>
 
-                    <Box sx={{
-                      mt: 2, pt: 2, borderTop: '1px solid rgba(0,0,0,0.06)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
-                      color: option.color, fontWeight: 700, fontSize: '0.85rem',
-                    }}>
+                    <Box 
+                      sx={{
+                        mt: 2, 
+                        py: 1.8,
+                        borderRadius: 3,
+                        background: `${option.color}08`,
+                        border: `1px solid ${option.color}12`,
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: 1.2,
+                        color: option.color, 
+                        fontWeight: 800, 
+                        fontSize: '0.9rem',
+                        transition: 'all 0.3s ease',
+                        '.MuiCardActionArea-root:hover &': {
+                          background: option.gradient,
+                          color: 'white',
+                          boxShadow: `0 8px 20px ${option.color}25`,
+                          borderColor: 'transparent',
+                        }
+                      }}
+                    >
                       Access Portal
-                      <GroupsIcon sx={{ fontSize: 18, transition: 'transform 0.2s', '.MuiCardActionArea:hover &': { transform: 'translateX(4px)' } }} />
+                      <GroupsIcon className="role-arrow" sx={{ fontSize: 18, transition: 'transform 0.3s ease' }} />
                     </Box>
                   </CardActionArea>
                 </Card>
@@ -213,32 +298,7 @@ export default function RoleSelection() {
           ))}
         </Grid>
 
-        <Fade in={isLoaded} timeout={{ enter: 1800 }}>
-          <Box sx={{ textAlign: 'center', mt: { xs: 4, md: 8 } }}>
-            <Paper
-              elevation={0}
-              sx={{
-                display: 'inline-flex', alignItems: 'center', gap: 3, px: 4, py: 2,
-                borderRadius: 3, bgcolor: 'rgba(255, 255, 255, 0.6)',
-                backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.06)',
-              }}
-            >
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Need Help?</Typography>
-                <Typography variant="body2" fontWeight={600}>1800-XXX-XXXX</Typography>
-              </Box>
-              <Box sx={{ width: 1, height: 30, bgcolor: 'divider' }} />
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Email Support</Typography>
-                <Typography variant="body2" fontWeight={600}>support@sipcot.tn.gov.in</Typography>
-              </Box>
-            </Paper>
 
-            <Typography variant="body2" color="text.disabled" textAlign="center" sx={{ mt: 4 }}>
-              &copy; 2026 NEXORA | THOZHIRPORUL Platform | Government of Tamil Nadu
-            </Typography>
-          </Box>
-        </Fade>
       </Container>
     </Box>
   );

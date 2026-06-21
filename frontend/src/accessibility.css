@@ -1,0 +1,95 @@
+/* Accessibility Overrides - Simple ON/OFF Toggles */
+
+/* 1. Bigger Text */
+html.acc-text-big {
+  font-size: 16px !important;
+}
+
+/* 2. Smaller Text */
+html.acc-text-small {
+  font-size: 11px !important;
+}
+
+/* 3. Text Spacing */
+html.acc-spacing,
+html.acc-spacing * {
+  letter-spacing: 0.15em !important;
+  word-spacing: 0.15em !important;
+}
+
+/* 4. Line Height */
+html.acc-line-height,
+html.acc-line-height * {
+  line-height: 2.0 !important;
+}
+
+/* 5. Dyslexia Friendly */
+html.acc-dyslexic,
+html.acc-dyslexic * {
+  font-family: 'Comic Sans MS', 'Dyslexic', 'Cursive', sans-serif !important;
+}
+
+/* 7. Saturation (Grayscale) */
+html.acc-grayscale {
+  filter: grayscale(100%) !important;
+}
+
+/* 8. Light-Dark (Dark Contrast) */
+html.acc-contrast-dark,
+html.acc-contrast-dark * {
+  background-color: #000000 !important;
+  color: #FFFF00 !important; /* Yellow on Black */
+  border-color: #FFFF00 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* 9. Invert Colors */
+html.acc-invert {
+  filter: invert(100%) !important;
+}
+/* Double invert media elements so they look normal */
+html.acc-invert img,
+html.acc-invert video,
+html.acc-invert iframe,
+html.acc-invert .leaflet-container,
+html.acc-invert .MuiAvatar-root,
+html.acc-invert .MuiSvgIcon-root {
+  filter: invert(100%) !important;
+}
+
+/* 10. Highlight Links */
+html.acc-highlight-links a,
+html.acc-highlight-links button,
+html.acc-highlight-links [role="button"],
+html.acc-highlight-links .MuiButton-root,
+html.acc-highlight-links .MuiIconButton-root,
+html.acc-highlight-links .MuiListItemButton-root,
+html.acc-highlight-links .MuiLink-root {
+  outline: 3px solid #ff5722 !important;
+  outline-offset: 2px !important;
+  text-decoration: underline !important;
+  font-weight: 800 !important;
+}
+
+/* 12. Cursor */
+html.acc-large-cursor,
+html.acc-large-cursor * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M0 0 L32 32 L20 36 L36 64 L24 64 L10 38 L0 44 Z' fill='%231F4E79' stroke='white' stroke-width='4'/%3E%3C/svg%3E"), auto !important;
+}
+
+/* 13. Pause Animations */
+html.acc-pause-animations,
+html.acc-pause-animations * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 14. Hide Images */
+html.acc-hide-images img,
+html.acc-hide-images svg:not(.acc-icon-keep),
+html.acc-hide-images [style*="background-image"],
+html.acc-hide-images picture {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}

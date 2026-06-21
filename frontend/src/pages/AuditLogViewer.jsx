@@ -1,11 +1,12 @@
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import { History } from '@mui/icons-material';
-
 const mockLogs = [
-  { id: 101, timestamp: "2026-05-06 14:22", action: "UPDATE_COMPLIANCE", user: "Admin (ID: 4)", target: "Industry ID 12", status: "SUCCESS" },
-  { id: 102, timestamp: "2026-05-06 11:15", action: "APPROVE_NOC", user: "Gov Officer (ID: 2)", target: "Industry ID 8", status: "SUCCESS" },
-  { id: 103, timestamp: "2026-05-05 09:45", action: "DELETE_RECORD", user: "Admin (ID: 4)", target: "Submission ID 450", status: "WARNING" },
-  { id: 104, timestamp: "2026-05-04 16:30", action: "SYSTEM_BACKUP", user: "System", target: "Database", status: "SUCCESS" }
+  { id: 10842, timestamp: '2026-06-20 21:45:12', action: 'USER_LOGIN', user: 'admin_nexora', target: 'Portal Entry', status: 'SUCCESS' },
+  { id: 10841, timestamp: '2026-06-20 21:20:05', action: 'APPROVE_SUBMISSION', user: 'admin_nexora', target: 'Q4 Financial Data (Renault)', status: 'SUCCESS' },
+  { id: 10840, timestamp: '2026-06-20 21:05:43', action: 'RESOLVE_GRIEVANCE', user: 'govt_officer_kancheepuram', target: 'Water leakage complain #832', status: 'SUCCESS' },
+  { id: 10839, timestamp: '2026-06-20 20:30:19', action: 'SUBMIT_DATA', user: 'industry_foxconn', target: 'Q1 Employment Form', status: 'SUCCESS' },
+  { id: 10838, timestamp: '2026-06-20 20:15:10', action: 'PLOT_ALLOTMENT', user: 'admin_nexora', target: 'Plot 42 (Sriperumbudur Hub)', status: 'SUCCESS' },
+  { id: 10837, timestamp: '2026-06-20 19:40:02', action: 'UPDATE_COMPLIANCE', user: 'System Engine', target: 'Compliance Rules Recalculation', status: 'SUCCESS' }
 ];
 
 export default function AuditLogViewer() {

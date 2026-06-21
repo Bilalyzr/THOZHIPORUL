@@ -16,6 +16,11 @@ import fabIcon from '../assets/vazhiporul_fab_icon.png';
 const pulse = keyframes`0%,100%{transform:scale(1)}50%{transform:scale(1.08)}`;
 const typing = keyframes`0%{opacity:.2}20%{opacity:1}100%{opacity:.2}`;
 const float = keyframes`0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.03)}`;
+const pulseGreen = keyframes`
+  0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+`;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VAZHIPORUL AI - COMPREHENSIVE SIPCOT KNOWLEDGE BASE v2.0
@@ -471,7 +476,11 @@ const SITE_KNOWLEDGE = {
     { category: 'Service Requests', keywords: ['noc','certificate','approval','permit','request','application'], desc: 'Services: Fire NOC (7 days), Pollution NOC (10 days), Building NOC (14 days), Land Allotment (30 days), Lease Renewal (5 days, auto-approve if compliance >90%), Water Connection (7 days), Power Connection (10 days). Track status in Services Tracker.' },
     { category: 'Investment & Employment', keywords: ['investment','employment','jobs','capex','revenue','create jobs'], desc: 'Total SIPCOT: ₹24,500 Cr investment, 89,000 direct jobs, 56,000 indirect jobs. Oragadam leads with ₹15,000 Cr, Sriperumbudur ₹12,000 Cr. Employment: 1 job per ₹15-20 lakhs investment in manufacturing.' },
     { category: 'Registration Process', keywords: ['register','registration','sign up','new account','create account','join'], desc: 'Industry Registration: Company name, Industry type, Location/Park preference, Contact person details, Phone, Email, Password. Documents required: Company incorporation certificate, PAN, Address proof. Account activated after verification.' },
-    { category: 'Data Submission', keywords: ['submit','data','quarterly','annual','report','filing'], desc: 'Quarterly submission: Financial (revenue, investment), Employment (direct/indirect), Resources (power/water consumption, waste generation), CSR activities. Due dates: Q1 (Oct 15), Q2 (Jan 15), Q3 (Apr 15), Q4 (July 15). Late submission: -10 points to compliance score.' }
+    { category: 'Data Submission', keywords: ['submit','data','quarterly','annual','report','filing'], desc: 'Quarterly submission: Financial (revenue, investment), Employment (direct/indirect), Resources (power/water consumption, waste generation), CSR activities. Due dates: Q1 (Oct 15), Q2 (Jan 15), Q3 (Apr 15), Q4 (July 15). Late submission: -10 points to compliance score.' },
+    { category: 'AI Agents', keywords: ['agent', 'ai agent', 'react agent', 'llm agent', 'agent workflow', 'agent steps', 'agent principles'], desc: 'AI Agent design guidelines. Guardrails: clear boundaries, error handling, safety checks, human-in-the-loop. Steps: Understand requirements → Design architecture → Define tools → Implement core → Add safety guardrails → Test behavior.' },
+    { category: 'Prompt Engineering', keywords: ['prompt', 'prompt engineering', 'few-shot', 'system prompt', 'prompt structure', 'optimize prompt'], desc: 'Prompt optimization framework. Core structure: Role, Context, Instructions, Examples, Output Format. Steps: Task analysis → Delimited sections → Precise constraints → A/B testing → Token minimization.' },
+    { category: 'RAG Pipeline', keywords: ['rag', 'retrieval-augmented', 'vector store', 'embeddings', 'chunk size', 'text splitter'], desc: 'Retrieval-Augmented Generation pipeline. Key components: Loader, Splitter, Embeddings, Vector Store, Retriever, Generator. Optimization: Chunk tuning, Retrieval k-tuning, Reranking, Hybrid search.' },
+    { category: 'Workflow Creator', keywords: ['workflow creator', 'create workflow', 'stack-agnostic', 'workflow template'], desc: 'Philosophy for repository workflows. Rules: stack-agnostic (detect & adapt, don\'t hardcode), question-driven, single responsibility. Template: Guardrails, Context, Project Analysis, Implementation, Verification.' }
   ],
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -487,7 +496,11 @@ const SITE_KNOWLEDGE = {
     { q: 'How to check compliance status?', a: 'Login → Workspace (for Industry) or Compliance Engine (for Admin/Govt) → View score, category breakdown, violations, and submission history' },
     { q: 'What to do for missed submission deadline?', a: 'Submit immediately with late reason. Penalty: -10 points to compliance score. Critical: >30 days delay triggers Show Cause Notice' },
     { q: 'How to contact SIPCOT?', a: 'HQ: 044-27253123, Email: cmd@sipcot.com. Helpline: 1800-425-2211. Or use Contact page form / Grievance portal' },
-    { q: 'Can I transfer my plot?', a: 'Yes, submit Transfer Request. Documents: NOC from buyer, buyer financial proof, clearance certificate. Processing: 21 days. Transfer fee: 2% of current land value' }
+    { q: 'Can I transfer my plot?', a: 'Yes, submit Transfer Request. Documents: NOC from buyer, buyer financial proof, clearance certificate. Processing: 21 days. Transfer fee: 2% of current land value' },
+    { q: 'How to build an AI agent?', a: 'Define clear boundaries and error handling. Understand requirements, design the agent (ReAct, memory), specify tool schemas, build core LLM integration, add input validation/rate limits, and test edge cases.' },
+    { q: 'What is the structure of a good prompt?', a: 'A premium prompt template includes: 1. Role (define who the AI is), 2. Context (background info), 3. Instructions (clear task description), 4. Examples (few-shot learning), 5. Output Format (specified structure).' },
+    { q: 'How does a RAG pipeline work?', a: 'Documents are loaded and split into text chunks, converted into vector embeddings, and stored in a vector store. When queried, a retriever finds relevant chunks, and a generator (LLM) constructs a response from them.' },
+    { q: 'How to create a new workflow?', a: 'Define the name and category, follow the standard template (context, project analysis, core steps, verification), ensure stack-agnosticism, create the file under workflows/<category>/<name>.md, and update workflows/registry.json.' }
   ]
 };
 
@@ -499,6 +512,116 @@ function findBestResponse(input, isLoggedIn, currentPath, userName) {
   const nav = (path) => ({ path });
 
   const greetingName = userName ? ` **${userName}**` : '';
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // AI TOOLS & WORKFLOWS QUERIES (Antigravity AI Workflows)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (/\bagent\b|ai agent|react agent|llm agent/.test(q)) {
+    return {
+      text: `🤖 **AI Agent Workflow**\n` +
+            `Learn how to create AI agents with tools and capabilities.\n\n` +
+            `🛡️ **Guardrails:**\n` +
+            `• Define clear boundaries for agent actions.\n` +
+            `• Implement proper error handling & fail gracefully.\n` +
+            `• Log agent decisions for debugging.\n` +
+            `• Add safety checks & require human-in-the-loop for destructive operations.\n\n` +
+            `📋 **Implementation Steps:**\n` +
+            `1. **Understand Requirements:** Ask what the agent should do, which tools/LLM it needs, and any safety constraints.\n` +
+            `2. **Design Agent:** Plan the architecture (e.g., ReAct, Chain-of-Thought), memory, context, and output format.\n` +
+            `3. **Define Tools:** Specify names, descriptions, input parameters, and error handling for each capability.\n` +
+            `4. **Implement Agent:** Integrate the LLM, tool execution, response parsing, and context management.\n` +
+            `5. **Add Safety:** Implement validation, rate limiting, and recovery patterns.\n` +
+            `6. **Test:** Verify happy path scenarios, edge cases, and safety limits.\n\n` +
+            `💡 **Core Principles:**\n` +
+            `Start simple and add complexity. Log everything. Always prioritize safety first.`,
+      suggestions: ['Prompt Engineering', 'RAG Pipeline', 'Workflow Creator']
+    };
+  }
+
+  if (/\bprompt\b|prompt engineering|few-shot|system prompt/.test(q)) {
+    return {
+      text: `✍️ **Prompt Engineering Workflow**\n` +
+            `Optimize prompts for LLM applications.\n\n` +
+            `🛡️ **Guardrails:**\n` +
+            `• Test prompts with various inputs.\n` +
+            `• Keep prompts maintainable and version controlled.\n` +
+            `• Anticipate edge cases, misuse, or jailbreaks.\n\n` +
+            `🏗️ **Prompt Structure Elements:**\n` +
+            `• **Role:** Define who the AI is.\n` +
+            `• **Context:** Provide background information.\n` +
+            `• **Instructions:** Clear and specific task description.\n` +
+            `• **Examples:** Use few-shot learning for format/style constraints.\n` +
+            `• **Output Format:** Specify structured output format (e.g., JSON).\n\n` +
+            `📋 **Optimization Steps:**\n` +
+            `1. **Understand Task:** Clarify LLM role, inputs, constraints, and target outputs.\n` +
+            `2. **Design Structure:** Group sections using clear delimiters.\n` +
+            `3. **Write Prompt:** Be specific and clear (Clarity > Cleverness).\n` +
+            `4. **Test & Iterate:** Test with real-world inputs and A/B test variations.\n` +
+            `5. **Optimize:** Reduce token usage and handle errors gracefully.`,
+      suggestions: ['AI Agent', 'RAG Pipeline', 'Workflow Creator']
+    };
+  }
+
+  if (/\brag\b|retrieval-augmented|vector store|embeddings/.test(q)) {
+    return {
+      text: `🔍 **RAG Pipeline Workflow**\n` +
+            `Build robust Retrieval-Augmented Generation pipelines.\n\n` +
+            `🛡️ **Guardrails:**\n` +
+            `• Start simple and optimize parameters later.\n` +
+            `• Always measure retrieval quality & handle empty results gracefully.\n` +
+            `• Monitor cost and latency.\n\n` +
+            `🏗️ **Key Components:**\n` +
+            `• **Document Loader:** Ingest data sources.\n` +
+            `• **Text Splitter:** Chunk documents appropriately.\n` +
+            `• **Embeddings:** Generate vector representations.\n` +
+            `• **Vector Store:** Store and query vectors (e.g., Pinecone, Chroma).\n` +
+            `• **Retriever:** Retrieve the most relevant chunks.\n` +
+            `• **Generator:** Use LLM to generate responses using retrieved context.\n\n` +
+            `📋 **Optimization Steps:**\n` +
+            `1. **Understand Requirements:** Identify data sources, query types, and latency needs.\n` +
+            `2. **Design & Setup:** Select embedding model, vector store, and chunk size/overlap.\n` +
+            `3. **Build Flow:** Connect components into a retrieval and generation chain.\n` +
+            `4. **Optimize:** Tune chunk size, adjust retrieval \`k\`, add reranking or hybrid search.\n` +
+            `5. **Verify:** Check retrieval relevance and response quality.`,
+      suggestions: ['AI Agent', 'Prompt Engineering', 'Workflow Creator']
+    };
+  }
+
+  if (/workflow creator|create workflow|stack-agnostic/.test(q)) {
+    return {
+      text: `🛠️ **Workflow Creator**\n` +
+            `Create new stack-agnostic workflows for the repository.\n\n` +
+            `🛡️ **Guardrails:**\n` +
+            `• Every workflow MUST be stack-agnostic (never hardcode React, Tailwind, etc.).\n` +
+            `• Always include stack detection and clarifying questions.\n` +
+            `• Keep workflows focused on a single responsibility.\n\n` +
+            `🏗️ **Template Structure:**\n` +
+            `• \`description\` frontmatter.\n` +
+            `• **Guardrails:** What to avoid, scope boundaries.\n` +
+            `• **Steps:**\n` +
+            `  1. *Understand Context:* Ask clarifying questions.\n` +
+            `  2. *Analyze Project:* Detect existing stack/config files.\n` +
+            `  3. *Core Implementation:* Describe WHAT to do (not exact code).\n` +
+            `  4. *Verify:* How to confirm success.\n` +
+            `• **Principles & References.**\n\n` +
+            `❌ **Mistakes to Avoid:**\n` +
+            `• *Hardcoding frameworks:* e.g., don't write \`npm install react\`.\n` +
+            `• *Boilerplate code:* Describe what component to create, not exact code.`,
+      suggestions: ['AI Agent', 'Prompt Engineering', 'RAG Pipeline']
+    };
+  }
+
+  if (/\bai workflow|ai tool|ai skill|workflows\b/.test(q)) {
+    return {
+      text: `🤖 **Antigravity AI Workflows & Skills**\n` +
+            `I possess specialized knowledge on building and utilizing advanced AI tools. Which one would you like to explore?\n\n` +
+            `• **AI Agent:** Guide on creating autonomous agents with tools, capabilities, and safety guardrails.\n` +
+            `• **Prompt Engineering:** Best practices for structuring and optimizing prompts.\n` +
+            `• **RAG Pipeline:** Guide on building Retrieval-Augmented Generation pipelines.\n` +
+            `• **Workflow Creator:** Standard template and philosophy for creating new repository workflows.`,
+      suggestions: ['AI Agent', 'Prompt Engineering', 'RAG Pipeline', 'Workflow Creator']
+    };
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // INDUSTRIAL PARKS QUERIES
@@ -908,7 +1031,7 @@ export default function AIChatbot() {
       let html = line
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`(.*?)`/g, '<code style="background:#e8f5e9;padding:1px 4px;border-radius:3px;font-size:0.8em">$1</code>');
+        .replace(/`(.*?)`/g, '<code style="background:rgba(16,185,129,0.15);color:#34D399;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:0.85em">$1</code>');
       return <Typography key={i} variant="body2" sx={{ lineHeight: 1.6, mb: line ? 0.3 : 0.8 }} dangerouslySetInnerHTML={{ __html: html || '&nbsp;' }} />;
     });
   };
@@ -920,12 +1043,13 @@ export default function AIChatbot() {
         onClick={() => setOpen(!open)}
         sx={{
           position: 'fixed', bottom: { xs: 20, md: 28 }, right: { xs: 20, md: 28 },
-          zIndex: 9999, width: 60, height: 60,
-          background: open ? 'linear-gradient(135deg, #d32f2f, #f44336)' : 'linear-gradient(135deg, #1F4E79, #2E7D32)',
-          boxShadow: open ? '0 6px 24px rgba(211,47,47,0.4)' : '0 6px 28px rgba(31,78,121,0.5)',
+          zIndex: 9900, width: 60, height: 60,
+          background: open ? 'linear-gradient(135deg, #0f172a, #1e293b)' : 'linear-gradient(135deg, #10B981, #1F4E79)',
+          boxShadow: open ? '0 6px 24px rgba(15,23,42,0.4)' : '0 6px 28px rgba(16,185,129,0.4)',
+          border: '1px solid rgba(255,255,255,0.08)',
           animation: !open ? `${pulse} 2s infinite` : 'none',
-          '&:hover': { transform: 'scale(1.08)', boxShadow: '0 8px 32px rgba(31,78,121,0.6)' },
-          transition: 'all 0.3s ease',
+          '&:hover': { transform: 'scale(1.08)', boxShadow: '0 8px 32px rgba(16,185,129,0.5)' },
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         {open ? <CloseIcon sx={{ color: 'white', fontSize: 26 }} /> : <img src={fabIcon} alt="AI" style={{ width: 44, height: 44, mixBlendMode: 'screen', objectFit: 'contain', animation: `${float} 3s ease-in-out infinite` }} />}
@@ -933,63 +1057,80 @@ export default function AIChatbot() {
 
       {/* Chat Window */}
       <Slide direction="up" in={open} mountOnEnter unmountOnExit>
-        <Paper elevation={20} sx={{
+        <Paper sx={{
           position: 'fixed', bottom: { xs: 90, md: 100 }, right: { xs: 12, md: 28 },
           width: { xs: 'calc(100vw - 24px)', sm: 400 }, maxHeight: { xs: '70vh', md: 560 },
-          zIndex: 9998, borderRadius: 4, overflow: 'hidden', display: 'flex', flexDirection: 'column',
-          border: '1px solid rgba(31,78,121,0.15)',
+          zIndex: 9899, borderRadius: 5, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          bgcolor: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(30px)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
         }}>
           {/* Header */}
           <Box sx={{
-            background: 'linear-gradient(135deg, #0f172a, #1F4E79)', color: 'white',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(31, 78, 121, 0.7))',
+            color: 'white',
             px: 2.5, py: 2, display: 'flex', alignItems: 'center', gap: 1.5,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
           }}>
-            <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.15)', width: 40, height: 40 }}>
-              <AutoAwesomeIcon sx={{ fontSize: 22 }} />
+            <Avatar sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#10B981', width: 40, height: 40, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+              <AutoAwesomeIcon sx={{ fontSize: 20 }} />
             </Avatar>
             <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle1" fontWeight={800} sx={{ lineHeight: 1.2 }}>VazhiPorul AI</Typography>
-              <Typography variant="caption" sx={{ opacity: 0.7 }}>THOZHIRPORUL Intelligent Assistant</Typography>
+              <Typography variant="subtitle1" fontWeight={900} sx={{ lineHeight: 1.2, letterSpacing: '-0.01em' }}>VazhiPorul AI</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '0.7rem' }}>THOZHIRPORUL Intelligent Assistant</Typography>
             </Box>
-            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4CAF50', boxShadow: '0 0 8px #4CAF50' }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{
+                width: 8, height: 8, borderRadius: '50%', bgcolor: '#10B981',
+                boxShadow: '0 0 8px #10B981',
+                animation: `${pulseGreen} 2s infinite ease-in-out`
+              }} />
+              <IconButton size="small" onClick={() => setOpen(false)} sx={{ color: 'rgba(255, 255, 255, 0.5)', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.08)' } }}>
+                <CloseIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
           </Box>
 
           {/* Messages */}
           <Box sx={{
-            flex: 1, overflowY: 'auto', px: 2, py: 1.5,
-            background: 'linear-gradient(180deg, #f8fafc, #f1f5f9)',
-            '&::-webkit-scrollbar': { width: 4 },
-            '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 2 },
+            flex: 1, overflowY: 'auto', px: 2.5, py: 2,
+            background: 'linear-gradient(180deg, rgba(10, 15, 30, 0.45) 0%, rgba(7, 11, 19, 0.5) 100%)',
+            '&::-webkit-scrollbar': { width: 5 },
+            '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255, 255, 255, 0.12)', borderRadius: 2.5 },
           }}>
             {messages.map((msg, i) => (
-              <Box key={i} sx={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', mb: 1.5 }}>
+              <Box key={i} sx={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', mb: 2 }}>
                 <Box sx={{
-                  maxWidth: '88%', p: 1.5, borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                  bgcolor: msg.role === 'user' ? '#1F4E79' : 'white',
-                  color: msg.role === 'user' ? 'white' : 'text.primary',
-                  boxShadow: msg.role === 'user' ? '0 2px 8px rgba(31,78,121,0.3)' : '0 1px 4px rgba(0,0,0,0.08)',
-                  border: msg.role === 'ai' ? '1px solid #e2e8f0' : 'none',
+                  maxWidth: '85%', p: 1.8, borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  bgcolor: msg.role === 'user' ? 'linear-gradient(135deg, #10B981, #059669)' : 'rgba(255, 255, 255, 0.04)',
+                  background: msg.role === 'user' ? 'linear-gradient(135deg, #10B981, #059669)' : 'rgba(255, 255, 255, 0.04)',
+                  color: msg.role === 'user' ? 'white' : 'rgba(255,255,255,0.92)',
+                  boxShadow: msg.role === 'user' ? '0 4px 12px rgba(16,185,129,0.2)' : '0 4px 12px rgba(0,0,0,0.15)',
+                  border: '1px solid',
+                  borderColor: msg.role === 'user' ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)',
                 }}>
                   {renderMarkdown(msg.text)}
 
                   {/* Navigation button */}
                   {msg.path && !msg.autoNavigate && (
                     <Chip
-                      icon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
+                      icon={<ArrowForwardIcon sx={{ fontSize: 13, color: '#10B981 !important' }} />}
                       label={`Go to ${msg.path}`}
                       size="small"
                       onClick={() => handleNavigate(msg.path)}
                       sx={{
-                        mt: 1, cursor: 'pointer', fontWeight: 600, fontSize: '0.7rem',
-                        bgcolor: '#e8f5e9', color: '#2E7D32', border: '1px solid #c8e6c9',
-                        '&:hover': { bgcolor: '#c8e6c9' },
+                        mt: 1.5, cursor: 'pointer', fontWeight: 700, fontSize: '0.72rem',
+                        bgcolor: 'rgba(16, 185, 129, 0.12)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.25)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.2)', transform: 'translateY(-1px)' },
                       }}
                     />
                   )}
 
                   {/* Suggestions */}
                   {msg.suggestions && (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mt: 1.5 }}>
                       {msg.suggestions.map((s, j) => (
                         <Chip key={j} label={s} size="small" variant="outlined"
                           onClick={() => {
@@ -1000,9 +1141,11 @@ export default function AIChatbot() {
                             }
                           }}
                           sx={{
-                            cursor: 'pointer', fontSize: '0.68rem', fontWeight: 600,
-                            borderColor: '#1F4E79', color: '#1F4E79',
-                            '&:hover': { bgcolor: '#1F4E79', color: 'white' },
+                            cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700,
+                            borderColor: 'rgba(16, 185, 129, 0.35)', color: '#34D399',
+                            bgcolor: 'rgba(16, 185, 129, 0.04)',
+                            transition: 'all 0.2s ease',
+                            '&:hover': { bgcolor: '#10B981', color: 'white', borderColor: '#10B981', transform: 'translateY(-1px)' },
                           }}
                         />
                       ))}
@@ -1013,10 +1156,10 @@ export default function AIChatbot() {
             ))}
 
             {isTyping && (
-              <Box sx={{ display: 'flex', gap: 0.5, p: 1.5, mb: 1 }}>
+              <Box sx={{ display: 'flex', gap: 0.6, p: 1.5, mb: 1, bgcolor: 'rgba(255,255,255,0.03)', width: 'fit-content', borderRadius: '12px 12px 12px 4px', border: '1px solid rgba(255,255,255,0.04)' }}>
                 {[0, 1, 2].map(i => (
                   <Box key={i} sx={{
-                    width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8',
+                    width: 7, height: 7, borderRadius: '50%', bgcolor: '#10B981',
                     animation: `${typing} 1s ease-in-out ${i * 0.15}s infinite`,
                   }} />
                 ))}
@@ -1026,32 +1169,45 @@ export default function AIChatbot() {
           </Box>
 
           {/* Input */}
-          <Box sx={{ p: 1.5, bgcolor: 'white', borderTop: '1px solid #e2e8f0' }}>
+          <Box sx={{ p: 2, bgcolor: 'rgba(15, 23, 42, 0.95)', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
             <TextField
               inputRef={inputRef}
-              fullWidth size="small" placeholder="Ask me anything..."
+              fullWidth size="small" placeholder="Ask VazhiPorul AI..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: 3, bgcolor: '#f8fafc',
-                  '&:hover': { bgcolor: '#f1f5f9' },
+                  borderRadius: 3.5,
+                  bgcolor: 'rgba(255, 255, 255, 0.03)',
+                  color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  transition: 'all 0.2s',
+                  '& fieldset': { border: 'none' },
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.15)' },
+                  '&.Mui-focused': { bgcolor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(16, 185, 129, 0.35)' }
                 },
+                '& .MuiInputBase-input::placeholder': { color: 'rgba(255, 255, 255, 0.45)', opacity: 1 }
               }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton onClick={() => handleSend()} disabled={!input.trim()} size="small"
-                      sx={{ bgcolor: input.trim() ? '#1F4E79' : 'transparent', color: input.trim() ? 'white' : 'text.disabled',
-                        '&:hover': { bgcolor: '#2E7D32' }, transition: 'all 0.2s' }}>
-                      <SendIcon sx={{ fontSize: 18 }} />
+                      sx={{
+                        bgcolor: input.trim() ? '#10B981' : 'transparent',
+                        color: input.trim() ? 'white' : 'rgba(255, 255, 255, 0.25)',
+                        '&:hover': { bgcolor: '#059669', transform: 'scale(1.05)' },
+                        '&.Mui-disabled': { color: 'rgba(255, 255, 255, 0.15)', bgcolor: 'transparent' },
+                        transition: 'all 0.2s',
+                        p: 0.8
+                      }}>
+                      <SendIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
             />
-            <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 0.5, color: 'text.disabled', fontSize: '0.6rem' }}>
+            <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 0.8, color: 'rgba(255,255,255,0.3)', fontSize: '0.62rem', fontWeight: 600, letterSpacing: '0.05em' }}>
               Powered by VazhiPorul AI • THOZHIRPORUL Platform
             </Typography>
           </Box>

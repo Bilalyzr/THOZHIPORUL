@@ -23,6 +23,20 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import CloudSyncIcon from '@mui/icons-material/CloudSync';
 import StorageIcon from '@mui/icons-material/Storage';
+import ReportProblemIcon from '@mui/icons-material/ReportProblem';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  IconButton, 
+  Snackbar 
+} from '@mui/material';
+import { submissionService, grievanceService } from '../services/api';
 
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
@@ -53,11 +67,103 @@ function AdminDashboard() {
   const [isFetchingCloud, setIsFetchingCloud] = useState(false);
   const [cloudSyncResult, setCloudSyncResult] = useState(null);
   const [dashboardMetrics, setDashboardMetrics] = useState({
-    industries: 1250,
-    investment: 24500,
-    employment: 145000,
-    power: 450
+    industries: 0,
+    investment: 0,
+    employment: 0,
+    power: 0
   });
+  const [submissions, setSubmissions] = useState([]);
+  const [grievances, setGrievances] = useState([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const fetchDashboardData = async () => {
+    try {
+      // 1. Fetch compliance data/submissions
+      const complianceRes = await submissionService.getCompliance();
+      const complianceData = complianceRes.data;
+      setSubmissions(complianceData);
+
+      // Aggregate KPI metrics
+      let totalInvestment = 0;
+      let totalEmployment = 0;
+      let totalPower = 0;
+      
+      complianceData.forEach(item => {
+        totalInvestment += Number(item.investmentAmount || 0);
+        totalEmployment += Number(item.totalEmployees || 0);
+        totalPower += Number(item.powerUsage || 0);
+      });
+
+      setDashboardMetrics({
+        industries: complianceData.length,
+        investment: totalInvestment / 10000000,
+        employment: totalEmployment,
+        power: totalPower
+      });
+    } catch (err) {
+      console.error("Failed to load compliance data", err);
+    }
+
+    try {
+      // 2. Fetch grievances
+      const grievanceRes = await grievanceService.getAll();
+      setGrievances(grievanceRes.data);
+    } catch (err) {
+      console.error("Failed to load grievances", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const handleApproveSubmission = async (submissionId) => {
+    if (!submissionId) return;
+    try {
+      await submissionService.updateStatus(submissionId, 'Approved');
+      setSnackbar({ open: true, message: 'Submission successfully approved!', severity: 'success' });
+      fetchDashboardData();
+    } catch (err) {
+      console.error("Failed to approve submission", err);
+      setSnackbar({ open: true, message: 'Failed to approve submission.', severity: 'error' });
+    }
+  };
+
+  const handleRejectSubmission = async (submissionId) => {
+    if (!submissionId) return;
+    try {
+      await submissionService.updateStatus(submissionId, 'Rejected');
+      setSnackbar({ open: true, message: 'Submission rejected.', severity: 'warning' });
+      fetchDashboardData();
+    } catch (err) {
+      console.error("Failed to reject submission", err);
+      setSnackbar({ open: true, message: 'Failed to reject submission.', severity: 'error' });
+    }
+  };
+
+  const handleResolveGrievance = async (grievanceId) => {
+    if (!grievanceId) return;
+    try {
+      await grievanceService.updateStatus(grievanceId, 'Resolved');
+      setSnackbar({ open: true, message: 'Grievance resolved successfully!', severity: 'success' });
+      fetchDashboardData();
+    } catch (err) {
+      console.error("Failed to resolve grievance", err);
+      setSnackbar({ open: true, message: 'Failed to resolve grievance.', severity: 'error' });
+    }
+  };
+
+  const handleInProgressGrievance = async (grievanceId) => {
+    if (!grievanceId) return;
+    try {
+      await grievanceService.updateStatus(grievanceId, 'In Progress');
+      setSnackbar({ open: true, message: 'Grievance status updated to In Progress.', severity: 'info' });
+      fetchDashboardData();
+    } catch (err) {
+      console.error("Failed to update grievance status", err);
+      setSnackbar({ open: true, message: 'Failed to update grievance status.', severity: 'error' });
+    }
+  };
 
   const handleFetchCloudData = async () => {
     setIsFetchingCloud(true);
@@ -114,10 +220,7 @@ function AdminDashboard() {
   const [aiTasks, setAiTasks] = useState(() => {
     const saved = localStorage.getItem('aiTasks');
     if (saved) return JSON.parse(saved);
-    return [
-      { id: 1, type: 'critical', title: 'Critical Issue: Oragadam Water Usage', desc: 'Multiple industries reported >200% water usage spike.', actions: ['Schedule Inspection', 'Issue Warning'] },
-      { id: 2, type: 'success', title: 'Low Risk: 12 Lease Renewals', desc: 'Consistent high compliance scores for these industries.', actions: ['Auto-Approve Batch'] }
-    ];
+    return [];
   });
 
   const handleToggleAutoActions = (e) => {
@@ -136,19 +239,19 @@ function AdminDashboard() {
   // Real-Time Utility Monitoring with IoT-Ready Structure
   const [utilityData, setUtilityData] = useState({
     electricity: {
-      currentFlow: 450.5, // MW
-      peakFlow: 480.2,
-      minFlow: 420.1,
+      currentFlow: 0, // MW
+      peakFlow: 0,
+      minFlow: 0,
       tariff: 7.50, // ₹ per kWh
       tariffType: 'Industrial LT-II',
       lastUpdated: new Date().toISOString(),
-      trend: 'stable', // 'rising', 'falling', 'stable'
+      trend: 'stable',
       alerts: []
     },
     water: {
-      currentFlow: 125.2, // ML/d
-      peakFlow: 140.5,
-      minFlow: 110.8,
+      currentFlow: 0, // ML/d
+      peakFlow: 0,
+      minFlow: 0,
       tariff: 45.00, // ₹ per kL
       tariffType: 'Industrial Water',
       lastUpdated: new Date().toISOString(),
@@ -173,8 +276,8 @@ function AdminDashboard() {
         const elecChange = (Math.random() - 0.5) * 3;
         const waterChange = (Math.random() - 0.5) * 1;
 
-        const newElecFlow = Math.max(400, Math.min(500, Number((prev.electricity.currentFlow + elecChange).toFixed(2))));
-        const newWaterFlow = Math.max(100, Math.min(160, Number((prev.water.currentFlow + waterChange).toFixed(2))));
+        const newElecFlow = Math.max(0, Math.min(500, Number((prev.electricity.currentFlow + elecChange).toFixed(2))));
+        const newWaterFlow = Math.max(0, Math.min(160, Number((prev.water.currentFlow + waterChange).toFixed(2))));
 
         // Determine trend
         const elecTrend = elecChange > 0.5 ? 'rising' : elecChange < -0.5 ? 'falling' : 'stable';
@@ -225,18 +328,19 @@ function AdminDashboard() {
 
   const industryGrowthData = [
     { year: '2021', units: 850 },
-    { year: '2022', units: 920 },
+    { year: '2022', units: 940 },
     { year: '2023', units: 1050 },
-    { year: '2024', units: 1150 },
+    { year: '2024', units: 1180 },
     { year: '2025', units: 1250 }
   ];
 
   const resourceData = [
-    { park: 'Oragadam', power: 120, water: 80 },
-    { park: 'Sriperumbudur', power: 150, water: 110 },
-    { park: 'Hosur', power: 90, water: 60 },
-    { park: 'Cheyyar', power: 60, water: 45 },
-    { park: 'Thoothukudi', power: 30, water: 25 },
+    { park: 'Oragadam', power: 380, water: 120 },
+    { park: 'Sriperumbudur', power: 340, water: 105 },
+    { park: 'Hosur', power: 220, water: 85 },
+    { park: 'Cheyyar', power: 150, water: 60 },
+    { park: 'Thoothukudi', power: 120, water: 45 },
+    { park: 'Gangaikondan', power: 80, water: 30 }
   ];
 
   return (
@@ -323,7 +427,7 @@ function AdminDashboard() {
                   <Typography variant="body2" color="text.secondary" gutterBottom fontWeight={600}>
                     {kpi.title}
                   </Typography>
-                  <Typography variant="h5" component="div" fontWeight="bold" color="text.primary">
+                  <Typography component="div" fontWeight="bold" color="text.primary" sx={{ fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem', lg: '1.35rem' }, lineHeight: 1.2 }}>
                     {kpi.value}
                   </Typography>
                   <Typography variant="caption" sx={{ color: kpi.change.includes('+') ? 'success.main' : 'error.main', fontWeight: 'bold' }}>
@@ -764,6 +868,241 @@ function AdminDashboard() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Industry Data Submissions & Compliance Section */}
+      <Paper
+        elevation={3}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          mt: 4,
+          borderTop: '4px solid #1F4E79',
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(244, 247, 250, 0.9) 100%)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ bgcolor: '#1F4E7915', p: 1, borderRadius: 1.5, mr: 1.5 }}>
+            <FactoryIcon sx={{ color: '#1F4E79' }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" fontWeight={700} color="primary.main">
+              Industry Compliance Data Submissions
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Review and approve periodic industrial data submitted by registered industries.
+            </Typography>
+          </Box>
+        </Box>
+        <Divider sx={{ mb: 2, borderColor: 'rgba(31, 78, 121, 0.1)' }} />
+
+        <TableContainer sx={{ maxHeight: 400, overflowY: 'auto' }}>
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(31, 78, 121, 0.05)' }}>Company Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(31, 78, 121, 0.05)' }}>Location</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(31, 78, 121, 0.05)' }}>Period</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(31, 78, 121, 0.05)' }}>Submitted Date</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(31, 78, 121, 0.05)' }}>Status</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: 'rgba(31, 78, 121, 0.05)' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {submissions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                    <Typography color="text.secondary">No submissions recorded.</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                submissions.map((sub) => (
+                  <TableRow key={sub.id} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{sub.name}</TableCell>
+                    <TableCell>{sub.location}</TableCell>
+                    <TableCell>{sub.period}</TableCell>
+                    <TableCell>{sub.lastSubmission}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={sub.status}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: 
+                            sub.status === 'Compliant' || sub.status === 'Approved' ? '#E8F5E9' :
+                            sub.status === 'Pending Review' || sub.status === 'Submitted' ? '#FFF3E0' : '#FFEBEE',
+                          color:
+                            sub.status === 'Compliant' || sub.status === 'Approved' ? '#2E7D32' :
+                            sub.status === 'Pending Review' || sub.status === 'Submitted' ? '#F57C00' : '#C62828',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      {(sub.status === 'Pending Review' || sub.status === 'Submitted') ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={() => handleApproveSubmission(sub.submissionId)}
+                            sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="contained"
+                            color="error"
+                            size="small"
+                            onClick={() => handleRejectSubmission(sub.submissionId)}
+                            sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                          >
+                            Reject
+                          </Button>
+                        </Box>
+                      ) : sub.status === 'Compliant' || sub.status === 'Approved' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, color: '#2E7D32' }}>
+                          <CheckCircleIcon fontSize="small" />
+                          <Typography variant="body2" fontWeight={600}>Verified</Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      {/* Public & Industrial Grievances Redressal Section */}
+      <Paper
+        elevation={3}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          mt: 4,
+          mb: 4,
+          borderTop: '4px solid #b38f00',
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255, 253, 240, 0.9) 100%)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ bgcolor: '#b38f0015', p: 1, borderRadius: 1.5, mr: 1.5 }}>
+            <ReportProblemIcon sx={{ color: '#b38f00' }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" fontWeight={700} color="warning.main" sx={{ color: '#b38f00' }}>
+              Public & Industrial Grievance Redressal
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Review, track, and resolve complaints submitted from the public and industrial staff.
+            </Typography>
+          </Box>
+        </Box>
+        <Divider sx={{ mb: 2, borderColor: 'rgba(179, 143, 0, 0.1)' }} />
+
+        <TableContainer sx={{ maxHeight: 400, overflowY: 'auto' }}>
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(179, 143, 0, 0.05)' }}>Grievance / Issue</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(179, 143, 0, 0.05)' }}>Submitted By</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(179, 143, 0, 0.05)' }}>Location</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(179, 143, 0, 0.05)' }}>Date</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', bgcolor: 'rgba(179, 143, 0, 0.05)' }}>Status</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', bgcolor: 'rgba(179, 143, 0, 0.05)' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {grievances.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                    <Typography color="text.secondary">No grievances submitted.</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                grievances.map((griv) => (
+                  <TableRow key={griv.id} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>{griv.title}</Typography>
+                        {griv.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {griv.description}
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>{griv.name}</TableCell>
+                    <TableCell>{griv.location}</TableCell>
+                    <TableCell>{griv.submitted_at}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={griv.status}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: 
+                            griv.status === 'Resolved' ? '#E8F5E9' :
+                            griv.status === 'In Progress' ? '#E3F2FD' : '#FFEBEE',
+                          color:
+                            griv.status === 'Resolved' ? '#2E7D32' :
+                            griv.status === 'In Progress' ? '#1976D2' : '#C62828',
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      {griv.status !== 'Resolved' ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                          {griv.status === 'Open' && (
+                            <Button
+                              variant="outlined"
+                              color="info"
+                              size="small"
+                              onClick={() => handleInProgressGrievance(griv.id)}
+                              sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                            >
+                              In Progress
+                            </Button>
+                          )}
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={() => handleResolveGrievance(griv.id)}
+                            sx={{ fontSize: '0.75rem', fontWeight: 600 }}
+                          >
+                            Resolve
+                          </Button>
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, color: '#2E7D32' }}>
+                          <CheckCircleIcon fontSize="small" />
+                          <Typography variant="body2" fontWeight={600}>Resolved</Typography>
+                        </Box>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      {/* Snackbar alerts */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} sx={{ width: '100%', borderRadius: 2 }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

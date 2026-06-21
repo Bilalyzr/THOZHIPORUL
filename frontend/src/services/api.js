@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -52,10 +52,20 @@ export const submissionService = {
   submit: (data) => api.post('/submissions', data),
   getMySubmissions: () => api.get('/submissions/me'),
   getCompliance: () => api.get('/submissions/compliance'),
+  updateStatus: (id, status) => api.put(`/submissions/${id}/status`, { status }),
 };
 
 export const analyticService = {
   getGlobalData: () => api.get('/analytics/global'),
+  getCommandCenterStats: () => api.get('/analytics/command-center'),
+};
+
+export const userService = {
+  getAll: () => api.get('/users'),
+  create: (data) => api.post('/users', data),
+  updateStatus: (id, status) => api.put(`/users/${id}/status`, { status }),
+  update: (id, data) => api.put(`/users/${id}`, data),
+  delete: (id) => api.delete(`/users/${id}`)
 };
 
 export const reportService = {
@@ -129,6 +139,19 @@ export const workspaceService = {
   getDocuments: () => api.get('/workspace/documents'),
   uploadDocument: (data) => api.post('/workspace/documents', data),
   getLease: () => api.get('/workspace/lease'),
+  updateProfile: (data) => api.put('/workspace/profile', data),
+  verifyVault: (passphrase) => api.post('/workspace/verify-vault', { passphrase }),
+};
+
+export const paymentsService = {
+  createOrder: (plan) => api.post('/payments/order', { plan }),
+  verifyPayment: (data) => api.post('/payments/verify', data),
+};
+
+export const grievanceService = {
+  getAll: () => api.get('/grievances'),
+  create: (data) => api.post('/grievances', data),
+  updateStatus: (id, status) => api.put(`/grievances/${id}/status`, { status }),
 };
 
 export default api;

@@ -1,7 +1,7 @@
 /* NEXORA THOZHIRPORUL - Global Styles */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import './styles/glassmorphism.css';
+@import './accessibility.css';
 
 *,
 *::before,
@@ -10,7 +10,7 @@
 }
 
 html {
-  font-size: 14px;
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -163,7 +163,7 @@ button, a, input, select, textarea, .MuiButton-root, .MuiIconButton-root {
 /* Responsive container adjustments */
 @media (max-width: 600px) {
   html {
-    font-size: 13px;
+    font-size: 12px;
   }
 }
 
@@ -181,7 +181,7 @@ html {
 }
 
 /* Prevent horizontal overflow */
-body, #root, .MuiBox-root {
+body, #root {
   overflow-x: hidden;
 }
 
@@ -223,7 +223,7 @@ body, #root, .MuiBox-root {
 
 /* Snackbar positioning */
 .MuiSnackbar-root {
-  z-index: 9999;
+  z-index: 9998;
 }
 
 /* Responsive spacing helpers */
@@ -260,7 +260,7 @@ button:disabled,
 
 /* Tooltip improvements */
 .MuiTooltip-popper {
-  z-index: 10000;
+  z-index: 9997;
 }
 
 /* Select dropdown improvements */
@@ -334,43 +334,43 @@ button:disabled,
 
 /* Hero section spacing */
 .hero-section {
-  padding-top: 80px;
-  padding-bottom: 60px;
+  padding-top: 60px;
+  padding-bottom: 40px;
 }
 
 @media (min-width: 960px) {
   .hero-section {
-    padding-top: 120px;
-    padding-bottom: 80px;
+    padding-top: 80px;
+    padding-bottom: 60px;
   }
 }
 
 /* Card content consistency */
 .MuiCardContent-root {
-  padding: 24px;
+  padding: 16px;
 }
 
 @media (min-width: 960px) {
   .MuiCardContent-root {
-    padding: 32px;
+    padding: 24px;
   }
 }
 
 /* Grid container spacing */
 .MuiGrid-container {
-  margin: -12px;
+  margin: -8px;
 }
 
 .MuiGrid-item {
-  padding: 12px;
+  padding: 8px;
 }
 
 @media (min-width: 960px) {
   .MuiGrid-container {
-    margin: -16px;
+    margin: -12px;
   }
 
   .MuiGrid-item {
-    padding: 16px;
+    padding: 12px;
   }
 }

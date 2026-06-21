@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Container, 
@@ -15,17 +15,20 @@ import {
 } from '@mui/material';
 import BusinessIcon from '@mui/icons-material/Business';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { workspaceService } from '../services/api';
 
 function IndustryProfile() {
   const [formData, setFormData] = useState({
-    companyName: 'ABC Industries',
-    industryType: 'Automotive',
-    location: 'Oragadam Phase 1',
-    contactPerson: 'Senthil Kumar',
-    email: 'tech@abc-industry.com',
-    phone: '+91 98765-XXXXX'
+    companyName: '',
+    industryType: '',
+    location: '',
+    contactPerson: '',
+    email: '',
+    phone: ''
   });
   
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -35,17 +38,56 @@ function IndustryProfile() {
     setSnackbar({ open: true, message });
   };
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    let active = true;
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const res = await workspaceService.getOverview();
+        const company = res.data?.company;
+        if (active && company) {
+          setFormData({
+            companyName: company.name || '',
+            industryType: company.industry_type || '',
+            location: company.location || '',
+            contactPerson: company.contact_person || '',
+            email: company.email || '',
+            phone: company.phone_number || ''
+          });
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile details:', err);
+        if (active) {
+          setError(err.response?.data?.error || 'Failed to load profile details.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchProfile();
+    return () => { active = false; };
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsUpdating(true);
-    
-    // Simulate API update
-    setTimeout(() => {
-      setIsUpdating(false);
+    try {
+      await workspaceService.updateProfile({
+        contactPerson: formData.contactPerson,
+        phoneNumber: formData.phone
+      });
       setSuccess(true);
       showSnackbar("Your company profile has been updated successfully.");
       setTimeout(() => setSuccess(false), 3000);
-    }, 1500);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      showSnackbar(err.response?.data?.error || 'Failed to update profile details.');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleFileUpload = (e) => {
@@ -59,6 +101,22 @@ function IndustryProfile() {
       }, 2000);
     }
   };
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+        <CircularProgress color="primary" />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button variant="contained" onClick={() => window.location.reload()}>Retry</Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ flexGrow: 1 }}>
