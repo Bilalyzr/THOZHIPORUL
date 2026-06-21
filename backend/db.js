@@ -3,6 +3,8 @@ const { Pool } = require('pg');
 // Create a new pool using environment variables
 // Make sure your PostgreSQL server is running
 const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'db',
   database: process.env.DB_NAME || 'sipcot_sims',
