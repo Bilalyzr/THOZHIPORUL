@@ -36,7 +36,9 @@ import {
   IconButton, 
   Snackbar 
 } from '@mui/material';
-import { submissionService, grievanceService } from '../services/api';
+import { submissionService, grievanceService, complianceService } from '../services/api';
+import { downloadAdminReport } from '../utils/reportGenerator';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
@@ -169,47 +171,30 @@ function AdminDashboard() {
     setIsFetchingCloud(true);
     setCloudSyncResult(null);
     try {
-      // Fetching mock data from a public Cloud API (JSONPlaceholder) for easy integration
-      const res = await fetch('https://jsonplaceholder.typicode.com/users');
+      // Re-sync live platform data from the SIMS backend (real database), then
+      // surface the current compliance snapshot in the sync result card.
+      await fetchDashboardData();
+      const overviewRes = await complianceService.getOverview();
+      const overview = overviewRes.data;
 
-      if (!res.ok) throw new Error('Cloud fetch failed');
-
-      const externalData = await res.json();
-
-      // Simulate transforming the external cloud data into our dashboard metrics format
-      const mappedData = {
-        compliant: { count: externalData.length * 45 + 12 }, // Generating mock count from cloud data length
-        violation: { count: externalData.length * 2 + 5 }    // Generating mock count from cloud data length
-      };
-
-      setTimeout(() => {
-        setCloudSyncResult({
-          status: 'success',
-          message: 'Mock data successfully fetched and synced from External Cloud API.',
-          timestamp: new Date().toLocaleTimeString(),
-          data: mappedData
-        });
-
-        // Add the fetched data count directly to the existing dashboard KPI fields
-        const userCount = externalData.length || 10;
-        setDashboardMetrics(prev => ({
-          industries: prev.industries + userCount, // Adding fetched count to Total Industries
-          investment: prev.investment + (userCount * 5), // Simulating addition to Total Investment
-          employment: prev.employment + (userCount * 12), // Simulating addition to Total Employment
-          power: prev.power + Math.floor(userCount * 1.5) // Simulating addition to Total Power
-        }));
-
-        setIsFetchingCloud(false);
-      }, 1500);
-    } catch {
-      setTimeout(() => {
-        setCloudSyncResult({
-          status: 'error',
-          message: 'Cloud Sync Failed. Check network connection.',
-          timestamp: new Date().toLocaleTimeString()
-        });
-        setIsFetchingCloud(false);
-      }, 1500);
+      setCloudSyncResult({
+        status: 'success',
+        message: 'Live data successfully synced from the SIMS platform database.',
+        timestamp: new Date().toLocaleTimeString(),
+        data: {
+          compliant: { count: overview.compliant?.count || 0 },
+          violation: { count: overview.violation?.count || 0 }
+        }
+      });
+    } catch (err) {
+      console.error('Live data sync failed', err);
+      setCloudSyncResult({
+        status: 'error',
+        message: 'Data sync failed. Please check your connection and try again.',
+        timestamp: new Date().toLocaleTimeString()
+      });
+    } finally {
+      setIsFetchingCloud(false);
     }
   };
 
@@ -234,6 +219,21 @@ function AdminDashboard() {
     setAiTasks(newTasks);
     localStorage.setItem('aiTasks', JSON.stringify(newTasks));
     alert(`AI Action Executed: ${actionName}`);
+  };
+
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const handleDownloadReport = async () => {
+    setDownloadingReport(true);
+    setSnackbar({ open: true, message: 'Generating administrative report…', severity: 'info' });
+    try {
+      const id = await downloadAdminReport();
+      setSnackbar({ open: true, message: `Report ${id} generated & downloaded.`, severity: 'success' });
+    } catch (err) {
+      console.error('Report generation failed', err);
+      setSnackbar({ open: true, message: 'Failed to generate report.', severity: 'error' });
+    } finally {
+      setDownloadingReport(false);
+    }
   };
 
   // Real-Time Utility Monitoring with IoT-Ready Structure
@@ -361,27 +361,38 @@ function AdminDashboard() {
             Global overview of all industrial park metrics.
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          onClick={handleFetchCloudData}
-          disabled={isFetchingCloud}
-          startIcon={isFetchingCloud ? <CloudSyncIcon sx={{ animation: 'spin 2s linear infinite' }} /> : <CloudDownloadIcon />}
-          sx={{
-            background: 'linear-gradient(135deg, #1F4E79 0%, #1565C0 100%)',
-            color: 'white',
-            fontWeight: 700,
-            px: 3,
-            py: 1,
-            borderRadius: 2,
-            boxShadow: '0 4px 14px 0 rgba(31, 78, 121, 0.39)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #1565C0 0%, #0D47A1 100%)',
-              boxShadow: '0 6px 20px rgba(31, 78, 121, 0.23)',
-            }
-          }}
-        >
-          {isFetchingCloud ? 'Syncing Cloud Data...' : 'Fetch from Cloud'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            onClick={handleDownloadReport}
+            disabled={downloadingReport}
+            startIcon={<PictureAsPdfIcon />}
+            sx={{ fontWeight: 700, px: 3, py: 1, borderRadius: 2, borderColor: '#1F4E79', color: '#1F4E79' }}
+          >
+            {downloadingReport ? 'Generating…' : 'Download Report'}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleFetchCloudData}
+            disabled={isFetchingCloud}
+            startIcon={isFetchingCloud ? <CloudSyncIcon sx={{ animation: 'spin 2s linear infinite' }} /> : <CloudDownloadIcon />}
+            sx={{
+              background: 'linear-gradient(135deg, #1F4E79 0%, #1565C0 100%)',
+              color: 'white',
+              fontWeight: 700,
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              boxShadow: '0 4px 14px 0 rgba(31, 78, 121, 0.39)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #1565C0 0%, #0D47A1 100%)',
+                boxShadow: '0 6px 20px rgba(31, 78, 121, 0.23)',
+              }
+            }}
+          >
+            {isFetchingCloud ? 'Syncing Live Data...' : 'Sync Live Data'}
+          </Button>
+        </Box>
       </Box>
 
       {cloudSyncResult && (
@@ -916,7 +927,11 @@ function AdminDashboard() {
                   </TableCell>
                 </TableRow>
               ) : (
-                submissions.map((sub) => (
+                submissions.map((sub) => {
+                  const st = String(sub.status || '').toLowerCase();
+                  const isGood = st === 'compliant' || st === 'approved';
+                  const isPending = st === 'pending review' || st === 'submitted';
+                  return (
                   <TableRow key={sub.id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{sub.name}</TableCell>
                     <TableCell>{sub.location}</TableCell>
@@ -928,17 +943,17 @@ function AdminDashboard() {
                         size="small"
                         sx={{
                           fontWeight: 700,
-                          bgcolor: 
-                            sub.status === 'Compliant' || sub.status === 'Approved' ? '#E8F5E9' :
-                            sub.status === 'Pending Review' || sub.status === 'Submitted' ? '#FFF3E0' : '#FFEBEE',
+                          bgcolor:
+                            isGood ? '#E8F5E9' :
+                            isPending ? '#FFF3E0' : '#FFEBEE',
                           color:
-                            sub.status === 'Compliant' || sub.status === 'Approved' ? '#2E7D32' :
-                            sub.status === 'Pending Review' || sub.status === 'Submitted' ? '#F57C00' : '#C62828',
+                            isGood ? '#2E7D32' :
+                            isPending ? '#F57C00' : '#C62828',
                         }}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      {(sub.status === 'Pending Review' || sub.status === 'Submitted') ? (
+                      {isPending ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                           <Button
                             variant="contained"
@@ -959,7 +974,7 @@ function AdminDashboard() {
                             Reject
                           </Button>
                         </Box>
-                      ) : sub.status === 'Compliant' || sub.status === 'Approved' ? (
+                      ) : isGood ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, color: '#2E7D32' }}>
                           <CheckCircleIcon fontSize="small" />
                           <Typography variant="body2" fontWeight={600}>Verified</Typography>
@@ -969,7 +984,8 @@ function AdminDashboard() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

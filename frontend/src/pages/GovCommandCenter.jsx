@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { analyticService, commandService } from '../services/api';
+import { downloadGovernmentReport } from '../utils/reportGenerator';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow,
   ToggleButton, ToggleButtonGroup, List, ListItem, ListItemIcon,
   ListItemText, Divider, Button, Select, MenuItem, FormControl, InputLabel,
-  Switch, FormControlLabel
+  Switch, FormControlLabel, Snackbar, Alert
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, Warning, Error as ErrorIcon,
@@ -194,14 +195,41 @@ export default function GovCommandCenter() {
     fetchAdditionalData();
   }, []);
 
+  const [reportSnack, setReportSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const handleDownloadReport = async () => {
+    setDownloadingReport(true);
+    setReportSnack({ open: true, message: 'Generating state oversight report…', severity: 'info' });
+    try {
+      const id = await downloadGovernmentReport();
+      setReportSnack({ open: true, message: `Report ${id} generated & downloaded.`, severity: 'success' });
+    } catch (err) {
+      console.error('Report generation failed', err);
+      setReportSnack({ open: true, message: 'Failed to generate report.', severity: 'error' });
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header */}
-      <Box sx={{ mb: { xs: 2, md: 3 } }}>
-        <Typography variant="h4" fontWeight={700} sx={{ fontSize: { xs: '1.4rem', sm: '1.75rem', md: '2.125rem' } }}>State Industrial Command Center</Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
-          Real-time oversight of Tamil Nadu's industrial ecosystem
-        </Typography>
+      <Box sx={{ mb: { xs: 2, md: 3 }, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
+        <Box>
+          <Typography variant="h4" fontWeight={700} sx={{ fontSize: { xs: '1.4rem', sm: '1.75rem', md: '2.125rem' } }}>State Industrial Command Center</Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}>
+            Real-time oversight of Tamil Nadu's industrial ecosystem
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<Assessment />}
+          onClick={handleDownloadReport}
+          disabled={downloadingReport}
+          sx={{ fontWeight: 700, borderRadius: 2, bgcolor: '#7B1F2B', '&:hover': { bgcolor: '#5f1620' } }}
+        >
+          {downloadingReport ? 'Generating…' : 'Download Report'}
+        </Button>
       </Box>
 
       {/* KPI Row */}
@@ -496,6 +524,17 @@ export default function GovCommandCenter() {
           ))}
         </List>
       </Paper>
+
+      <Snackbar
+        open={reportSnack.open}
+        autoHideDuration={5000}
+        onClose={() => setReportSnack({ ...reportSnack, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setReportSnack({ ...reportSnack, open: false })} severity={reportSnack.severity} variant="filled">
+          {reportSnack.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -8,8 +8,43 @@ const { requireRole } = require('./auth');
 // @access  Public
 router.get('/', async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT * FROM industrial_parks ORDER BY name');
-        res.json(rows);
+        // Surface the REAL registered figures (industries in the park + their latest
+        // reported investment/employment) for the aggregate fields, so per-park numbers
+        // are consistent with the homepage and Command Center. The stored brochure
+        // columns remain untouched in the DB.
+        const { rows } = await db.query(`
+            WITH latest_sub AS (
+                SELECT DISTINCT ON (industry_id) id, industry_id
+                FROM data_submissions ORDER BY industry_id, submitted_at DESC NULLS LAST
+            ),
+            park_agg AS (
+                SELECT p.id,
+                    COUNT(DISTINCT ip.id) AS reg_industries,
+                    ROUND(COALESCE(SUM(CASE WHEN f.investment_amount >= 100000 THEN f.investment_amount / 1e7 ELSE f.investment_amount END), 0), 2) AS reg_investment_cr,
+                    COALESCE(SUM(e.permanent_employees + e.contract_employees), 0) AS reg_employment
+                FROM industrial_parks p
+                LEFT JOIN industry_profiles ip ON ip.park_id = p.id
+                LEFT JOIN latest_sub ls ON ls.industry_id = ip.id
+                LEFT JOIN financial_data f ON f.submission_id = ls.id
+                LEFT JOIN employment_data e ON e.submission_id = ls.id
+                GROUP BY p.id
+            )
+            SELECT ip.*, a.reg_industries, a.reg_investment_cr, a.reg_employment
+            FROM industrial_parks ip
+            JOIN park_agg a ON a.id = ip.id
+            ORDER BY ip.name
+        `);
+
+        const parks = rows.map(r => {
+            const { reg_industries, reg_investment_cr, reg_employment, ...rest } = r;
+            return {
+                ...rest,
+                total_industries: Number(reg_industries),
+                total_investment_cr: Number(reg_investment_cr),
+                total_employment: Number(reg_employment),
+            };
+        });
+        res.json(parks);
     } catch (err) {
         console.error('Fetch Parks Error:', err.message);
         res.status(500).send('Server Error');

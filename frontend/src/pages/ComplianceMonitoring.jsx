@@ -82,9 +82,9 @@ function ComplianceMonitoring() {
     fetchData();
   }, []);
 
-  const filteredData = data.filter(row => 
-    row.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    row.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredData = data.filter(row =>
+    (row.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (row.location || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleChangePage = (event, newPage) => setPage(newPage);

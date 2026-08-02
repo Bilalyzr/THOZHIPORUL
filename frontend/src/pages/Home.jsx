@@ -17,6 +17,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LoadingScreen from '../components/LoadingScreen';
 import UnifiedNav from '../components/UnifiedNav';
 import UnifiedFooter from '../components/UnifiedFooter';
+import { publicService } from '../services/api';
 
 // Animations
 const dashboardFloat = keyframes`
@@ -87,6 +88,14 @@ export default function Home() {
     { time: '5 mins ago', msg: 'GIS Map plot allocation sync finished', type: 'success' },
     { time: '12 mins ago', msg: 'New grievance ticket registered - Org #382', type: 'warning' },
   ]);
+
+  // Live public statistics (real data from /api/public/pulse)
+  const [pulse, setPulse] = useState(null);
+  useEffect(() => {
+    let active = true;
+    publicService.getPulse().then(res => { if (active) setPulse(res.data); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   // Real-time telemetry data states
   const [streamingRate, setStreamingRate] = useState(45.8);
@@ -681,10 +690,10 @@ export default function Home() {
         }}>
           <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} alignItems="center" justifyContent="center">
             {[
-              { label: 'Active Investors', value: '32', suffix: 'Lakh+', delay: 200 },
-              { label: 'Strategic Clusters', value: '24', suffix: '+', delay: 400 },
-              { label: 'Total Investment', value: '1.2', suffix: 'Lakh Cr+', delay: 600 },
-              { label: 'Jobs Created', value: '6.5', suffix: 'Lakh+', delay: 800 },
+              { label: 'Industrial Parks', value: pulse ? String(pulse.activeParkCount) : '8', suffix: '+', delay: 200 },
+              { label: 'Land Bank', value: pulse ? pulse.landBank : '3,590', suffix: pulse?.landBank_unit || 'acres', delay: 400 },
+              { label: 'Total Investment', value: pulse ? pulse.totalInvestment : '18,470', suffix: `${pulse?.totalInvestment_unit || 'Cr'}+`, delay: 600 },
+              { label: 'Jobs Created', value: pulse ? pulse.totalEmployment : '1,12,000', suffix: '+', delay: 800 },
             ].map((stat, idx) => (
               <Grid key={idx} size={{ xs: 6, md: 3 }} sx={{ borderRight: { md: idx < 3 ? '1px solid' : 'none' }, borderColor: 'divider' }}>
                 <AnimatedStat {...stat} />

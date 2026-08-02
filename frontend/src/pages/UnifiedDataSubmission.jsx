@@ -14,6 +14,17 @@ import { submissionService } from '../services/api';
 
 const steps = ['Period', 'Financial', 'Employment', 'Resources', 'CSR', 'Review & Submit'];
 
+// Submission status casing is inconsistent in the data ('Approved' vs 'approved'),
+// so compare case-insensitively.
+const statusChipColor = (status) => {
+  const s = String(status || '').toLowerCase();
+  if (s === 'approved') return 'success';
+  if (s === 'draft') return 'default';
+  if (s === 'submitted') return 'primary';
+  return 'warning';
+};
+const isDraft = (status) => String(status || '').toLowerCase() === 'draft';
+
 const EMPTY_FORM = {
   periodYear: 2026, periodQuarter: 1,
   investmentAmount: '', annualTurnover: '', exportRevenue: '', rdExpenditure: '',
@@ -385,14 +396,14 @@ Beneficiaries,${d.csrBeneficiaries || '-'}`;
                   <TableCell><Typography fontWeight={600}>{row.period}</Typography></TableCell>
                   <TableCell>
                     <Chip label={row.status} size="small"
-                      color={row.status === 'Approved' ? 'success' : row.status === 'Draft' ? 'default' : row.status === 'Submitted' ? 'primary' : 'warning'} />
+                      color={statusChipColor(row.status)} />
                   </TableCell>
                   <TableCell>{row.submitted}</TableCell>
                   <TableCell>{row.approved_by}</TableCell>
                   <TableCell>{row.data?.investmentAmount ? `Rs. ${row.data.investmentAmount} Cr` : '-'}</TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                      {row.status === 'Draft' && (
+                      {isDraft(row.status) && (
                         <Button size="small" startIcon={<Edit />} onClick={() => handleEdit(row)} variant="outlined" color="primary">Edit</Button>
                       )}
                       <Button size="small" startIcon={<Visibility />} onClick={() => setViewDialog(row)} variant="outlined">View</Button>
@@ -413,7 +424,7 @@ Beneficiaries,${d.csrBeneficiaries || '-'}`;
             <DialogTitle>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h6" fontWeight={600}>Submission: {viewDialog.period}</Typography>
-                <Chip label={viewDialog.status} color={viewDialog.status === 'Approved' ? 'success' : viewDialog.status === 'Draft' ? 'default' : 'primary'} />
+                <Chip label={viewDialog.status} color={statusChipColor(viewDialog.status)} />
               </Box>
             </DialogTitle>
             <DialogContent>

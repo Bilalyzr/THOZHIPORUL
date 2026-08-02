@@ -16,6 +16,8 @@ import {
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableViewIcon from '@mui/icons-material/TableView';
 import ContentPasteSearchIcon from '@mui/icons-material/ContentPasteSearch';
+import { reportService } from '../services/api';
+import { downloadRoleReport } from '../utils/reportGenerator';
 
 function ReportsDashboard() {
   const [reportType, setReportType] = useState('Investment Report');
@@ -50,13 +52,37 @@ function ReportsDashboard() {
     }, 2000);
   };
 
-  const handleDownload = (format) => {
+  const handleDownload = async (format) => {
     setSnackbar({ open: true, message: `Preparing ${format} for download...` });
-    
-    // In a real app, this would be a window.location or blob download
-    setTimeout(() => {
+    try {
+      // PDF uses the dedicated role-specific designed report template.
+      if (format === 'PDF') {
+        const role = localStorage.getItem('role') || 'admin';
+        const typeKey = ({
+          'Investment Report': 'investment',
+          'Employment Growth Tracking': 'employment',
+          'Resource Usage Analysis': 'resource',
+          'CSR Expenditures Summary': 'custom',
+          'Compliance Alert History': 'compliance',
+        })[reportType] || 'investment';
+        const id = await downloadRoleReport(role, { reportType: typeKey, period: timePeriod });
+        setSnackbar({ open: true, message: `Report ${id} generated and downloaded (PDF).` });
+        return;
+      }
+      const res = await reportService.generate({ reportType, timePeriod, format });
+      const blob = new Blob([res.data], { type: res.headers?.['content-type'] || 'application/octet-stream' });
+      const ext = format === 'PDF' ? 'pdf' : format === 'Excel' ? 'xlsx' : 'csv';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Report_${reportType.replace(/\s+/g, '_')}_${timePeriod.replace(/[()\s]+/g, '_')}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
       setSnackbar({ open: true, message: `${reportType} (${format}) downloaded successfully.` });
-    }, 1500);
+    } catch (err) {
+      console.error('Report download failed', err);
+      setSnackbar({ open: true, message: 'Failed to generate report. Please ensure you are signed in as an admin/govt user.' });
+    }
   };
 
   return (

@@ -11,7 +11,7 @@ router.get('/global', requireRole(['admin', 'govt']), async (req, res) => {
         const { rows: kpiRows } = await db.query(`
             SELECT 
                 COUNT(i.id) as total_industries,
-                COALESCE(SUM(f.investment_amount), 0) as total_investment,
+                COALESCE(SUM(CASE WHEN f.investment_amount >= 100000 THEN f.investment_amount / 1e7 ELSE f.investment_amount END), 0) as total_investment_cr,
                 COALESCE(SUM(e.permanent_employees + e.contract_employees), 0) as total_employment,
                 COALESCE(SUM(r.power_usage), 0) as total_power
             FROM industry_profiles i
@@ -23,7 +23,7 @@ router.get('/global', requireRole(['admin', 'govt']), async (req, res) => {
 
         const globalAnalytics = {
             total_industries: kpiRows[0].total_industries,
-            total_investment_cr: kpiRows[0].total_investment > 10000 ? kpiRows[0].total_investment / 10000000 : kpiRows[0].total_investment,
+            total_investment_cr: Number(kpiRows[0].total_investment_cr) || 0,
             total_employment: kpiRows[0].total_employment,
             total_power_mw: kpiRows[0].total_power
         };
@@ -44,8 +44,8 @@ router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) =
         const [kpiResult, parkResult, locResult, flagResult] = await Promise.all([
             db.query(`
                 SELECT 
-                    COALESCE(SUM(f.investment_amount), 0) / 10000000.0 as total_investment,
-                    COALESCE(SUM(f.annual_turnover), 0) / 10000000.0 as total_revenue,
+                    COALESCE(SUM(CASE WHEN f.investment_amount >= 100000 THEN f.investment_amount / 1e7 ELSE f.investment_amount END), 0) as total_investment,
+                    COALESCE(SUM(CASE WHEN f.annual_turnover >= 100000 THEN f.annual_turnover / 1e7 ELSE f.annual_turnover END), 0) as total_revenue,
                     COALESCE(SUM(e.permanent_employees), 0) as direct_employment,
                     COALESCE(SUM(e.contract_employees), 0) as indirect_employment
                 FROM industry_profiles i
@@ -58,7 +58,7 @@ router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) =
                     p.id,
                     p.name,
                     COUNT(i.id) as total_industries,
-                    COALESCE(SUM(f.investment_amount), 0) / 10000000.0 as total_investment_cr,
+                    COALESCE(SUM(CASE WHEN f.investment_amount >= 100000 THEN f.investment_amount / 1e7 ELSE f.investment_amount END), 0) as total_investment_cr,
                     COALESCE(SUM(e.permanent_employees + e.contract_employees), 0) as total_employment,
                     85 as infrastructure_score
                 FROM industrial_parks p
@@ -75,7 +75,7 @@ router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) =
                     p.district as district,
                     COUNT(DISTINCT p.id) as parks,
                     COUNT(i.id) as industries,
-                    COALESCE(SUM(f.investment_amount), 0) / 10000000.0 as investment_cr
+                    COALESCE(SUM(CASE WHEN f.investment_amount >= 100000 THEN f.investment_amount / 1e7 ELSE f.investment_amount END), 0) as investment_cr
                 FROM industrial_parks p
                 LEFT JOIN industry_profiles i ON i.park_id = p.id
                 LEFT JOIN (SELECT DISTINCT ON (industry_id) id, industry_id FROM data_submissions ORDER BY industry_id, submitted_at DESC) latest_sub ON latest_sub.industry_id = i.id

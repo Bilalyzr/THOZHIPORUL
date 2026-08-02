@@ -13,7 +13,7 @@ import {
   Visibility, History, Save
 } from '@mui/icons-material';
 import { submissionService } from '../services/api';
-import { jsPDF } from 'jspdf';
+import { downloadRoleReport } from '../utils/reportGenerator';
 import * as XLSX from 'xlsx';
 
 export default function ReportExportCenter() {
@@ -51,13 +51,16 @@ export default function ReportExportCenter() {
       try {
         const response = await submissionService.getCompliance();
         // Map the backend compliance data to the report center format
-        const mappedData = response.data.map(row => ({
-          company: row.name,
-          park: row.location,
-          investment: row.investmentAmount ? `${row.investmentAmount} Cr` : '-',
-          employment: '-', // Currently employment total isn't returned by getCompliance, could be added later
-          compliance: row.status === 'Compliant' ? 100 : row.status === 'Alert' ? 20 : 60
-        }));
+        const mappedData = (Array.isArray(response.data) ? response.data : []).map(row => {
+          const s = String(row.status || '').toLowerCase();
+          return {
+            company: row.name,
+            park: row.location,
+            investment: row.investmentAmount ? `${row.investmentAmount} Cr` : '-',
+            employment: '-', // Currently employment total isn't returned by getCompliance, could be added later
+            compliance: s === 'compliant' ? 100 : s === 'alert' ? 20 : 60
+          };
+        });
         setPreviewData(mappedData);
       } catch (err) {
         console.error("Failed to load report data", err);
@@ -73,61 +76,14 @@ export default function ReportExportCenter() {
     { id: 4, name: 'Park_Performance_Q4', type: 'PDF', generated: '2026-01-20', size: '180 KB' },
   ];
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      
+    try {
+      const role = localStorage.getItem('role') || 'admin';
       if (format === 'PDF') {
-        const doc = new jsPDF();
-        doc.setFont("helvetica");
-        doc.setFontSize(22);
-        doc.setTextColor(31, 78, 121); // Branded primary: #1F4E79
-        doc.text("THOZHIRPORUL - Industrial OS", 14, 20);
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139); // Text secondary
-        doc.text("SIPCOT Compliance & Investment Reporting", 14, 26);
-        
-        doc.setFontSize(12);
-        doc.setTextColor(51, 65, 85);
-        const reportTitle = reportTypes.find(r => r.value === reportType)?.label || 'Industrial Report';
-        doc.text(`Report: ${reportTitle}`, 14, 36);
-        doc.text(`Period: ${period} | Park: ${park === 'all' ? 'All Parks' : park.toUpperCase()} | Quarter: ${quarter === 'all' ? 'All Quarters' : 'Q' + quarter}`, 14, 42);
-        
-        doc.setDrawColor(226, 232, 240);
-        doc.line(14, 48, 196, 48);
-
-        let y = 58;
-        // Table Header
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(71, 85, 105);
-        doc.text("Company", 14, y);
-        doc.text("Park/Location", 75, y);
-        doc.text("Investment", 120, y);
-        doc.text("Employment", 155, y);
-        doc.text("Compliance", 180, y);
-        
-        doc.line(14, y + 4, 196, y + 4);
-        y += 12;
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(15, 23, 42);
-        previewData.forEach(row => {
-          doc.text(row.company || '', 14, y);
-          doc.text(row.park || '', 75, y);
-          doc.text(row.investment || '', 120, y);
-          doc.text(row.employment || '', 155, y);
-          doc.text(`${row.compliance}%`, 180, y);
-          y += 8;
-          if (y > 280) {
-            doc.addPage();
-            y = 20;
-          }
-        });
-        
-        doc.save(`NEXORA_${reportType}_${period}.pdf`);
+        // Designed role-specific report driven by the current selections.
+        const id = await downloadRoleReport(role, { reportType, period, park, quarter });
+        setSnackbar({ open: true, message: `Report ${id} generated and downloaded (PDF)!`, severity: 'success' });
       } else if (format === 'Excel') {
         const worksheetData = previewData.map(row => ({
           Company: row.company,
@@ -139,7 +95,8 @@ export default function ReportExportCenter() {
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Compliance Report");
-        XLSX.writeFile(workbook, `NEXORA_${reportType}_${period}.xlsx`);
+        XLSX.writeFile(workbook, `THOZHIRPORUL_${reportType}_${period}.xlsx`);
+        setSnackbar({ open: true, message: 'Report generated and downloaded as Excel!', severity: 'success' });
       } else {
         const csvData = previewData.map(r => `"${r.company}","${r.park}","${r.investment}","${r.employment}",${r.compliance}`).join('\n');
         const csvContent = 'Company,Park,Investment,Employment,Compliance (%)\n' + csvData;
@@ -147,76 +104,36 @@ export default function ReportExportCenter() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `NEXORA_${reportType}_${period}.csv`;
+        a.download = `THOZHIRPORUL_${reportType}_${period}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+        setSnackbar({ open: true, message: 'Report generated and downloaded as CSV!', severity: 'success' });
       }
-
-      setSnackbar({ open: true, message: `Report generated and downloaded as ${format}!`, severity: 'success' });
-    }, 2000);
+    } catch (err) {
+      console.error('Report generation failed', err);
+      setSnackbar({ open: true, message: 'Failed to generate report.', severity: 'error' });
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const handleDownloadRecentReport = (report) => {
-    setSnackbar({ open: true, message: `Generating and downloading ${report.name}.${report.type === 'Excel' ? 'xlsx' : report.type.toLowerCase()}...`, severity: 'info' });
-    
-    const reportData = [
-      { Company: "Sipcot Industries Ltd", Park: "Oragadam", Investment: "150 Cr", Employment: "450", 'Compliance (%)': 95 },
-      { Company: "Nexora Technologies", Park: "Siruseri", Investment: "85 Cr", Employment: "1200", 'Compliance (%)': 100 },
-      { Company: "Hindustan Autos", Park: "Sriperumbudur", Investment: "210 Cr", Employment: "800", 'Compliance (%)': 80 },
-      { Company: "PharmaCorp India", Park: "Hosur", Investment: "45 Cr", Employment: "150", 'Compliance (%)': 60 }
-    ];
-
-    setTimeout(() => {
+  const handleDownloadRecentReport = async (report) => {
+    setSnackbar({ open: true, message: `Preparing ${report.name}…`, severity: 'info' });
+    try {
+      const role = localStorage.getItem('role') || 'admin';
       if (report.type === 'PDF') {
-        const doc = new jsPDF();
-        doc.setFont("helvetica");
-        doc.setFontSize(22);
-        doc.setTextColor(31, 78, 121);
-        doc.text("THOZHIRPORUL - Industrial OS", 14, 20);
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100, 116, 139);
-        doc.text("Archive Report Download", 14, 26);
-        
-        doc.setFontSize(12);
-        doc.setTextColor(51, 65, 85);
-        doc.text(`Report: ${report.name}`, 14, 36);
-        doc.text(`Generated Date: ${report.generated}`, 14, 42);
-        
-        doc.setDrawColor(226, 232, 240);
-        doc.line(14, 48, 196, 48);
-
-        let y = 58;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(71, 85, 105);
-        doc.text("Company", 14, y);
-        doc.text("Park/Location", 75, y);
-        doc.text("Investment", 120, y);
-        doc.text("Employment", 155, y);
-        doc.text("Compliance", 180, y);
-        doc.line(14, y + 4, 196, y + 4);
-        y += 12;
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(15, 23, 42);
-        reportData.forEach(row => {
-          doc.text(row.Company, 14, y);
-          doc.text(row.Park, 75, y);
-          doc.text(row.Investment, 120, y);
-          doc.text(row.Employment, 155, y);
-          doc.text(`${row['Compliance (%)']}%`, 180, y);
-          y += 8;
-        });
-        
-        doc.save(`${report.name}.pdf`);
+        const id = await downloadRoleReport(role);
+        setSnackbar({ open: true, message: `Report ${id} downloaded.`, severity: 'success' });
       } else if (report.type === 'Excel') {
-        const worksheet = XLSX.utils.json_to_sheet(reportData);
+        const worksheet = XLSX.utils.json_to_sheet(previewData.map(r => ({
+          Company: r.company, Location: r.park, Investment: r.investment, Employment: r.employment, 'Compliance (%)': r.compliance
+        })));
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Archive Report");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
         XLSX.writeFile(workbook, `${report.name}.xlsx`);
+        setSnackbar({ open: true, message: `${report.name} downloaded.`, severity: 'success' });
       } else {
-        const csvData = reportData.map(r => `"${r.Company}","${r.Park}","${r.Investment}","${r.Employment}",${r['Compliance (%)']}`).join('\n');
+        const csvData = previewData.map(r => `"${r.company}","${r.park}","${r.investment}","${r.employment}",${r.compliance}`).join('\n');
         const csvContent = 'Company,Park,Investment,Employment,Compliance (%)\n' + csvData;
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -225,9 +142,12 @@ export default function ReportExportCenter() {
         a.download = `${report.name}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+        setSnackbar({ open: true, message: `${report.name} downloaded.`, severity: 'success' });
       }
-      setSnackbar({ open: true, message: `${report.name} downloaded successfully!`, severity: 'success' });
-    }, 1000);
+    } catch (err) {
+      console.error('Report download failed', err);
+      setSnackbar({ open: true, message: 'Failed to download report.', severity: 'error' });
+    }
   };
 
   return (

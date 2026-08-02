@@ -36,6 +36,8 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import logoTransparent from '../assets/logo-transparent.png';
 import LoadingScreen from '../components/LoadingScreen';
 import AccessibilityNew from '@mui/icons-material/AccessibilityNew';
+import LanguageIcon from '@mui/icons-material/Language';
+import { useLanguage } from '../context/useLanguage';
 
 const drawerWidth = 280;
 const miniDrawerWidth = 80;
@@ -72,6 +74,7 @@ function MainLayout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
   const navigate = useNavigate();
+  const { lang, setLang } = useLanguage();
 
   const token = localStorage.getItem('token');
   const userRole = localStorage.getItem('role') || 'admin';
@@ -85,9 +88,10 @@ function MainLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    if (userRole === 'admin' && token) {
+    // Notifications are role-scoped server-side, so fetch for any signed-in user.
+    if (token) {
       notificationService.getNotifications().then(res => {
-        setNotifications(res.data);
+        setNotifications(Array.isArray(res.data) ? res.data : []);
       }).catch(() => {});
     }
   }, [userRole, token]);
@@ -136,7 +140,7 @@ function MainLayout() {
       return [
         { section: 'My Workspace' },
         { text: 'Workspace', icon: <SpaceDashboardIcon />, path: '/workspace' },
-        { text: 'Company Profile', icon: <AccountCircleIcon />, path: '/industry-profile' },
+        { text: 'My Profile', icon: <AccountCircleIcon />, path: '/profile' },
         { section: 'Compliance' },
         { text: 'Submit Data', icon: <UploadFileIcon />, path: '/submit-data' },
         { text: 'My Compliance', icon: <VerifiedIcon />, path: '/compliance' },
@@ -146,6 +150,8 @@ function MainLayout() {
         { section: 'Reports' },
         { text: 'Report Center', icon: <DescriptionIcon />, path: '/report-center' },
         { text: 'Parks Explorer', icon: <MapIcon />, path: '/parks-explorer' },
+        { section: 'Account' },
+        { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
       ];
     } else if (userRole === 'govt') {
       return [
@@ -160,6 +166,9 @@ function MainLayout() {
         { text: 'Document Vault', icon: <FolderIcon />, path: '/secure-vault' },
         { section: 'Reports' },
         { text: 'Report Center', icon: <DescriptionIcon />, path: '/report-center' },
+        { section: 'Account' },
+        { text: 'My Profile', icon: <AccountCircleIcon />, path: '/profile' },
+        { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
       ];
     } else {
       return [
@@ -176,7 +185,8 @@ function MainLayout() {
         { text: 'Report Center', icon: <DescriptionIcon />, path: '/report-center' },
         { section: 'Secure Vault' },
         { text: 'Document Vault', icon: <FolderIcon />, path: '/secure-vault' },
-        { section: 'System' },
+        { section: 'Account' },
+        { text: 'My Profile', icon: <AccountCircleIcon />, path: '/profile' },
         { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
       ];
     }
@@ -440,6 +450,19 @@ function MainLayout() {
 
             {/* Right side actions */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Tooltip title={lang === 'en' ? 'Switch to Tamil (தமிழ்)' : 'Switch to English'} arrow>
+                <IconButton
+                  size="large"
+                  aria-label="toggle language"
+                  onClick={() => setLang(lang === 'en' ? 'ta' : 'en')}
+                  sx={{ color: 'text.secondary', '&:hover': { bgcolor: `${theme.primary}15` } }}
+                >
+                  <LanguageIcon />
+                  <Typography variant="caption" sx={{ ml: 0.5, fontWeight: 700, color: theme.primary }}>
+                    {lang === 'en' ? 'தமிழ்' : 'EN'}
+                  </Typography>
+                </IconButton>
+              </Tooltip>
               <Tooltip title="Accessibility Options" arrow>
                 <IconButton
                   size="large"

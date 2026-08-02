@@ -70,10 +70,15 @@ export const userService = {
 
 export const reportService = {
   generate: (data) => api.post('/reports/generate', data, { responseType: 'blob' }),
+  getData: (params) => api.get('/reports/data', { params }),
 };
 
 export const notificationService = {
   getNotifications: () => api.get('/notifications'),
+};
+
+export const auditService = {
+  getLogs: (limit) => api.get(`/audit${limit ? `?limit=${limit}` : ''}`),
 };
 
 // Industrial OS v2 Services
@@ -137,7 +142,12 @@ export const workspaceService = {
   getOverview: () => api.get('/workspace/overview'),
   getComplianceScore: () => api.get('/workspace/compliance-score'),
   getDocuments: () => api.get('/workspace/documents'),
-  uploadDocument: (data) => api.post('/workspace/documents', data),
+  // data is a FormData (multipart/form-data). Axios sets the boundary
+  // automatically when given FormData — do NOT set Content-Type manually.
+  uploadDocument: (formData) => api.post('/workspace/documents', formData),
+  // Blob response so the frontend can trigger a real file download.
+  downloadDocument: (id) => api.get(`/workspace/documents/${id}/download`, { responseType: 'blob' }),
+  deleteDocument: (id) => api.delete(`/workspace/documents/${id}`),
   getLease: () => api.get('/workspace/lease'),
   updateProfile: (data) => api.put('/workspace/profile', data),
   verifyVault: (passphrase) => api.post('/workspace/verify-vault', { passphrase }),
@@ -152,6 +162,67 @@ export const grievanceService = {
   getAll: () => api.get('/grievances'),
   create: (data) => api.post('/grievances', data),
   updateStatus: (id, status) => api.put(`/grievances/${id}/status`, { status }),
+};
+
+// ============================================================
+// Enhancement (v3) Services — additive, mirror the new routes.
+// ============================================================
+
+// Secure Vault enhancements (Quick Win 3 + Module 4)
+export const vaultService = {
+  getExpiryDashboard: (industryId) => api.get('/vault/expiry-dashboard', { params: { industryId } }),
+  verify: (id, data) => api.post(`/vault/${id}/verify`, data),
+  verificationHistory: (id) => api.get(`/vault/${id}/verification-history`),
+  addVersion: (id, data) => api.post(`/vault/${id}/version`, data),
+  getVersions: (id) => api.get(`/vault/${id}/versions`),
+  integrity: (id) => api.get(`/vault/${id}/integrity`),
+  createShareLink: (id, data) => api.post(`/vault/${id}/share`, data),
+  storeOcr: (id, data) => api.post(`/vault/${id}/ocr`, data),
+};
+
+// Scheduled reports + saved configs (Quick Win 4 + Top 3-C)
+export const scheduledReportService = {
+  list: () => api.get('/scheduled-reports'),
+  create: (data) => api.post('/scheduled-reports', data),
+  update: (id, data) => api.put(`/scheduled-reports/${id}`, data),
+  remove: (id) => api.delete(`/scheduled-reports/${id}`),
+  listConfigs: () => api.get('/scheduled-reports/configs'),
+  saveConfig: (data) => api.post('/scheduled-reports/configs', data),
+  removeConfig: (id) => api.delete(`/scheduled-reports/configs/${id}`),
+  history: () => api.get('/scheduled-reports/history'),
+};
+
+// Persistent notifications (Quick Win 5)
+export const notificationV2Service = {
+  list: (params) => api.get('/notifications-v2', { params }),
+  markRead: (id) => api.put(`/notifications-v2/${id}/read`),
+  markAllRead: () => api.put('/notifications-v2/read-all'),
+  getPreferences: () => api.get('/notifications-v2/preferences'),
+  updatePreferences: (data) => api.put('/notifications-v2/preferences', data),
+  digest: (since) => api.get('/notifications-v2/digest', { params: { since } }),
+  streamUrl: () => `${API_URL.replace(/\/$/, '')}/notifications-v2/stream`,
+};
+
+// Global search (Quick Win 6)
+export const searchService = {
+  query: (q) => api.get('/search', { params: { q } }),
+};
+
+// Account — unified Profile + Settings (all 3 roles)
+export const accountService = {
+  getProfile: () => api.get('/account/profile'),
+  updateProfile: (data) => api.put('/account/profile', data),
+  getSettings: () => api.get('/account/settings'),
+  updateSettings: (data) => api.put('/account/settings', data),
+};
+
+// i18n (Quick Win 6)
+export const i18nService = {
+  dictionary: (lang) => api.get('/i18n/dictionary', { params: { lang } }),
+  translate: (keys, lang) => api.get('/i18n/translate', { params: { keys: keys.join(','), lang } }),
+  listStrings: (lang) => api.get('/i18n/strings', { params: { lang } }),
+  upsertString: (data) => api.post('/i18n/strings', data),
+  removeString: (id) => api.delete(`/i18n/strings/${id}`),
 };
 
 export default api;

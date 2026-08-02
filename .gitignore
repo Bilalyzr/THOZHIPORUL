@@ -34,9 +34,14 @@ backend/node_modules/
 frontend/node_modules/
 frontend/dist/
 
+# Secure Vault uploads — real user files, never commit
+backend/uploads/*
+!backend/uploads/.gitkeep
+
 # Temporary / Analysis
 *.txt
 *.docx
 *.heapsnapshot
 *.heapprofile
 system_flow_diagram.md
+.zcode/

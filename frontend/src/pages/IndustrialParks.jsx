@@ -5,11 +5,13 @@ import {
   Paper, TextField, InputAdornment, ToggleButton, ToggleButtonGroup,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   LinearProgress, Divider, Tooltip, Switch, FormControlLabel,
-  List, ListItemButton, ListItemIcon, ListItemText, ClickAwayListener, Popper, IconButton
+  List, ListItemButton, ListItemIcon, ListItemText, ClickAwayListener, Popper, IconButton,
+  CircularProgress
 } from '@mui/material';
 import UnifiedNav from '../components/UnifiedNav';
 import UnifiedFooter from '../components/UnifiedFooter';
 import PageHero from '../components/PageHero';
+import { parkService } from '../services/api';
 import {
   Search, Map as MapIcon, TableChart, LocationOn,
   Water, Bolt, ArrowForwardIos, Explore, Layers,
@@ -19,16 +21,50 @@ import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip as LeafletTooltip
 import 'leaflet/dist/leaflet.css';
 import { keyframes } from '@emotion/react';
 
-const PARKS = [
-  { id: 1, name: 'Oragadam Industrial Park', code: 'ORGDM', district: 'Kancheepuram', total_area: 2500, available_area: 340, status: 'active', score: 94, industries: 187, investment: 4200, employment: 23400, water_pct: 78, power_pct: 85, type: 'Automobile & Aerospace', lat: 12.795, lng: 79.988 },
-  { id: 2, name: 'Sriperumbudur Industrial Park', code: 'SRPBR', district: 'Kancheepuram', total_area: 1800, available_area: 220, status: 'active', score: 91, industries: 156, investment: 3800, employment: 19800, water_pct: 82, power_pct: 88, type: 'Electronics & Manufacturing', lat: 12.972, lng: 79.941 },
-  { id: 3, name: 'Hosur Industrial Park', code: 'HOSUR', district: 'Krishnagiri', total_area: 2100, available_area: 280, status: 'active', score: 88, industries: 143, investment: 3200, employment: 18500, water_pct: 70, power_pct: 80, type: 'Diversified Manufacturing', lat: 12.741, lng: 77.825 },
-  { id: 4, name: 'Siruseri IT Park', code: 'SIRUS', district: 'Chengalpattu', total_area: 800, available_area: 50, status: 'active', score: 92, industries: 95, investment: 5600, employment: 42000, water_pct: 60, power_pct: 75, type: 'IT & Software', lat: 12.823, lng: 80.222 },
-  { id: 5, name: 'Gangaikondan Industrial Park', code: 'GNGKN', district: 'Tirunelveli', total_area: 1200, available_area: 600, status: 'active', score: 72, industries: 34, investment: 850, employment: 4200, water_pct: 45, power_pct: 50, type: 'Chemicals & Processing', lat: 8.567, lng: 77.791 },
-  { id: 6, name: 'Vallam-Vadagal Industrial Park', code: 'VLMVD', district: 'Kancheepuram', total_area: 950, available_area: 550, status: 'developing', score: 65, industries: 18, investment: 420, employment: 2100, water_pct: 30, power_pct: 40, type: 'Mixed Use', lat: 12.750, lng: 79.890 },
-  { id: 7, name: 'Pillaipakkam Industrial Park', code: 'PLLPK', district: 'Kancheepuram', total_area: 700, available_area: 350, status: 'developing', score: 58, industries: 12, investment: 280, employment: 1400, water_pct: 25, power_pct: 35, type: 'Light Manufacturing', lat: 12.680, lng: 79.920 },
-  { id: 8, name: 'Cheyyar Industrial Park', code: 'CHEYR', district: 'Tiruvannamalai', total_area: 1500, available_area: 1200, status: 'proposed', score: 35, industries: 5, investment: 120, employment: 600, water_pct: 15, power_pct: 20, type: 'Future Development', lat: 12.662, lng: 79.544 },
-];
+// Fallback "type" label derived from park status (API does not provide a sector/type field)
+const TYPE_BY_STATUS = {
+  active: 'Operational Industrial Park',
+  developing: 'Under Development',
+  proposed: 'Proposed Development',
+};
+
+// Map a raw API park record to the UI shape used throughout this page.
+// The API returns numeric columns as strings, so we coerce with Number().
+// `maxWater`/`maxPower` are the fleet-wide maxima, used to derive relative
+// water/power utilization bars from the real capacity figures the API returns.
+const mapPark = (p, maxWater, maxPower) => {
+  const num = (v) => (v == null ? 0 : Number(v));
+  const totalArea = num(p.total_area_acres);
+  const developedArea = num(p.developed_area_acres);
+  const waterKl = num(p.water_capacity_kl);
+  const powerMw = num(p.power_capacity_mw);
+  // Normalise the DB status enum ('under_development') to a STATUS_CONFIG key so
+  // downstream STATUS_CONFIG[park.status] lookups never resolve to undefined.
+  const rawStatus = p.status || 'active';
+  const status = rawStatus === 'under_development' ? 'developing'
+    : (['active', 'developing', 'proposed'].includes(rawStatus) ? rawStatus : 'active');
+  return {
+    id: p.id,
+    name: p.name,
+    code: p.code || '',
+    district: p.district || '',
+    total_area: totalArea,
+    available_area: num(p.available_area_acres),
+    status,
+    score: num(p.infrastructure_score),
+    industries: num(p.total_industries),
+    investment: num(p.total_investment_cr),
+    employment: num(p.total_employment),
+    lat: num(p.latitude),
+    lng: num(p.longitude),
+    // Derived / fallback fields (API does not expose these directly)
+    type: TYPE_BY_STATUS[status] || 'Industrial Park',
+    // Relative infrastructure utilization: real capacity normalized to fleet max
+    water_pct: maxWater > 0 ? Math.round((waterKl / maxWater) * 100) : 0,
+    power_pct: maxPower > 0 ? Math.round((powerMw / maxPower) * 100) : 0,
+    developed_area: developedArea,
+  };
+};
 
 const STATUS_CONFIG = {
   active: { color: '#2E7D32', label: 'Active', bg: '#e8f5e9' },
@@ -98,6 +134,9 @@ const InfraBar = ({ label, value, icon }) => (
 
 export default function IndustrialParks() {
   const navigate = useNavigate();
+  const [parks, setParks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState('map');
   const [selectedPark, setSelectedPark] = useState(null);
@@ -108,6 +147,29 @@ export default function IndustrialParks() {
   const searchRef = useRef(null);
   const isAuthenticated = !!localStorage.getItem('token');
 
+  // Fetch real park data from the backend on mount
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await parkService.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        const maxWater = rows.reduce((m, p) => Math.max(m, Number(p.water_capacity_kl) || 0), 0);
+        const maxPower = rows.reduce((m, p) => Math.max(m, Number(p.power_capacity_mw) || 0), 0);
+        if (active) setParks(rows.map((p) => mapPark(p, maxWater, maxPower)));
+      } catch (err) {
+        console.error('Failed to load industrial parks:', err);
+        if (active) {
+          setError('Unable to load industrial parks right now. Please try again later.');
+          setParks([]);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
   // Search matches all fields
   const searchMatches = (p, q) => {
     if (!q) return true;
@@ -116,15 +178,15 @@ export default function IndustrialParks() {
       p.code.toLowerCase().includes(s) || p.type.toLowerCase().includes(s);
   };
 
-  const filtered = useMemo(() => PARKS.filter(p => {
+  const filtered = useMemo(() => parks.filter(p => {
     return searchMatches(p, search) && (statusFilter === 'all' || p.status === statusFilter);
-  }), [search, statusFilter]);
+  }), [parks, search, statusFilter]);
 
   // Dropdown suggestions when typing
   const searchSuggestions = useMemo(() => {
     if (!search || search.length < 1) return [];
-    return PARKS.filter(p => searchMatches(p, search));
-  }, [search]);
+    return parks.filter(p => searchMatches(p, search));
+  }, [parks, search]);
 
   // Select a park from search
   const handleSearchSelect = (park) => {
@@ -134,12 +196,14 @@ export default function IndustrialParks() {
     setViewMode('map');
   };
 
-  const totals = {
-    area: PARKS.reduce((s, p) => s + p.total_area, 0),
-    available: PARKS.reduce((s, p) => s + p.available_area, 0),
-    industries: PARKS.reduce((s, p) => s + p.industries, 0),
-    employment: PARKS.reduce((s, p) => s + p.employment, 0),
-  };
+  const totals = useMemo(() => ({
+    area: parks.reduce((s, p) => s + p.total_area, 0),
+    available: parks.reduce((s, p) => s + p.available_area, 0),
+    industries: parks.reduce((s, p) => s + p.industries, 0),
+    employment: parks.reduce((s, p) => s + p.employment, 0),
+  }), [parks]);
+
+  const districtCount = useMemo(() => new Set(parks.map((p) => p.district)).size, [parks]);
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
@@ -152,7 +216,7 @@ export default function IndustrialParks() {
           label="GIS Parks Explorer"
           title="Tamil Nadu"
           titleHighlight="Industrial Parks"
-          subtitle={`Interactive map with ${PARKS.length} parks across ${new Set(PARKS.map(p => p.district)).size} districts. Explore infrastructure, compliance scores, and available land.`}
+          subtitle={`Interactive map with ${parks.length} parks across ${districtCount} districts. Explore infrastructure, compliance scores, and available land.`}
           accentColor="#2E7D32"
           accentColor2="#1F4E79"
           bgImage="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&q=60&w=1600"
@@ -203,13 +267,39 @@ export default function IndustrialParks() {
               Tamil Nadu <Box component="span" sx={{ background: 'linear-gradient(90deg, #4CAF50, #81C784)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Industrial Parks</Box>
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.8, maxWidth: 600, lineHeight: 1.7 }}>
-              {PARKS.length} parks across {new Set(PARKS.map(p => p.district)).size} districts — explore, search, and analyze.
+              {parks.length} parks across {districtCount} districts — explore, search, and analyze.
             </Typography>
           </Container>
         </Box>
       )}
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        {/* Loading state */}
+        {loading && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 12, gap: 2 }}>
+            <CircularProgress sx={{ color: '#1F4E79' }} />
+            <Typography variant="body2" color="text.secondary" fontWeight={600}>Loading industrial parks…</Typography>
+          </Box>
+        )}
+
+        {/* Error state */}
+        {!loading && error && (
+          <Paper sx={{ p: 4, mb: 4, textAlign: 'center', borderRadius: 4, border: '1px solid rgba(211,47,47,0.15)', bgcolor: 'rgba(211,47,47,0.03)' }}>
+            <Typography variant="body1" fontWeight={700} sx={{ color: '#d32f2f', mb: 0.5 }}>Could not load parks</Typography>
+            <Typography variant="body2" color="text.secondary">{error}</Typography>
+          </Paper>
+        )}
+
+        {/* Empty state (loaded successfully but no parks returned) */}
+        {!loading && !error && parks.length === 0 && (
+          <Paper sx={{ p: 4, mb: 4, textAlign: 'center', borderRadius: 4, border: '1px solid rgba(0,0,0,0.06)' }}>
+            <Typography variant="body1" fontWeight={700} sx={{ color: '#0F172A', mb: 0.5 }}>No industrial parks available</Typography>
+            <Typography variant="body2" color="text.secondary">There are currently no parks to display.</Typography>
+          </Paper>
+        )}
+
+        {!loading && (
+        <>
         {/* Toolbar */}
         <Paper sx={{
           p: 2.5, mb: 4,
@@ -733,6 +823,8 @@ export default function IndustrialParks() {
               </Table>
             </TableContainer>
           </Paper>
+        )}
+        </>
         )}
       </Container>
       {!isAuthenticated && <UnifiedFooter />}
