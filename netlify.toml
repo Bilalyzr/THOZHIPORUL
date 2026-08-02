@@ -5,10 +5,12 @@
 # deploy is deterministic (no guessing the publish directory in the dashboard).
 
 [build]
-  # Build the React frontend with Vite.
+  # The frontend (package.json + vite build) lives in frontend/, NOT the repo
+  # root. `base` tells Netlify to cd into frontend/ before running the command,
+  # and `publish` is then relative to that base directory.
+  base = "frontend/"
   command = "npm install && npm run build"
-  # Vite outputs to dist/ — this is what Netlify publishes.
-  publish = "frontend/dist"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
