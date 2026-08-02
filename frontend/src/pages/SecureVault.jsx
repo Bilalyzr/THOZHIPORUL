@@ -52,6 +52,8 @@ export default function SecureVault() {
   const [uploadExpiryDate, setUploadExpiryDate] = useState('');
   const [uploadFileName, setUploadFileName] = useState('');
   const [mockFileSizeKb, setMockFileSizeKb] = useState(300); // Default file size simulation
+  const [selectedFile, setSelectedFile] = useState(null);   // the REAL File object to upload
+  const [downloadingId, setDownloadingId] = useState(null); // tracks which row is downloading
   
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -225,9 +227,49 @@ export default function SecureVault() {
     setSnackbar({ open: true, message: 'Vault locked. Decryption keys cleared from memory.', severity: 'info' });
   };
 
+  // Read the real selected file's size (KB) to drive quota enforcement,
+  // and KEEP the File so we can upload its real bytes.
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setMockFileSizeKb(Math.max(1, Math.round(file.size / 1024)));
+    if (!uploadFileName) setUploadFileName(file.name.replace(/\.[^.]+$/, ''));
+  };
+
+  // Real download — fetch the file as a blob and trigger a browser save.
+  const handleDownloadSecure = async (doc) => {
+    setDownloadingId(doc.id);
+    try {
+      const res = await workspaceService.downloadDocument(doc.id);
+      // Build an object URL from the blob and click a hidden anchor.
+      const url = window.URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.file_name || 'document';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setSnackbar({ open: true, message: `Downloaded "${doc.file_name}" from secure vault.`, severity: 'success' });
+    } catch (err) {
+      const status = err.response?.status;
+      const msg = status === 404
+        ? 'File is missing from storage — it may have been removed.'
+        : 'Failed to download document.';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleUploadSecure = () => {
+    if (!selectedFile) {
+      setSnackbar({ open: true, message: 'Please choose a file to upload first.', severity: 'warning' });
+      return;
+    }
     if (!uploadFileName) {
-      alert('Please specify a file name first!');
+      setSnackbar({ open: true, message: 'Please specify a file name.', severity: 'warning' });
       return;
     }
 
@@ -253,19 +295,22 @@ export default function SecureVault() {
 
     setTimeout(async () => {
       try {
-        const payload = {
-          category: uploadCategory,
-          fileName: uploadFileName.toLowerCase().endsWith('.pdf') ? uploadFileName : `${uploadFileName}.pdf`,
-          expiryDate: uploadExpiryDate || null
-        };
-        const res = await workspaceService.uploadDocument(payload);
-        
+        // Send the REAL file via multipart/form-data so the backend stores
+        // actual bytes on disk (downloadable + persistent across refresh).
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('category', uploadCategory);
+        formData.append('fileName', uploadFileName);
+        if (uploadExpiryDate) formData.append('expiryDate', uploadExpiryDate);
+
+        const res = await workspaceService.uploadDocument(formData);
+
         const newDoc = {
           id: res.data.id,
           category: uploadCategory === 'gst_certificate' ? 'GST Certificate' :
                     uploadCategory === 'pollution_clearance' ? 'Pollution Clearance' :
                     uploadCategory === 'fire_noc' ? 'Fire NOC' : 'Lease Agreement',
-          file_name: payload.fileName,
+          file_name: uploadFileName,
           expiry_date: uploadExpiryDate || null,
           verified: false,
           status: uploadExpiryDate ? 'Valid' : 'Active',
@@ -275,7 +320,7 @@ export default function SecureVault() {
         setDocumentsList((prevDocs) => [newDoc, ...prevDocs]);
         setUploading(false);
         setUploadModalOpen(false);
-        
+
         // Append audit logs if Enterprise Suite is active
         setAuditLogs((prevLogs) => [
           {
@@ -290,36 +335,44 @@ export default function SecureVault() {
           ...prevLogs
         ]);
 
-        setSnackbar({ open: true, message: 'Document encrypted and uploaded to secure vault successfully!', severity: 'success' });
+        setSnackbar({ open: true, message: 'Document uploaded to secure vault successfully — stored and downloadable!', severity: 'success' });
+        // Reset upload form + the selected file.
+        setSelectedFile(null);
         setUploadFileName('');
         setUploadExpiryDate('');
         setMockFileSizeKb(300);
-      } catch {
+      } catch (err) {
         setUploading(false);
         setUploadModalOpen(false);
-        setSnackbar({ open: true, message: 'Failed to securely upload document.', severity: 'error' });
+        const msg = err.response?.data?.error || 'Failed to upload document.';
+        setSnackbar({ open: true, message: msg, severity: 'error' });
       }
     }, 1800);
   };
 
-  const handleDeleteSecure = (id, fileName) => {
-    setDocumentsList((prevDocs) => prevDocs.filter(doc => doc.id !== id));
-    
-    // Log delete audit trail
-    setAuditLogs((prevLogs) => [
-      {
-        id: Date.now(),
-        action: 'delete',
-        document: fileName,
-        user: 'industry@abc.com',
-        ip: '192.168.1.45',
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        verified: true
-      },
-      ...prevLogs
-    ]);
+  const handleDeleteSecure = async (id, fileName) => {
+    try {
+      await workspaceService.deleteDocument(id);
+      setDocumentsList((prevDocs) => prevDocs.filter(doc => doc.id !== id));
 
-    setSnackbar({ open: true, message: 'Document securely deleted from encrypted storage!', severity: 'success' });
+      // Log delete audit trail
+      setAuditLogs((prevLogs) => [
+        {
+          id: Date.now(),
+          action: 'delete',
+          document: fileName,
+          user: localStorage.getItem('userEmail') || 'industry@abc.com',
+          ip: '192.168.1.45',
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          verified: true
+        },
+        ...prevLogs
+      ]);
+      setSnackbar({ open: true, message: 'Document deleted from secure vault.', severity: 'success' });
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to delete document.';
+      setSnackbar({ open: true, message: msg, severity: 'error' });
+    }
   };
 
   return (
@@ -764,13 +817,16 @@ export default function SecureVault() {
                             />
                           </TableCell>
                           <TableCell align="right" sx={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                            <IconButton 
+                            <IconButton
                               size="small"
+                              disabled={downloadingId === doc.id}
                               sx={{ color: '#2E7D32', '&:hover': { bgcolor: 'rgba(46, 125, 50, 0.08)' } }}
-                              onClick={() => alert(`🔐 Secure pre-signed download URL generated successfully!\n\n📄 File: ${doc.file_name}\n🔑 Key Strength: AES-256-GCM Envelope\n✅ Hash Status: SHA-256 Integrity Verified.\n\n[System Audited: Your download activity has been logged in the platform registry for compliance tracking.]`)}
+                              onClick={() => handleDownloadSecure(doc)}
                               title="Secure Download"
                             >
-                              <FileDownload fontSize="small" />
+                              {downloadingId === doc.id
+                                ? <CircularProgress size={16} sx={{ color: '#2E7D32' }} />
+                                : <FileDownload fontSize="small" />}
                             </IconButton>
                             {!hasGovtBypass && (
                               <IconButton 
@@ -941,16 +997,18 @@ export default function SecureVault() {
               {!uploading && !ocrScanning && (
                 <Box display="flex" flexDirection="column" gap={2} mt={1}>
                   
-                  {/* Demo input to mock file sizes for quota testing */}
-                  <TextField
-                    label="Mock Upload File Size (KB)"
-                    type="number"
-                    size="small"
-                    value={mockFileSizeKb}
-                    onChange={(e) => setMockFileSizeKb(e.target.value)}
-                    helperText={`Helper: Uploading this size will bring utilization to ${(totalUsedMb + parseFloat(mockFileSizeKb / 1024)).toFixed(2)} MB.`}
-                    sx={{ mb: 1 }}
-                  />
+                  {/* Real file selection — the chosen file's size drives quota enforcement */}
+                  <Box sx={{ mb: 1 }}>
+                    <Button variant="outlined" component="label" size="small" fullWidth sx={{ justifyContent: 'flex-start', textTransform: 'none' }}>
+                      Choose file to upload…
+                      <input type="file" hidden onChange={handleFileSelect} />
+                    </Button>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      {mockFileSizeKb
+                        ? `Selected size: ${mockFileSizeKb} KB — utilization will reach ${(totalUsedMb + parseFloat(mockFileSizeKb / 1024)).toFixed(2)} MB.`
+                        : 'No file selected yet.'}
+                    </Typography>
+                  </Box>
 
                   <TextField
                     select

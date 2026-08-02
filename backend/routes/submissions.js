@@ -234,4 +234,185 @@ router.put('/:id/status', requireRole(['admin', 'govt']), async (req, res) => {
     }
 });
 
+// ============================================================
+// === MODULE 9 ENHANCEMENTS — bulk import + prefill + API =======
+// ============================================================
+// Additive. The POST / above (single submission) and /me /:id/status
+// are untouched. These add:
+//   • Prefill from the last period (fewer errors, faster filing)
+//   • Bulk import — many periods at once (big units, Excel upload)
+//   • API-based submission (programmatic, API-key gated)
+// ============================================================
+
+// ------------------------------------------------------------
+// Core writer used by both single, bulk, and API submission paths.
+// Takes an industryId + a normalised payload + status.
+// ------------------------------------------------------------
+async function writeSubmission(client, industryId, p, status) {
+    const subRes = await client.query(
+        `INSERT INTO data_submissions (industry_id, period_year, period_quarter, status, submitted_at)
+         VALUES ($1,$2,$3,$4,NOW())
+         ON CONFLICT (industry_id, period_year, period_quarter)
+         DO UPDATE SET status = EXCLUDED.status, submitted_at = NOW()
+         RETURNING id`,
+        [industryId, p.periodYear, p.periodQuarter, status]
+    );
+    const subId = subRes.rows[0].id;
+
+    await client.query(
+        `INSERT INTO financial_data (submission_id, investment_amount, annual_turnover, export_revenue, rd_expenditure)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (submission_id) DO UPDATE SET
+           investment_amount=EXCLUDED.investment_amount, annual_turnover=EXCLUDED.annual_turnover,
+           export_revenue=EXCLUDED.export_revenue, rd_expenditure=EXCLUDED.rd_expenditure`,
+        [subId, p.investmentAmount || 0, p.annualTurnover || 0, p.exportRevenue || 0, p.rdExpenditure || 0]
+    );
+    await client.query(
+        `INSERT INTO employment_data (submission_id, permanent_employees, contract_employees, sc_st_employees, women_employees)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (submission_id) DO UPDATE SET
+           permanent_employees=EXCLUDED.permanent_employees, contract_employees=EXCLUDED.contract_employees,
+           sc_st_employees=EXCLUDED.sc_st_employees, women_employees=EXCLUDED.women_employees`,
+        [subId, p.permanentEmployees || 0, p.contractEmployees || 0, p.scStEmployees || 0, p.womenEmployees || 0]
+    );
+    await client.query(
+        `INSERT INTO resource_usage (submission_id, water_consumption, power_usage, waste_generated, waste_recycled_pct)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (submission_id) DO UPDATE SET
+           water_consumption=EXCLUDED.water_consumption, power_usage=EXCLUDED.power_usage,
+           waste_generated=EXCLUDED.waste_generated, waste_recycled_pct=EXCLUDED.waste_recycled_pct`,
+        [subId, p.waterConsumption || 0, p.powerUsage || 0, p.wasteGenerated || 0, p.wasteRecycledPct || 0]
+    );
+    if (p.csrActivities || p.csrSpent) {
+        await client.query(
+            `INSERT INTO csr_activities (submission_id, description, amount_spent, beneficiary_count)
+             VALUES ($1,$2,$3,$4)
+             ON CONFLICT (submission_id) DO UPDATE SET
+               description=EXCLUDED.description, amount_spent=EXCLUDED.amount_spent, beneficiary_count=EXCLUDED.beneficiary_count`,
+            [subId, p.csrActivities || '', p.csrSpent || 0, p.csrBeneficiaries || 0]
+        );
+    }
+    return subId;
+}
+
+// Smart validation: returns { ok, errors[] }. Non-fatal missing fields
+// are tolerated; hard errors (bad types, missing period) are surfaced.
+function validate(p) {
+    const errors = [];
+    if (!p.periodYear || !p.periodQuarter) errors.push('periodYear & periodQuarter required');
+    if (p.periodYear && (p.periodYear < 2000 || p.periodYear > 2100)) errors.push('periodYear out of range');
+    if (p.periodQuarter && ![1,2,3,4].includes(Number(p.periodQuarter))) errors.push('periodQuarter must be 1-4');
+    for (const k of ['investmentAmount','annualTurnover','permanentEmployees']) {
+        if (p[k] != null && Number.isNaN(Number(p[k]))) errors.push(`${k} must be numeric`);
+    }
+    return { ok: errors.length === 0, errors };
+}
+
+// ============================================================
+// @route   GET /api/submissions/prefill
+// @desc    Prefill from the industry's last approved/submitted period.
+//          Frontend uses this to seed the form so re-filing is fast.
+// @access  Private (Industry)
+// ============================================================
+router.get('/prefill', requireRole(['industry']), async (req, res) => {
+    try {
+        const industryId = req.user.profile_id;
+        if (!industryId) return res.status(400).json({ error: 'No industry profile' });
+
+        const last = await db.query(`
+            SELECT ds.id, ds.period_year, ds.period_quarter,
+                   f.investment_amount, f.annual_turnover, f.export_revenue, f.rd_expenditure,
+                   e.permanent_employees, e.contract_employees, e.sc_st_employees, e.women_employees,
+                   r.water_consumption, r.power_usage, r.waste_generated, r.waste_recycled_pct,
+                   c.description AS csr_activities, c.amount_spent AS csr_spent, c.beneficiary_count AS csr_beneficiaries
+              FROM data_submissions ds
+         LEFT JOIN financial_data f ON f.submission_id = ds.id
+         LEFT JOIN employment_data e ON e.submission_id = ds.id
+         LEFT JOIN resource_usage r ON r.submission_id = ds.id
+         LEFT JOIN csr_activities c ON c.submission_id = ds.id
+             WHERE ds.industry_id = $1 AND lower(ds.status) IN ('approved','submitted')
+          ORDER BY ds.submitted_at DESC LIMIT 1`, [industryId]);
+        if (!last.rows.length) return res.json({ prefill: null, msg: 'No prior submission to prefill from.' });
+        res.json({ prefill: last.rows[0] });
+    } catch (err) {
+        console.error('Prefill Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// ============================================================
+// @route   POST /api/submissions/bulk
+// @desc    Bulk import — many periods at once. Each item runs its own
+//          validation; valid rows commit, invalid rows are itemised.
+// @access  Private (Industry)
+// ============================================================
+router.post('/bulk', requireRole(['industry']), async (req, res) => {
+    const industryId = req.user.profile_id;
+    if (!industryId) return res.status(400).json({ error: 'No industry profile' });
+    const periods = Array.isArray(req.body.periods) ? req.body.periods : [];
+    if (!periods.length) return res.status(400).json({ error: 'periods array required' });
+
+    const client = await db.pool.connect();
+    const succeeded = [], failed = [];
+    try {
+        for (let i = 0; i < periods.length; i++) {
+            const p = periods[i];
+            const v = validate(p);
+            if (!v.ok) { failed.push({ row: i, errors: v.errors }); continue; }
+            try {
+                await client.query('BEGIN');
+                const id = await writeSubmission(client, industryId, p, 'Submitted');
+                await client.query('COMMIT');
+                succeeded.push({ row: i, submissionId: id, period: `${p.periodYear}-Q${p.periodQuarter}` });
+            } catch (e) {
+                await client.query('ROLLBACK');
+                failed.push({ row: i, errors: [e.message] });
+            }
+        }
+        res.json({ total: periods.length, succeeded: succeeded.length, failed: failed.length, succeeded_rows: succeeded, failed_rows: failed });
+    } catch (err) {
+        console.error('Bulk Submission Error:', err.message);
+        res.status(500).send('Server Error');
+    } finally {
+        client.release();
+    }
+});
+
+// ============================================================
+// @route   POST /api/submissions/api-submit
+// @desc    Programmatic submission via API key (for big industries /
+//          ERP integrations). Header: x-api-key. The key maps to an
+//          industry profile. In production keys live in a dedicated
+//          table; here we accept the env-configured master key OR
+//          resolve by profile id passed in the body.
+// @access  API-key gated (no JWT)
+// ============================================================
+router.post('/api-submit', async (req, res) => {
+    try {
+        const apiKey = req.header('x-api-key');
+        const validKey = process.env.SUBMISSION_API_KEY && apiKey === process.env.SUBMISSION_API_KEY;
+        if (!validKey) return res.status(401).json({ error: 'Invalid or missing API key (x-api-key header).' });
+
+        const { industryId, periodYear, periodQuarter, ...rest } = req.body;
+        if (!industryId || !periodYear || !periodQuarter) {
+            return res.status(400).json({ error: 'industryId, periodYear, periodQuarter required' });
+        }
+        const v = validate({ periodYear, periodQuarter, ...rest });
+        if (!v.ok) return res.status(400).json({ error: 'validation failed', errors: v.errors });
+
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const id = await writeSubmission(client, industryId, { periodYear, periodQuarter, ...rest }, 'Submitted');
+            await client.query('COMMIT');
+            res.status(201).json({ msg: 'submitted', submissionId: id });
+        } catch (e) {
+            await client.query('ROLLBACK'); throw e;
+        } finally { client.release(); }
+    } catch (err) {
+        console.error('API Submit Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 module.exports = router;

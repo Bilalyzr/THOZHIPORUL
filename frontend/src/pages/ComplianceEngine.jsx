@@ -13,10 +13,26 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import { complianceService } from '../services/api';
 
 const SEVERITY_COLORS = { low: '#2196f3', medium: '#fbc02d', high: '#f57c00', critical: '#d32f2f' };
+const CATEGORY_LABELS = { environmental: 'Environmental', safety: 'Safety', financial: 'Financial', submission: 'Submission', operational: 'Operational', other: 'Other' };
+
+const formatMonth = (ym) => {
+  // '2026-01' -> 'Jan 2026'
+  if (!ym || !/^\d{4}-\d{2}$/.test(ym)) return ym;
+  const [y, m] = ym.split('-');
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${names[parseInt(m, 10) - 1]} ${y}`;
+};
+
+const formatDate = (d) => {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-IN', { dateStyle: 'medium' });
+};
 const STATUS_COLORS = { open: '#d32f2f', acknowledged: '#f57c00', resolving: '#fbc02d', resolved: '#4caf50', escalated: '#9c27b0' };
-const PIE_COLORS = ['#1F4E79', '#2E7D32', '#F57C00', '#d32f2f'];
+const PIE_COLORS = ['#1F4E79', '#2E7D32', '#F57C00', '#d32f2f', '#7B1FA2', '#0288D1', '#00897B', '#C2185B'];
 
 const OverviewCard = ({ label, count, pct, color, icon }) => (
   <Card sx={{ borderTop: `4px solid ${color}` }}>
@@ -35,62 +51,105 @@ export default function ComplianceEngine() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const INITIAL_VIOLATIONS = [
-    { id: 1, company: 'Renault-Nissan India', rule_code: 'ENV_01', rule_name: 'Stack emissions exceed TNPCB limits', severity: 'critical', status: 'open', date: '2026-06-15' },
-    { id: 2, company: 'Samsung Electronics', rule_code: 'SAF_04', rule_name: 'Fire safety NOC expired', severity: 'high', status: 'acknowledged', date: '2026-06-12' },
-    { id: 3, company: 'TVS Motor Company', rule_code: 'ENV_03', rule_name: 'Effluent treatment plant bypass detected', severity: 'critical', status: 'resolving', date: '2026-06-18' },
-    { id: 4, company: 'Foxconn India', rule_code: 'FIN_02', rule_name: 'Water charges lease payment delayed', severity: 'medium', status: 'open', date: '2026-06-05' },
-    { id: 5, company: 'Apollo Tyres Ltd', rule_code: 'OPR_02', rule_name: 'Quarterly production report overdue', severity: 'low', status: 'resolved', date: '2026-06-01' }
-  ];
+  const [violations, setViolations] = useState([]);
+  const [overview, setOverview] = useState({
+    compliant: { count: 0, pct: 0 }, warning: { count: 0, pct: 0 },
+    violation: { count: 0, pct: 0 }, missing: { count: 0, pct: 0 },
+  });
+  const [trendData, setTrendData] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
+  const [predictions, setPredictions] = useState([]);
+  const [missingInfo, setMissingInfo] = useState({ total: 0, missing: [], cycle_start: null });
 
-  const [violations, setViolations] = useState(() => {
-    try { const s = localStorage.getItem('sipcot_violations'); return s ? JSON.parse(s) : INITIAL_VIOLATIONS; }
-    catch { return INITIAL_VIOLATIONS; }
+  const mapOverview = (o) => ({
+    compliant: { count: o.compliant?.count || 0, pct: o.compliant?.percentage || 0 },
+    warning: { count: o.warning?.count || 0, pct: o.warning?.percentage || 0 },
+    violation: { count: o.violation?.count || 0, pct: o.violation?.percentage || 0 },
+    missing: { count: o.missing?.count || 0, pct: o.missing?.percentage || 0 },
   });
 
-  useEffect(() => {
-    localStorage.setItem('sipcot_violations', JSON.stringify(violations));
-  }, [violations]);
-
-  const overview = {
-    compliant: { count: 1120, pct: 89 },
-    warning: { count: 85, pct: 7 },
-    violation: { count: violations.filter(v => v.status !== 'resolved').length, pct: 3 },
-    missing: { count: 12, pct: 1 },
+  const fetchViolations = async () => {
+    const res = await complianceService.getViolations({ limit: 100 });
+    setViolations((res.data.violations || []).map(v => ({
+      id: v.id,
+      company: v.company_name,
+      rule_code: v.rule_code || '—',
+      rule_name: v.rule_name || v.description || '',
+      severity: v.severity,
+      status: v.status,
+      date: v.violation_date,
+    })));
   };
 
-  const trendData = [
-    { month: 'Oct 2025', score: 72 },
-    { month: 'Nov 2025', score: 74 },
-    { month: 'Dec 2025', score: 76 },
-    { month: 'Jan 2026', score: 75 },
-    { month: 'Feb 2026', score: 78 },
-    { month: 'Mar 2026', score: 81 },
-    { month: 'Apr 2026', score: 80 },
-    { month: 'May 2026', score: 83 },
-    { month: 'Jun 2026', score: 85 }
-  ];
+  const fetchOverview = async () => {
+    const res = await complianceService.getOverview();
+    setOverview(mapOverview(res.data));
+  };
 
-  const categoryData = [
-    { name: 'Environmental', value: 8 },
-    { name: 'Safety', value: 5 },
-    { name: 'Financial', value: 4 },
-    { name: 'Operational', value: 2 }
-  ];
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [ov, tr, cat, pred, miss] = await Promise.all([
+          complianceService.getOverview(),
+          complianceService.getTrends(),
+          complianceService.getByCategory(),
+          complianceService.getPredictions(),
+          complianceService.getMissingSubmissions(),
+        ]);
+        if (!active) return;
+        setOverview(mapOverview(ov.data));
+        setTrendData((tr.data || []).map(t => ({ month: formatMonth(t.month), score: t.avg_score })));
+        setCategoryData((cat.data || []).map(c => ({ name: CATEGORY_LABELS[c.category] || c.category, value: c.count })));
+        setPredictions((pred.data || []).map(p => ({ metric: p.metric, current: p.current, projected: p.projected_1yr, growth: p.growth_pct })));
+        setMissingInfo(miss.data || { total: 0, missing: [], cycle_start: null });
+        await fetchViolations();
+      } catch (err) {
+        console.error('Failed to load compliance data', err);
+        setSnackbar({ open: true, message: 'Unable to load compliance data. Please sign in as an admin/govt user.', severity: 'error' });
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
-  const severityDist = [
-    { name: 'Critical', value: 3 },
-    { name: 'High', value: 5 },
-    { name: 'Medium', value: 7 },
-    { name: 'Low', value: 4 }
-  ];
+  const handleUpdateStatus = async (v, newStatus, message, severity) => {
+    try {
+      await complianceService.updateViolation(v.id, { status: newStatus });
+      setSnackbar({ open: true, message, severity });
+      await Promise.all([fetchViolations(), fetchOverview()]);
+    } catch (err) {
+      console.error('Failed to update violation', err);
+      setSnackbar({ open: true, message: 'Failed to update violation status.', severity: 'error' });
+    }
+  };
 
-  const predictions = [
-    { metric: 'Compliance Rating', current: '82%', projected: '91%', growth: 11 },
-    { metric: 'Resource Efficiency', current: '76%', projected: '84%', growth: 10 },
-    { metric: 'Violation Resolution Time', current: '14.2 days', projected: '6.5 days', growth: 54 },
-    { metric: 'Statutory Submission Rate', current: '92%', projected: '98%', growth: 6 }
-  ];
+  const handleSendReminders = async () => {
+    try {
+      const ids = (missingInfo.missing || []).map(m => m.id);
+      const res = await complianceService.sendReminders({ industryIds: ids });
+      setSnackbar({ open: true, message: res.data?.msg || `Reminders sent to ${ids.length} industries.`, severity: 'success' });
+    } catch (err) {
+      console.error('Failed to send reminders', err);
+      setSnackbar({ open: true, message: 'Failed to send reminders.', severity: 'error' });
+    }
+  };
+
+  const handleExportMissing = () => {
+    const header = 'Company,Location,Last Submission,Periods Missed';
+    const lines = (missingInfo.missing || []).map(m =>
+      `${m.company_name},${m.location || ''},${m.last_submission ? new Date(m.last_submission).toISOString().split('T')[0] : 'Never'},${m.periods_missed ?? 'N/A'}`);
+    const csv = [header, ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'missing_submissions.csv'; a.click();
+    URL.revokeObjectURL(url);
+    setSnackbar({ open: true, message: 'Missing submissions list exported as CSV.', severity: 'success' });
+  };
+
+  const severityDist = ['critical', 'high', 'medium', 'low'].map(sev => ({
+    name: sev.charAt(0).toUpperCase() + sev.slice(1),
+    value: violations.filter(v => v.severity === sev).length,
+  }));
 
   const filteredViolations = violations.filter(v =>
     (severityFilter === 'all' || v.severity === severityFilter) &&
@@ -170,11 +229,11 @@ export default function ComplianceEngine() {
                         <TableCell><Chip label={v.rule_code} size="small" variant="outlined" /><br /><Typography variant="caption">{v.rule_name}</Typography></TableCell>
                         <TableCell><Chip label={v.severity} size="small" sx={{ bgcolor: SEVERITY_COLORS[v.severity], color: 'white', textTransform: 'capitalize' }} /></TableCell>
                         <TableCell><Chip label={v.status} size="small" sx={{ bgcolor: STATUS_COLORS[v.status], color: 'white', textTransform: 'capitalize' }} /></TableCell>
-                        <TableCell>{v.date}</TableCell>
+                        <TableCell>{formatDate(v.date)}</TableCell>
                         <TableCell>
-                          <Button size="small" variant="outlined" sx={{ mr: 0.5 }} disabled={v.status === 'acknowledged' || v.status === 'resolved'} onClick={() => { setViolations(violations.map(vv => vv.id === v.id ? { ...vv, status: 'acknowledged' } : vv)); setSnackbar({ open: true, message: `Violation for ${v.company} acknowledged. Status updated.`, severity: 'info' }); }}>{v.status === 'acknowledged' ? 'Acknowledged' : 'Acknowledge'}</Button>
-                          <Button size="small" variant="outlined" color="error" disabled={v.status === 'escalated' || v.status === 'resolved'} onClick={() => { setViolations(violations.map(vv => vv.id === v.id ? { ...vv, status: 'escalated' } : vv)); setSnackbar({ open: true, message: `Violation for ${v.company} escalated to senior officer.`, severity: 'warning' }); }}>{v.status === 'escalated' ? 'Escalated' : 'Escalate'}</Button>
-                          <Button size="small" variant="outlined" color="success" disabled={v.status === 'resolved'} onClick={() => { setViolations(violations.map(vv => vv.id === v.id ? { ...vv, status: 'resolved' } : vv)); setSnackbar({ open: true, message: `Violation for ${v.company} marked as resolved.`, severity: 'success' }); }}>{v.status === 'resolved' ? 'Resolved' : 'Resolve'}</Button>
+                          <Button size="small" variant="outlined" sx={{ mr: 0.5 }} disabled={v.status === 'acknowledged' || v.status === 'resolved'} onClick={() => handleUpdateStatus(v, 'acknowledged', `Violation for ${v.company} acknowledged. Status updated.`, 'info')}>{v.status === 'acknowledged' ? 'Acknowledged' : 'Acknowledge'}</Button>
+                          <Button size="small" variant="outlined" color="error" disabled={v.status === 'escalated' || v.status === 'resolved'} onClick={() => handleUpdateStatus(v, 'escalated', `Violation for ${v.company} escalated to senior officer.`, 'warning')}>{v.status === 'escalated' ? 'Escalated' : 'Escalate'}</Button>
+                          <Button size="small" variant="outlined" color="success" disabled={v.status === 'resolved'} onClick={() => handleUpdateStatus(v, 'resolved', `Violation for ${v.company} marked as resolved.`, 'success')}>{v.status === 'resolved' ? 'Resolved' : 'Resolve'}</Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -187,12 +246,12 @@ export default function ComplianceEngine() {
             <Paper sx={{ p: { xs: 2, sm: 3 }, mt: 2, borderLeft: '4px solid #F57C00' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
                 <Box>
-                  <Typography variant="subtitle1" fontWeight={600}>0 industries have not submitted Q1 2026 data</Typography>
-                  <Typography variant="body2" color="text.secondary">Deadline: April 15, 2026</Typography>
+                  <Typography variant="subtitle1" fontWeight={600}>{missingInfo.total} industries have not submitted for the current cycle</Typography>
+                  <Typography variant="body2" color="text.secondary">Cycle start: {missingInfo.cycle_start ? formatDate(missingInfo.cycle_start) : '—'}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="contained" size="small" startIcon={<Send />} onClick={() => setSnackbar({ open: true, message: 'Compliance reminders sent to 0 industries via email and portal notification.', severity: 'success' })}>Send Bulk Reminder</Button>
-                  <Button variant="outlined" size="small" startIcon={<Download />} onClick={() => { const csvContent = 'Company,Location,Last Submission,Periods Missed\nXYZ Manufacturing,Sriperumbudur,2025-10-12,2\nDelta Pharma,Hosur,2025-07-20,3\nStar Electronics,Oragadam,2026-01-05,1'; const blob = new Blob([csvContent], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'missing_submissions.csv'; a.click(); URL.revokeObjectURL(url); setSnackbar({ open: true, message: 'Missing submissions list exported as CSV.', severity: 'success' }); }}>Export List</Button>
+                  <Button variant="contained" size="small" startIcon={<Send />} disabled={!missingInfo.total} onClick={handleSendReminders}>Send Bulk Reminder</Button>
+                  <Button variant="outlined" size="small" startIcon={<Download />} disabled={!missingInfo.total} onClick={handleExportMissing}>Export List</Button>
                 </Box>
               </Box>
             </Paper>
@@ -205,7 +264,7 @@ export default function ComplianceEngine() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, value }) => `${name}: ${value}`}>
-                    {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                    {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
                   <Tooltip />
                 </PieChart>

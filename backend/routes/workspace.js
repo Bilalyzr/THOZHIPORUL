@@ -3,6 +3,33 @@ const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
 const bcrypt = require('bcrypt');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
+// ----------------------------------------------------------------
+// Secure Vault file storage.
+// Files land in backend/uploads/<timestamp>-<sanitised-name>. The
+// timestamp prefix avoids collisions and the basename() strip removes
+// any path components (defence against path-traversal in the name).
+// ----------------------------------------------------------------
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+// Ensure the directory exists on boot (no-op if already present).
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+    filename: (req, file, cb) => {
+        // Strip directory components + unsafe chars from the original name.
+        const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+        cb(null, `${Date.now()}-${safeName}`);
+    }
+});
+// 25 MB hard cap — matches the frontend's tier-quota enforcement.
+const upload = multer({
+    storage,
+    limits: { fileSize: 25 * 1024 * 1024 }
+});
 
 // @route   GET /api/workspace/overview
 // @desc    Combined workspace overview for industry user
@@ -403,42 +430,111 @@ router.get('/documents', requireRole(['industry', 'govt', 'admin']), async (req,
 });
 
 // @route   POST /api/workspace/documents
-// @desc    Upload new document
+// @desc    Upload a REAL document (multipart/form-data). The file is
+//          written to backend/uploads/ and the documents row stores the
+//          genuine path, size and mime type — so it persists across
+//          refresh and is genuinely downloadable.
 // @access  Private (Industry)
-router.post('/documents', requireRole(['industry']), async (req, res) => {
+router.post('/documents', requireRole(['industry']), upload.single('file'), async (req, res) => {
     try {
         const industryId = req.user.profile_id;
         const userId = req.user.id;
         if (!industryId) {
+            // Clean up the temp file if the user has no profile yet.
+            if (req.file) fs.unlink(req.file.path, () => {});
             return res.status(400).json({ error: 'No profile associated with this industry account.' });
         }
 
-        const { category, fileName, expiryDate } = req.body;
-        
-        if (!category || !fileName) {
-            return res.status(400).json({ error: 'Category and file name are required.' });
+        if (!req.file) {
+            return res.status(400).json({ error: 'A file is required. Select a file to upload.' });
         }
+
+        // Form fields (sent alongside the file in the FormData payload).
+        const category = req.body.category;
+        const expiryDate = req.body.expiryDate || null;
+        // Display name defaults to the original uploaded filename.
+        const fileName = req.body.fileName || req.file.originalname;
+
+        if (!category) {
+            fs.unlink(req.file.path, () => {});
+            return res.status(400).json({ error: 'Category is required.' });
+        }
+
+        // file_path is the URL the static handler serves (see index.js).
+        const filePath = `/uploads/${req.file.filename}`;
+        const sizeKb = Math.max(1, Math.round(req.file.size / 1024));
 
         const docInsert = await db.query(
             `INSERT INTO documents (industry_id, uploaded_by, category, file_name, file_path, file_size_kb, mime_type, expiry_date, verified)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
              RETURNING id`,
-            [
-                industryId,
-                userId,
-                category,
-                fileName,
-                `/uploads/${fileName}`,
-                Math.floor(Math.random() * 800) + 100, // random size in KB
-                'application/pdf',
-                expiryDate || null
-            ]
+            [industryId, userId, category, fileName, filePath, sizeKb, req.file.mimetype, expiryDate]
         );
 
-        console.log(`[DB] Document uploaded to DB: ${fileName} (${category}) for industry ID ${industryId}`);
+        console.log(`[VAULT] Document uploaded to disk: ${req.file.filename} (${category}, ${sizeKb} KB) for industry ID ${industryId}`);
         res.status(201).json({ msg: 'Document uploaded successfully', id: docInsert.rows[0].id });
     } catch (err) {
+        // Best-effort cleanup of the partial file on failure.
+        if (req.file) { try { fs.unlink(req.file.path, () => {}); } catch (_) {} }
         console.error('Document Upload Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   GET /api/workspace/documents/:id/download
+// @desc    Download the real file from disk (Secure Vault). Industry users
+//          can only download their own; admin/govt may download any.
+// @access  Private (Industry owner, Admin, Govt)
+router.get('/documents/:id/download', requireRole(['industry', 'admin', 'govt']), async (req, res) => {
+    try {
+        const doc = await db.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+        if (!doc.rows.length) return res.status(404).json({ error: 'Document not found.' });
+
+        const d = doc.rows[0];
+        // Ownership check for industry users.
+        if (req.user.role === 'industry' && d.industry_id !== req.user.profile_id) {
+            return res.status(403).json({ error: 'You can only download your own documents.' });
+        }
+
+        // Resolve the on-disk filename. file_path looks like "/uploads/<filename>".
+        const diskName = path.basename(d.file_path || '');
+        const absPath = path.join(UPLOAD_DIR, diskName);
+
+        if (!diskName || !fs.existsSync(absPath)) {
+            return res.status(404).json({ error: 'File is missing from storage. It may have been removed.' });
+        }
+
+        // Suggest the display name as the download filename.
+        res.download(absPath, d.file_name || diskName, (err) => {
+            if (err) console.error('Download stream error:', err.message);
+        });
+    } catch (err) {
+        console.error('Document Download Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   DELETE /api/workspace/documents/:id
+// @desc    Delete a document — removes the DB row AND unlinks the file
+//          from disk (best-effort). Industry-owner only.
+// @access  Private (Industry)
+router.delete('/documents/:id', requireRole(['industry']), async (req, res) => {
+    try {
+        const result = await db.query(
+            'DELETE FROM documents WHERE id = $1 AND industry_id = $2 RETURNING file_path',
+            [req.params.id, req.user.profile_id]
+        );
+        if (!result.rows.length) {
+            return res.status(404).json({ error: 'Document not found or not yours.' });
+        }
+        // Best-effort file removal.
+        const diskName = path.basename(result.rows[0].file_path || '');
+        if (diskName) {
+            fs.unlink(path.join(UPLOAD_DIR, diskName), () => {});
+        }
+        res.json({ msg: 'Document deleted.' });
+    } catch (err) {
+        console.error('Document Delete Error:', err.message);
         res.status(500).send('Server Error');
     }
 });
@@ -522,8 +618,10 @@ router.post('/verify-vault', requireRole(['industry', 'govt', 'admin']), async (
             return res.status(400).json({ error: 'Passphrase is required.' });
         }
 
+        // Demo passphrase shortcuts only work when demo mode is explicitly enabled.
+        const demoEnabled = process.env.ENABLE_DEMO_LOGIN === 'true';
         const cleanPassphrase = passphrase.trim().toLowerCase();
-        if (cleanPassphrase === 'sipcot123' || cleanPassphrase === 'password123') {
+        if (demoEnabled && (cleanPassphrase === 'sipcot123' || cleanPassphrase === 'password123')) {
             return res.json({ success: true });
         }
 
@@ -532,8 +630,8 @@ router.post('/verify-vault', requireRole(['industry', 'govt', 'admin']), async (
         const user = userRes.rows[0];
 
         if (user) {
-            // Check if password hash is fallback / demo
-            if (user.password_hash === '$demo$' && passphrase === 'password') {
+            // The '$demo$' placeholder only unlocks when demo mode is enabled.
+            if (demoEnabled && user.password_hash === '$demo$' && passphrase === 'password') {
                 return res.json({ success: true });
             }
             const isMatch = await bcrypt.compare(passphrase, user.password_hash);

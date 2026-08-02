@@ -1,41 +1,25 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../db');
+const { requireRole } = require('./auth');
 
 // ─────────────────────────────────────────────────
-// API KEY Configuration
-// In production, set SIPCOT_API_KEY in environment variables
+// SIPCOT MASTER-SYSTEM SYNC (SIMULATED)
+// This router represents a connector to SIPCOT Authority's external
+// "verified records" master system. That live integration does NOT
+// exist yet, so the verified-submissions payload below is sample data
+// and every response is honestly flagged as `simulated` / sandbox.
+// Where a figure CAN be sourced from OUR own database (submission
+// counts, industry counts) it is queried live.
+//
+// Access is guarded by the platform's normal role auth (admin/govt).
+// A demonstration API key is still surfaced by /key-info for the UI.
 // ─────────────────────────────────────────────────
 const SIPCOT_API_KEY = process.env.SIPCOT_API_KEY || 'SIPCOT-SIMS-2026-a4f8e2d1-b7c3-49e5-9612-3f8a1d0e7b5c';
 
-// Middleware: Validate API Key on every request to this router
-function validateApiKey(req, res, next) {
-  const apiKey = req.headers['x-api-key'] || req.query.api_key;
-
-  if (!apiKey) {
-    return res.status(401).json({
-      success: false,
-      error: 'Missing API Key',
-      message: 'Provide your API key via "X-API-Key" header or "api_key" query parameter.'
-    });
-  }
-
-  if (apiKey !== SIPCOT_API_KEY) {
-    return res.status(403).json({
-      success: false,
-      error: 'Invalid API Key',
-      message: 'The provided API key is not authorized. Contact SIPCOT authority for a valid key.'
-    });
-  }
-
-  next();
-}
-
-// Apply API key validation to all routes below
-router.use(validateApiKey);
-
 // ─────────────────────────────────────────────────
-// Mock: SIPCOT Authority's verified submissions
-// (In production, this data comes from SIPCOT's real database)
+// Sample: SIPCOT Authority's verified submissions
+// (SIMULATED — in production this data comes from SIPCOT's real master DB)
 // ─────────────────────────────────────────────────
 const verifiedSubmissions = [
   {
@@ -51,7 +35,7 @@ const verifiedSubmissions = [
     verified_by: 'Mr. R. Senthil Kumar, Asst. Director',
     verified_at: '2026-05-05T14:30:00Z',
     status: 'VERIFIED',
-    source: 'api-sync'
+    source: 'simulated-sync'
   },
   {
     id: 'SIPCOT-VER-002',
@@ -66,7 +50,7 @@ const verifiedSubmissions = [
     verified_by: 'Ms. K. Priya, Section Officer',
     verified_at: '2026-05-04T11:15:00Z',
     status: 'VERIFIED',
-    source: 'api-sync'
+    source: 'simulated-sync'
   },
   {
     id: 'SIPCOT-VER-003',
@@ -82,7 +66,7 @@ const verifiedSubmissions = [
     verified_by: 'Mr. R. Senthil Kumar, Asst. Director',
     verified_at: '2026-05-06T09:45:00Z',
     status: 'VERIFIED',
-    source: 'api-sync'
+    source: 'simulated-sync'
   },
   {
     id: 'SIPCOT-VER-004',
@@ -97,15 +81,15 @@ const verifiedSubmissions = [
     verified_by: 'Ms. K. Priya, Section Officer',
     verified_at: '2026-05-06T10:20:00Z',
     status: 'VERIFIED',
-    source: 'api-sync'
+    source: 'simulated-sync'
   }
 ];
 
 // ─────────────────────────────────────────────────
 // GET /api/sipcot-sync/verified-submissions
-// Fetches all verified submissions (the auto-fetch endpoint)
+// Fetches sample verified submissions (SIMULATED external pull)
 // ─────────────────────────────────────────────────
-router.get('/verified-submissions', (req, res) => {
+router.get('/verified-submissions', requireRole(['admin', 'govt']), (req, res) => {
   const { type, park, since } = req.query;
 
   let results = [...verifiedSubmissions];
@@ -128,49 +112,70 @@ router.get('/verified-submissions', (req, res) => {
 
   res.json({
     success: true,
+    simulated: true,
+    connection: 'not_connected',
     fetched_at: new Date().toISOString(),
     total_records: results.length,
     api_version: 'v1.0',
-    source: 'SIPCOT Authority — Verified Records API',
+    source: 'Simulated SIPCOT Authority — Verified Records API (sample data, not a live feed)',
     data: results
   });
 });
 
 // ─────────────────────────────────────────────────
 // GET /api/sipcot-sync/key-info
-// Shows info about the current API key (for admin panel display)
+// Shows info about the demonstration API key (for admin panel display)
 // ─────────────────────────────────────────────────
-router.get('/key-info', (req, res) => {
+router.get('/key-info', requireRole(['admin', 'govt']), (req, res) => {
   res.json({
     success: true,
+    simulated: true,
     key_preview: SIPCOT_API_KEY.slice(0, 20) + '••••••••••••',
     issued_to: 'SIPCOT SIMS Platform',
-    issued_by: 'SIPCOT IT Division, Chennai',
+    issued_by: 'SIPCOT IT Division, Chennai (demonstration key)',
     permissions: ['read:verified-submissions', 'read:company-profiles'],
     rate_limit: '100 requests/hour',
     expires_at: '2027-03-31T23:59:59Z',
-    status: 'ACTIVE'
+    status: 'ACTIVE (sandbox)'
   });
 });
 
 // ─────────────────────────────────────────────────
 // POST /api/sipcot-sync/trigger-sync
-// Admin can manually trigger a sync pull
+// Admin manually triggers a sync pull. External pull is SIMULATED, but the
+// record counts reported are pulled live from OUR own database.
 // ─────────────────────────────────────────────────
-router.post('/trigger-sync', (req, res) => {
-  const syncResult = {
-    success: true,
-    sync_id: `SYNC-${Date.now()}`,
-    triggered_at: new Date().toISOString(),
-    records_fetched: verifiedSubmissions.length,
-    new_records: 2,
-    updated_records: 1,
-    skipped_duplicates: 1,
-    next_auto_sync: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-    message: `Successfully synced ${verifiedSubmissions.length} verified records from SIPCOT authority.`
-  };
+router.post('/trigger-sync', requireRole(['admin', 'govt']), async (req, res) => {
+  try {
+    // Real counts from our DB give the sync a truthful "records available" figure.
+    const { rows } = await db.query(`
+      SELECT
+        (SELECT COUNT(*) FROM data_submissions) AS total_submissions,
+        (SELECT COUNT(*) FROM data_submissions WHERE lower(status) = 'approved') AS approved_submissions,
+        (SELECT COUNT(*) FROM industry_profiles) AS total_industries
+    `);
+    const r = rows[0];
+    const approved = parseInt(r.approved_submissions) || 0;
+    const total = parseInt(r.total_submissions) || 0;
 
-  res.json(syncResult);
+    res.json({
+      success: true,
+      simulated: true,
+      connection: 'not_connected',
+      sync_id: `SYNC-${Date.now()}`,
+      triggered_at: new Date().toISOString(),
+      records_fetched: verifiedSubmissions.length,
+      // Real figures from our database:
+      local_total_submissions: total,
+      local_approved_submissions: approved,
+      local_industries: parseInt(r.total_industries) || 0,
+      next_auto_sync: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      message: `Simulated sync complete. Pulled ${verifiedSubmissions.length} sample records from the (not connected) SIPCOT master system; ${approved} of ${total} local submissions are approved.`
+    });
+  } catch (err) {
+    console.error('SIPCOT Sync Error:', err.message);
+    res.status(500).send('Server Error');
+  }
 });
 
 module.exports = router;

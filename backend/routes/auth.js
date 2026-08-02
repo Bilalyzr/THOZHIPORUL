@@ -5,7 +5,11 @@ const bcrypt = require('bcrypt');
 
 const db = require('../db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'sipcot_sims_fallback_secret_2026';
+// JWT_SECRET is validated as required at startup (see index.js) — no insecure fallback.
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Demo login bypass is OFF unless explicitly enabled via env. Never enable in production.
+const ENABLE_DEMO_LOGIN = process.env.ENABLE_DEMO_LOGIN === 'true';
 
 // ============================================================
 // REGISTER - Industry
@@ -138,10 +142,11 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials. No account found with this email.' });
         }
 
-        // Password check
+        // Password check. The '$demo$' placeholder hash only bypasses verification
+        // when demo login is explicitly enabled — otherwise it can never authenticate.
         let isMatch = false;
         if (user.password_hash === '$demo$') {
-            isMatch = true;
+            isMatch = ENABLE_DEMO_LOGIN;
         } else {
             isMatch = await bcrypt.compare(password, user.password_hash);
         }
@@ -168,8 +173,14 @@ router.post('/login', async (req, res) => {
         const token = await signToken(payload, JWT_SECRET, { expiresIn: '8h' });
         
         console.log(`[AUDIT] Login Success: ${user.email} | Role: ${user.role} | Name: ${name}`);
-        
-        res.json({ 
+
+        // Persist the login event to the audit trail (best-effort, non-blocking).
+        db.query(
+            'INSERT INTO audit_logs (user_id, action, ip_address) VALUES ($1, $2, $3)',
+            [user.id, `USER_LOGIN — ${user.role} portal`, req.ip]
+        ).catch(err => console.warn('[AUDIT] login log failed:', err.message));
+
+        res.json({
             token, 
             role: user.role, 
             name: name, 

@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { requireRole } = require('./auth');
 
 // ============================================================
 // AI DECISION SUPPORT ENGINE
-// Analyzes industry data and provides actionable recommendations
+// Analyzes real industry data and provides actionable recommendations.
 // ============================================================
 
 // Compliance scoring thresholds
@@ -15,7 +16,7 @@ const COMPLIANCE_THRESHOLDS = {
   EXCELLENT: 95
 };
 
-// Rule-based decision engine
+// Rule-based decision engine (pure function over a normalised industry object).
 function analyzeIndustryHealth(industryData) {
   const { compliance_score, submissions, violations, payment_status, lease_expiry } = industryData;
 
@@ -145,75 +146,116 @@ function analyzeIndustryHealth(industryData) {
 }
 
 // ============================================================
+// Data access helpers — build a normalised industry object from real tables
+// so analyzeIndustryHealth() operates on live data instead of mocks.
+// ============================================================
+
+// Fetch one industry's profile + latest compliance score.
+async function fetchIndustries(whereSql = '', params = []) {
+  const { rows } = await db.query(`
+    SELECT
+      ip.id,
+      ip.company_name,
+      ip.compliance_score AS profile_score,
+      p.name AS park_name,
+      ls.overall_score AS latest_score
+    FROM industry_profiles ip
+    LEFT JOIN LATERAL (
+      SELECT overall_score
+      FROM compliance_scores cs
+      WHERE cs.industry_id = ip.id
+      ORDER BY cs.score_date DESC
+      LIMIT 1
+    ) ls ON true
+    LEFT JOIN park_plots pp ON pp.allottee_industry_id = ip.id
+    LEFT JOIN industrial_parks p ON p.id = pp.park_id
+    ${whereSql}
+    ORDER BY COALESCE(ls.overall_score, ip.compliance_score, 100) ASC
+  `, params);
+  return rows;
+}
+
+// Load open violations grouped by industry_id.
+async function fetchOpenViolations(industryId = null) {
+  const params = [];
+  let where = "WHERE v.status <> 'resolved'";
+  if (industryId) {
+    params.push(industryId);
+    where += ` AND v.industry_id = $1`;
+  }
+  const { rows } = await db.query(`
+    SELECT v.industry_id, v.severity, v.status, v.description
+    FROM compliance_violations v
+    ${where}
+  `, params);
+  const byIndustry = {};
+  for (const r of rows) {
+    (byIndustry[r.industry_id] = byIndustry[r.industry_id] || []).push(r);
+  }
+  return byIndustry;
+}
+
+// Load the lease_end_date (latest) per industry from allotted plots.
+async function fetchLeaseExpiry(industryId = null) {
+  const params = [];
+  let where = 'WHERE pp.allottee_industry_id IS NOT NULL';
+  if (industryId) {
+    params.push(industryId);
+    where += ` AND pp.allottee_industry_id = $1`;
+  }
+  const { rows } = await db.query(`
+    SELECT allottee_industry_id AS industry_id, MAX(lease_end_date) AS lease_end
+    FROM park_plots pp
+    ${where}
+    GROUP BY allottee_industry_id
+  `, params);
+  const map = {};
+  for (const r of rows) map[r.industry_id] = r.lease_end;
+  return map;
+}
+
+// Combine a DB industry row + related events into the shape the engine wants.
+function buildIndustryData(row, violations, leaseExpiry) {
+  const score = row.latest_score != null
+    ? Number(row.latest_score)
+    : (row.profile_score != null ? Number(row.profile_score) : 0);
+  return {
+    id: row.id,
+    name: row.company_name,
+    park: row.park_name || null,
+    compliance_score: score,
+    submissions: [],
+    violations: violations[row.id] || [],
+    payment_status: 'current',
+    lease_expiry: leaseExpiry[row.id] || null
+  };
+}
+
+// ============================================================
 // ENDPOINTS
 // ============================================================
 
 // @route   GET /api/ai-decisions/recommendations/:industryId
-// @desc    Get AI-powered recommendations for a specific industry
+// @desc    AI-powered recommendations for a specific industry (real data)
 // @access  Private (Admin, Govt)
-router.get('/recommendations/:industryId', async (req, res) => {
+router.get('/recommendations/:industryId', requireRole(['admin', 'govt']), async (req, res) => {
   try {
-    const { industryId } = req.params;
+    const industryId = parseInt(req.params.industryId, 10);
+    if (Number.isNaN(industryId)) {
+      return res.status(400).json({ error: 'Invalid industry id.' });
+    }
 
-    // In production, fetch real data from database
-    // For now, using mock data that simulates real scenarios
-    const mockIndustries = {
-      101: {
-        id: 101,
-        name: 'ABC Industries',
-        compliance_score: 92,
-        submissions: [
-          { period: 'Q1 2026', status: 'submitted' },
-          { period: 'Q4 2025', status: 'approved' }
-        ],
-        violations: [],
-        payment_status: 'current',
-        lease_expiry: '2027-06-15'
-      },
-      102: {
-        id: 102,
-        name: 'XYZ Manufacturing',
-        compliance_score: 35,
-        submissions: [
-          { period: 'Q1 2026', status: 'missing' },
-          { period: 'Q4 2025', status: 'missing' }
-        ],
-        violations: [
-          { severity: 'critical', status: 'open', description: 'Effluent discharge exceeds limits' },
-          { severity: 'high', status: 'open', description: 'Missing fire safety equipment' }
-        ],
-        payment_status: 'current',
-        lease_expiry: '2026-12-01'
-      },
-      103: {
-        id: 103,
-        name: 'LMN Textiles',
-        compliance_score: 72,
-        submissions: [
-          { period: 'Q1 2026', status: 'submitted' },
-          { period: 'Q4 2025', status: 'approved' }
-        ],
-        violations: [
-          { severity: 'medium', status: 'open', description: 'Delayed documentation submission' }
-        ],
-        payment_status: 'overdue',
-        lease_expiry: '2026-08-20'
-      },
-      104: {
-        id: 104,
-        name: 'PQR Auto Parts',
-        compliance_score: 97,
-        submissions: [
-          { period: 'Q1 2026', status: 'approved' },
-          { period: 'Q4 2025', status: 'approved' }
-        ],
-        violations: [],
-        payment_status: 'current',
-        lease_expiry: '2028-03-10'
-      }
-    };
+    const industries = await fetchIndustries('WHERE ip.id = $1', [industryId]);
+    if (industries.length === 0) {
+      return res.status(404).json({ error: 'Industry not found.' });
+    }
 
-    const industryData = mockIndustries[industryId] || mockIndustries[101];
+    const [violations, leaseExpiry] = await Promise.all([
+      fetchOpenViolations(industryId),
+      fetchLeaseExpiry(industryId)
+    ]);
+
+    const industryData = buildIndustryData(industries[0], violations, leaseExpiry);
     const analysis = analyzeIndustryHealth(industryData);
 
     res.json(analysis);
@@ -224,55 +266,38 @@ router.get('/recommendations/:industryId', async (req, res) => {
 });
 
 // @route   GET /api/ai-decisions/batch
-// @desc    Get recommendations for multiple industries
+// @desc    Recommendations across many industries (real data), lowest-scoring
+//          first, optionally filtered by risk_level.
 // @access  Private (Admin, Govt)
-router.get('/batch', async (req, res) => {
+router.get('/batch', requireRole(['admin', 'govt']), async (req, res) => {
   try {
-    const { limit = 10, risk_level } = req.query;
+    const { risk_level } = req.query;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
 
-    // Mock batch analysis
-    const batchAnalysis = [
-      {
-        industry_id: 102,
-        industry_name: 'XYZ Manufacturing',
-        park: 'Sriperumbudur',
-        compliance_score: 35,
-        risk_level: 'critical',
-        urgent_actions: ['Schedule Inspection', 'Issue Show Cause Notice', 'Send Submission Reminders']
-      },
-      {
-        industry_id: 103,
-        industry_name: 'LMN Textiles',
-        park: 'Oragadam',
-        compliance_score: 72,
-        risk_level: 'medium',
-        urgent_actions: ['Initiate Payment Recovery', 'Follow up on violation']
-      },
-      {
-        industry_id: 105,
-        industry_name: 'Delta Chemicals',
-        park: 'Hosur',
-        compliance_score: 28,
-        risk_level: 'critical',
-        urgent_actions: ['Immediate Shutdown Review', 'Environmental Assessment']
-      },
-      {
-        industry_id: 104,
-        industry_name: 'PQR Auto Parts',
-        park: 'Cheyyar',
-        compliance_score: 97,
-        risk_level: 'low',
-        urgent_actions: ['Process Lease Renewal (Expedited)']
-      }
-    ];
+    const [industries, violations, leaseExpiry] = await Promise.all([
+      fetchIndustries(),
+      fetchOpenViolations(),
+      fetchLeaseExpiry()
+    ]);
 
-    let results = batchAnalysis;
+    let results = industries.map(row => {
+      const analysis = analyzeIndustryHealth(buildIndustryData(row, violations, leaseExpiry));
+      return {
+        industry_id: analysis.industry_id,
+        industry_name: analysis.industry_name,
+        park: row.park_name || null,
+        compliance_score: analysis.compliance_score,
+        risk_level: analysis.risk_level,
+        urgent_actions: analysis.recommendations
+          .filter(r => !r.positive)
+          .map(r => r.action)
+      };
+    });
+
     if (risk_level) {
       results = results.filter(item => item.risk_level === risk_level);
     }
-    if (limit) {
-      results = results.slice(0, parseInt(limit));
-    }
+    results = results.slice(0, limit);
 
     res.json({
       total: results.length,
@@ -286,30 +311,63 @@ router.get('/batch', async (req, res) => {
 });
 
 // @route   GET /api/ai-decisions/dashboard-summary
-// @desc    Get AI decision summary for admin dashboard
-// @access  Private (Admin)
-router.get('/dashboard-summary', async (req, res) => {
+// @desc    AI decision summary for the admin dashboard (real aggregates).
+// @access  Private (Admin, Govt)
+router.get('/dashboard-summary', requireRole(['admin', 'govt']), async (req, res) => {
   try {
-    const summary = {
-      total_industries: 1250,
-      risk_distribution: {
-        critical: 15,
-        high: 78,
-        medium: 234,
-        low: 923
-      },
-      urgent_actions_required: 93,
-      auto_approvable: 45,
-      pending_reviews: 156,
-      recommendations: [
-        { type: 'Inspection Required', count: 23, priority: 'critical' },
-        { type: 'Submission Reminder', count: 45, priority: 'medium' },
-        { type: 'Show Cause Notice', count: 8, priority: 'critical' },
-        { type: 'Lease Renewal', count: 17, priority: 'low' }
-      ]
-    };
+    const [industries, violations, leaseExpiry] = await Promise.all([
+      fetchIndustries(),
+      fetchOpenViolations(),
+      fetchLeaseExpiry()
+    ]);
 
-    res.json(summary);
+    const riskDistribution = { critical: 0, high: 0, medium: 0, low: 0 };
+    let urgentActions = 0;
+    let autoApprovable = 0;
+    let pendingReviews = 0;
+    // Aggregate recommendation types across all industries.
+    const typeCounts = {}; // action -> { count, priority }
+
+    for (const row of industries) {
+      const analysis = analyzeIndustryHealth(buildIndustryData(row, violations, leaseExpiry));
+
+      // Bucket by risk level. analyzeIndustryHealth only emits low/medium/critical,
+      // so promote industries carrying a 'high' priority rec into the 'high' bucket.
+      const hasHigh = analysis.recommendations.some(r => r.priority === 'high');
+      if (analysis.risk_level === 'critical') riskDistribution.critical += 1;
+      else if (hasHigh) riskDistribution.high += 1;
+      else if (analysis.risk_level === 'medium') riskDistribution.medium += 1;
+      else riskDistribution.low += 1;
+
+      const nonPositive = analysis.recommendations.filter(r => !r.positive);
+      if (nonPositive.length > 0) {
+        urgentActions += 1;
+        pendingReviews += 1;
+      } else {
+        // No outstanding issues -> eligible for automated approval.
+        autoApprovable += 1;
+      }
+
+      for (const rec of analysis.recommendations) {
+        if (rec.positive) continue;
+        if (!typeCounts[rec.action]) typeCounts[rec.action] = { count: 0, priority: rec.priority };
+        typeCounts[rec.action].count += 1;
+      }
+    }
+
+    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const recommendations = Object.entries(typeCounts)
+      .map(([type, info]) => ({ type, count: info.count, priority: info.priority }))
+      .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority] || b.count - a.count);
+
+    res.json({
+      total_industries: industries.length,
+      risk_distribution: riskDistribution,
+      urgent_actions_required: urgentActions,
+      auto_approvable: autoApprovable,
+      pending_reviews: pendingReviews,
+      recommendations
+    });
   } catch (err) {
     console.error('Dashboard Summary Error:', err.message);
     res.status(500).json({ error: 'Failed to generate dashboard summary' });
