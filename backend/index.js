@@ -153,43 +153,44 @@ async function ensureUsersNameColumn() {
 }
 
 // ----------------------------------------------------------------
-// Apply the v3 enhancements migration at boot, if not already done.
-// The migration (schema_v3_enhancements.sql) is fully idempotent —
-// every CREATE is IF NOT EXISTS, every ALTER column is wrapped in a
-// DO/EXCEPTION guard, every seed uses ON CONFLICT DO NOTHING — so it
-// is safe to run on every startup. This eliminates a whole class of
-// "missing v3 table/column → 500" runtime bugs without requiring a
-// manual psql step.
+// Apply an idempotent SQL migration at boot, if not already done.
+// Each migration file is fully idempotent — every CREATE is IF NOT
+// EXISTS, every ALTER column is wrapped in a DO/EXCEPTION guard, every
+// seed uses ON CONFLICT DO NOTHING — so it is safe to run on every
+// startup. This eliminates a whole class of "missing table/column →
+// 500" runtime bugs without requiring a manual psql step.
 //
 // Implementation note: we cannot split the file on ';' because the
-// migration contains 36 DO $$ ... END $$ blocks (each with internal
+// migrations contain DO $$ ... END $$ blocks (each with internal
 // semicolons). Instead we grab a dedicated pooled client and send the
 // whole script in one connection.query() — the underlying libpq
 // supports multi-statement execution. Wrapped so any failure is
 // non-fatal to server boot.
 // ----------------------------------------------------------------
-async function applyV3Migration() {
+async function applyMigration(label, filename) {
     let client;
     try {
-        const sqlPath = path.join(__dirname, 'schema_v3_enhancements.sql');
+        const sqlPath = path.join(__dirname, filename);
         if (!fs.existsSync(sqlPath)) return; // file removed in a slim build
         const sql = fs.readFileSync(sqlPath, 'utf8');
         client = await db.pool.connect();
         await client.query(sql);
-        console.log('[BOOT] v3 enhancements migration applied successfully.');
+        console.log(`[BOOT] ${label} migration applied successfully.`);
     } catch (err) {
-        // Idempotent re-runs may report "already exists" for CREATE TYPE etc.
-        // — those are expected and non-fatal. Only surface unexpected errors.
         const m = (err.message || '').toLowerCase();
         if (m.includes('already exists')) {
-            console.log('[BOOT] v3 enhancements already present (already-exists).');
+            console.log(`[BOOT] ${label} already present (already-exists).`);
         } else {
-            console.warn('[BOOT] v3 migration skipped:', err.message);
+            console.warn(`[BOOT] ${label} migration skipped:`, err.message);
         }
     } finally {
         if (client) client.release();
     }
 }
+
+// Convenience wrappers for each migration (order matters: v3 before v4).
+const applyV3Migration = () => applyMigration('v3 enhancements', 'schema_v3_enhancements.sql');
+const applyV4Migration = () => applyMigration('v4 research (Tier 1)', 'schema_v4_research.sql');
 
 // Auth Routes
 const auth = require('./routes/auth');
@@ -229,6 +230,8 @@ app.use('/api/search', require('./routes/search'));
 app.use('/api/i18n', require('./routes/i18n-routes'));
 // Unified Profile + Settings (works for admin/govt/industry).
 app.use('/api/account', require('./routes/account'));
+// Research-grounded Tier 1 (committed-vs-actual, CSR, GST, quotas).
+app.use('/api/research', require('./routes/research'));
 app.use('/api/assistant', require('./routes/ai-assistant'));
 app.use('/api/gis', require('./routes/gis'));
 app.use('/api/inspections', require('./routes/inspections'));
@@ -261,8 +264,11 @@ app.listen(PORT, () => {
     console.log(`[SERVER] Sipcot SIMS Backend running on port ${PORT}`);
     // Boot-time migrations (all idempotent + best-effort):
     // 1. Apply v3 enhancements schema so enhancement endpoints resolve.
-    applyV3Migration().then(() => {
-        // 2. After v3 tables exist, backfill seed-doc files + users.name.
+    applyV3Migration().then(async () => {
+        // 2. v4 research-grounded schema (Tier 1): committed-vs-actual,
+        //    CSR restructure, water/power quotas, GSTIN, sector tags.
+        await applyV4Migration();
+        // 3. After v3+v4 tables exist, backfill seed-doc files + users.name.
         ensureSeedDocuments();
         ensureUsersNameColumn();
     });

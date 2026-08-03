@@ -31,6 +31,9 @@ const EMPTY_FORM = {
   permanentEmployees: '', contractEmployees: '', scStEmployees: '', womenEmployees: '',
   waterConsumption: '', powerUsage: '', wasteGenerated: '', wasteRecycledPct: '',
   csrActivities: '', csrSpent: '', csrBeneficiaries: '',
+  // T1.2 structured CSR fields (Section 135 mandate)
+  csrPillar: 'education_skills', csrPatBaseline: '', csrMandatedSpend: '',
+  csrActualSpend: '', csrPartner: '', csrCsr1No: '', csrSdgGoals: '', csrLocation: '',
 };
 
 export default function UnifiedDataSubmission() {
@@ -227,8 +230,39 @@ Beneficiaries,${d.csrBeneficiaries || '-'}`;
       case 4:
         return (
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12 }}><TextField fullWidth multiline rows={3} label="CSR Activities Description" value={formData.csrActivities} onChange={handleChange('csrActivities')} /></Grid>
-            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="CSR Amount Spent (Lakhs)" type="number" value={formData.csrSpent} onChange={handleChange('csrSpent')} /></Grid>
+            <Grid size={{ xs: 12 }}>
+              <Alert severity="info" sx={{ mb: 1 }}>
+                CSR is filed under <strong>Section 135 / Schedule VII</strong> of the Companies Act.
+                Companies must spend <strong>2% of average PAT</strong> (3-yr baseline) on eligible activities.
+              </Alert>
+            </Grid>
+            {/* Pillar (5 named categories per Schedule VII) */}
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel>CSR Pillar (Schedule VII)</InputLabel>
+                <Select value={formData.csrPillar} label="CSR Pillar (Schedule VII)" onChange={handleChange('csrPillar')}>
+                  <MenuItem value="health_sanitation">Healthcare &amp; Sanitation</MenuItem>
+                  <MenuItem value="education_skills">Education &amp; Skill Development</MenuItem>
+                  <MenuItem value="environment">Environmental Sustainability</MenuItem>
+                  <MenuItem value="women_welfare">Women Empowerment &amp; Worker Welfare</MenuItem>
+                  <MenuItem value="heritage_culture">Heritage, Art &amp; Culture</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth multiline rows={2} label="Activity Description" value={formData.csrActivities} onChange={handleChange('csrActivities')} /></Grid>
+
+            {/* Mandate calc: PAT baseline + 2% */}
+            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth label="PAT Baseline (3-yr avg, Cr)" type="number" value={formData.csrPatBaseline} onChange={handleChange('csrPatBaseline')} helperText="Avg net profit after tax, preceding 3 FYs" /></Grid>
+            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth label="Mandated 2% Spend (Cr)" type="number" value={formData.csrMandatedSpend || (formData.csrPatBaseline ? (Number(formData.csrPatBaseline) * 0.02).toFixed(2) : '')} onChange={handleChange('csrMandatedSpend')} helperText="Auto = PAT × 2%" /></Grid>
+            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth label="Actual Spend (Cr)" type="number" value={formData.csrActualSpend || (formData.csrSpent ? (Number(formData.csrSpent) / 100).toFixed(2) : '')} onChange={handleChange('csrActualSpend')} helperText="In Crores" /></Grid>
+
+            {/* Implementing partner + CSR-1 (due diligence) */}
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Implementing Partner (NGO/Trust)" value={formData.csrPartner} onChange={handleChange('csrPartner')} helperText="Must hold CSR-1 registration" /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Partner CSR-1 Reg. No." value={formData.csrCsr1No} onChange={handleChange('csrCsr1No')} /></Grid>
+
+            {/* SDG mapping + local-area */}
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="SDG Goals (comma-separated)" value={formData.csrSdgGoals} onChange={handleChange('csrSdgGoals')} helperText="e.g. 3,4,13 (UN SDG numbers)" /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Location Benefited" value={formData.csrLocation} onChange={handleChange('csrLocation')} helperText="Local-area rule — community near your park" /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Beneficiaries Count" type="number" value={formData.csrBeneficiaries} onChange={handleChange('csrBeneficiaries')} /></Grid>
           </Grid>
         );

@@ -216,6 +216,16 @@ export const accountService = {
   updateSettings: (data) => api.put('/account/settings', data),
 };
 
+// Research-grounded Tier 1 (committed-vs-actual, CSR, GST, quotas)
+export const researchService = {
+  getRealisation: () => api.get('/research/realisation'),
+  getParkRealisation: () => api.get('/research/park-realisation'),
+  getCsrDashboard: () => api.get('/research/csr-dashboard'),
+  runCsrCheck: () => api.post('/research/csr-check'),
+  getGstReconciliation: () => api.get('/research/gst-reconciliation'),
+  setGstReconcile: (submissionId, data) => api.put(`/research/gst-reconcile/${submissionId}`, data),
+};
+
 // i18n (Quick Win 6)
 export const i18nService = {
   dictionary: (lang) => api.get('/i18n/dictionary', { params: { lang } }),

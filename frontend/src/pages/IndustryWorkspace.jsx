@@ -11,7 +11,7 @@ import {
   People, CurrencyRupee, Bolt, WaterDrop, Description,
   UploadFile, Gavel, Assignment, Schedule
 } from '@mui/icons-material';
-import { workspaceService } from '../services/api';
+import { workspaceService, researchService } from '../services/api';
 
 const SCORE_COLORS = { high: '#2E7D32', good: '#43A047', medium: '#F57C00', low: '#d32f2f' };
 const getScoreColor = (score) => score >= 80 ? SCORE_COLORS.high : score >= 60 ? SCORE_COLORS.good : score >= 40 ? SCORE_COLORS.medium : SCORE_COLORS.low;
@@ -48,6 +48,8 @@ export default function IndustryWorkspace() {
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // T1.1 + T1.3 — realisation vs commitment + resource quotas
+  const [realisation, setRealisation] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -71,6 +73,10 @@ export default function IndustryWorkspace() {
       }
     };
     fetchWorkspace();
+    // T1.1 + T1.3 — load realisation vs commitment + resource quotas
+    researchService.getRealisation()
+      .then((res) => { if (active) setRealisation(res.data); })
+      .catch(() => { /* optional feature — fail silently */ });
     return () => { active = false; };
   }, []);
 
@@ -133,6 +139,42 @@ export default function IndustryWorkspace() {
           <Grid size={{ xs: 12, sm: 6, md: 3 }}><ScoreBar label="Safety" score={compliance_score.safety} /></Grid>
         </Grid>
       </Paper>
+
+      {/* T1.1 — Investment & Employment Realisation (committed vs actual) */}
+      {realisation && realisation.available && (
+        <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 } }}>
+          <Typography variant="h6" fontWeight={600} gutterBottom>Allotment Commitment vs Actual</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            Measured against your CAF / allotment baseline — SIPCOT governs on the realisation gap.
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Typography variant="subtitle2" gutterBottom>Investment Realisation</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Typography variant="h5" fontWeight={700} color={getScoreColor(realisation.investment.realisation_pct || 0)}>
+                  {realisation.investment.realisation_pct != null ? `${realisation.investment.realisation_pct}%` : '—'}
+                </Typography>
+              </Box>
+              <LinearProgress variant="determinate" value={Math.min(realisation.investment.realisation_pct || 0, 100)} sx={{ height: 8, borderRadius: 4, mb: 1, '& .MuiLinearProgress-bar': { bgcolor: getScoreColor(realisation.investment.realisation_pct || 0), borderRadius: 4 } }} />
+              <Typography variant="body2" color="text.secondary">
+                ₹{realisation.investment.realised_cr} Cr realised of ₹{realisation.investment.committed_cr} Cr committed
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Typography variant="subtitle2" gutterBottom>Employment Realisation</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Typography variant="h5" fontWeight={700} color={getScoreColor(Math.min(realisation.employment.realisation_pct || 0, 100))}>
+                  {realisation.employment.realisation_pct != null ? `${realisation.employment.realisation_pct}%` : '—'}
+                </Typography>
+              </Box>
+              <LinearProgress variant="determinate" value={Math.min(realisation.employment.realisation_pct || 0, 100)} sx={{ height: 8, borderRadius: 4, mb: 1, '& .MuiLinearProgress-bar': { bgcolor: getScoreColor(Math.min(realisation.employment.realisation_pct || 0, 100)), borderRadius: 4 } }} />
+              <Typography variant="body2" color="text.secondary">
+                {realisation.employment.realised} jobs realised of {realisation.employment.committed} committed
+              </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
 
       <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
         {/* Actionable Task List */}
