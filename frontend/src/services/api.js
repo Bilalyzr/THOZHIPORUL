@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001/api';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -21,7 +21,9 @@ api.interceptors.request.use((config) => {
 export const authService = {
   login: async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
-    if (response.data.token) {
+    // Only store a real session token — never store anything when an MFA
+    // challenge (setup or verify) is required. The token isn't issued yet.
+    if (response.data.token && !response.data.mfa_required && !response.data.mfa_setup_required) {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('role', response.data.role);
       if (response.data.name) localStorage.setItem('userName', response.data.name);
@@ -31,6 +33,13 @@ export const authService = {
   },
   registerIndustry: (data) => api.post('/auth/register/industry', data),
   registerGovt: (data) => api.post('/auth/register/govt', data),
+  impersonate: (industryId) => api.post(`/auth/impersonate/${industryId}`),
+  endImpersonation: () => api.post('/auth/impersonate/end'),
+  // 2FA — TOTP (Microsoft Authenticator compatible)
+  verifyMfa: async (data) => {
+    const response = await api.post('/auth/verify-mfa', data);
+    return response.data;
+  },
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -46,6 +55,7 @@ export const authService = {
 export const industryService = {
   register: (data) => api.post('/industries', data),
   getAll: () => api.get('/industries'),
+  getById: (id) => api.get(`/industries/${id}`),
 };
 
 export const submissionService = {
@@ -162,6 +172,9 @@ export const grievanceService = {
   getAll: () => api.get('/grievances'),
   create: (data) => api.post('/grievances', data),
   updateStatus: (id, status) => api.put(`/grievances/${id}/status`, { status }),
+  // Public aggregate counters for the Grievance Portal landing page
+  // (no auth required — returns resolved/active/avg response hours only).
+  getPublicStats: () => api.get('/grievances/public-stats'),
 };
 
 // ============================================================
@@ -224,6 +237,52 @@ export const researchService = {
   runCsrCheck: () => api.post('/research/csr-check'),
   getGstReconciliation: () => api.get('/research/gst-reconciliation'),
   setGstReconcile: (submissionId, data) => api.put(`/research/gst-reconcile/${submissionId}`, data),
+};
+
+// Mobile field inspections (T2.2)
+export const inspectionService = {
+  getAll: () => api.get('/inspections'),
+  create: (data) => api.post('/inspections', data),
+};
+
+// Tier 2 allottee lifecycle (billing, queries, inspections HO, incentives, MD escalation)
+export const lifecycleService = {
+  getBilling: () => api.get('/lifecycle/billing'),
+  getBillingSummary: () => api.get('/lifecycle/billing/summary'),
+  generateBilling: (data) => api.post('/lifecycle/billing/generate', data),
+  payBill: (id) => api.post(`/lifecycle/billing/${id}/pay`),
+  getQueries: () => api.get('/lifecycle/queries'),
+  raiseQuery: (data) => api.post('/lifecycle/queries', data),
+  respondQuery: (id, data) => api.put(`/lifecycle/queries/${id}/respond`, data),
+  resolveQuery: (id) => api.put(`/lifecycle/queries/${id}/resolve`),
+  checkOpenQueries: (submissionId) => api.get(`/lifecycle/queries/open/${submissionId}`),
+  forwardHo: (id, data) => api.put(`/lifecycle/inspections/${id}/forward-ho`, data),
+  hoDecision: (id, data) => api.put(`/lifecycle/inspections/${id}/ho-decision`, data),
+  getIncentives: () => api.get('/lifecycle/incentives'),
+  createIncentive: (data) => api.post('/lifecycle/incentives', data),
+  disburseIncentive: (id, data) => api.put(`/lifecycle/incentives/${id}/disburse`, data),
+  escalateMd: (id) => api.put(`/lifecycle/grievances/${id}/escalate-md`),
+  mdResolution: (id, data) => api.put(`/lifecycle/grievances/${id}/md-resolution`, data),
+  getMdEscalations: () => api.get('/lifecycle/grievances/md-escalations'),
+};
+
+// Tier 3 strategic (circulars, gov integrations, directory, tier access, CSR needs)
+export const strategyService = {
+  getCirculars: (params) => api.get('/strategy/circulars', { params }),
+  publishCircular: (data) => api.post('/strategy/circulars', data),
+  getIntegrations: () => api.get('/strategy/integrations'),
+  updateIntegration: (key, data) => api.put(`/strategy/integrations/${key}`, data),
+  syncIntegration: (key) => api.post(`/strategy/integrations/${key}/sync`),
+  getIntegrationLog: (key) => api.get(`/strategy/integrations/${key}/log`),
+  getContacts: (params) => api.get('/strategy/contacts', { params }),
+  verifyContact: (id) => api.put(`/strategy/contacts/${id}/verify`),
+  addContact: (data) => api.post('/strategy/contacts', data),
+  getTierAccess: () => api.get('/strategy/tier-access'),
+  updateTierAccess: (key, data) => api.put(`/strategy/tier-access/${key}`, data),
+  getCsrNeeds: (params) => api.get('/strategy/csr-needs', { params }),
+  syncCsrNeeds: () => api.post('/strategy/csr-needs/sync'),
+  addCsrNeed: (data) => api.post('/strategy/csr-needs', data),
+  pushCsrReports: () => api.post('/strategy/csr-needs/push-reports'),
 };
 
 // i18n (Quick Win 6)

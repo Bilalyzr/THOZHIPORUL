@@ -3,17 +3,18 @@ import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, Button,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Select, MenuItem, FormControl, InputLabel, Tabs, Tab, IconButton,
-  Snackbar, Alert
+  Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, CircularProgress
 } from '@mui/material';
 import {
   CheckCircle, Warning, Error as ErrorIcon, HelpOutline,
-  Send, Download, TrendingUp, Flag
+  Send, Download, TrendingUp, Flag, Receipt, QuestionAnswer
 } from '@mui/icons-material';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { complianceService } from '../services/api';
+import { complianceService, researchService, lifecycleService } from '../services/api';
 
 const SEVERITY_COLORS = { low: '#2196f3', medium: '#fbc02d', high: '#f57c00', critical: '#d32f2f' };
 const CATEGORY_LABELS = { environmental: 'Environmental', safety: 'Safety', financial: 'Financial', submission: 'Submission', operational: 'Operational', other: 'Other' };
@@ -60,6 +61,10 @@ export default function ComplianceEngine() {
   const [categoryData, setCategoryData] = useState([]);
   const [predictions, setPredictions] = useState([]);
   const [missingInfo, setMissingInfo] = useState({ total: 0, missing: [], cycle_start: null });
+  // T1.4 — GST reconciliation data + T2.2 — officer query state
+  const [gstData, setGstData] = useState([]);
+  const [queries, setQueries] = useState([]);
+  const [queryDialog, setQueryDialog] = useState(null); // { submissionId, company, queryText }
 
   const mapOverview = (o) => ({
     compliant: { count: o.compliant?.count || 0, pct: o.compliant?.percentage || 0 },
@@ -109,6 +114,9 @@ export default function ComplianceEngine() {
         setSnackbar({ open: true, message: 'Unable to load compliance data. Please sign in as an admin/govt user.', severity: 'error' });
       }
     })();
+    // T1.4 — load GST reconciliation + T2.2 — load filing queries (officer view)
+    researchService.getGstReconciliation().then(r => setGstData(r.data || [])).catch(() => {});
+    lifecycleService.getQueries().then(r => setQueries(r.data || [])).catch(() => {});
     return () => { active = false; };
   }, []);
 
@@ -121,6 +129,39 @@ export default function ComplianceEngine() {
       console.error('Failed to update violation', err);
       setSnackbar({ open: true, message: 'Failed to update violation status.', severity: 'error' });
     }
+  };
+
+  // T1.4 — Officer marks GST reconciliation status
+  const handleGstReconcile = async (submissionId, status) => {
+    try {
+      await researchService.setGstReconcile(submissionId, { status });
+      setSnackbar({ open: true, message: `GST marked as ${status}.`, severity: 'success' });
+      const r = await researchService.getGstReconciliation(); setGstData(r.data || []);
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to update GST status.', severity: 'error' });
+    }
+  };
+
+  // T2.2 — Officer raises a filing-deficiency query
+  const handleRaiseQuery = async () => {
+    if (!queryDialog?.queryText || !queryDialog?.submissionId) return;
+    try {
+      await lifecycleService.raiseQuery({ submissionId: queryDialog.submissionId, queryText: queryDialog.queryText });
+      setSnackbar({ open: true, message: 'Query raised — industry notified.', severity: 'success' });
+      setQueryDialog(null);
+      const r = await lifecycleService.getQueries(); setQueries(r.data || []);
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to raise query.', severity: 'error' });
+    }
+  };
+
+  // T2.2 — Officer resolves a query
+  const handleResolveQuery = async (qid) => {
+    try {
+      await lifecycleService.resolveQuery(qid);
+      const r = await lifecycleService.getQueries(); setQueries(r.data || []);
+      setSnackbar({ open: true, message: 'Query resolved.', severity: 'success' });
+    } catch { setSnackbar({ open: true, message: 'Failed to resolve.', severity: 'error' }); }
   };
 
   const handleSendReminders = async () => {
@@ -338,6 +379,106 @@ export default function ComplianceEngine() {
           </Box>
         </Paper>
       )}
+
+      {/* T1.4 — GST Turnover Reconciliation (officer view) */}
+      {gstData.length > 0 && (
+        <Paper sx={{ p: 3, mt: 3 }}>
+          <Typography variant="h6" fontWeight={600} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Receipt /> GST Turnover Reconciliation
+          </Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell>Company</TableCell>
+                  <TableCell>GSTIN</TableCell>
+                  <TableCell align="right">Declared (Cr)</TableCell>
+                  <TableCell align="right">GST Filed (Cr)</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="center">Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {gstData.map((g) => (
+                  <TableRow key={g.id} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{g.company_name}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{g.gstin || '—'}</TableCell>
+                    <TableCell align="right">{g.declared_turnover_cr || '—'}</TableCell>
+                    <TableCell align="right">{g.gst_turnover_cr || '—'}</TableCell>
+                    <TableCell><Chip label={g.gst_reconcile_status || 'unverified'} size="small" color={g.gst_reconcile_status === 'matches' ? 'success' : g.gst_reconcile_status === 'mismatch' ? 'error' : 'default'} variant="outlined" /></TableCell>
+                    <TableCell align="center">
+                      <Select size="small" value="action" displayEmpty onChange={(e) => e.target.value !== 'action' && handleGstReconcile(g.id, e.target.value)} sx={{ height: 28, fontSize: '0.75rem' }}>
+                        <MenuItem value="action">Action…</MenuItem>
+                        <MenuItem value="matches">Mark Matched</MenuItem>
+                        <MenuItem value="mismatch">Mark Mismatch</MenuItem>
+                        <MenuItem value="overdue">Mark Overdue</MenuItem>
+                        <MenuItem value="unverified">Reset</MenuItem>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      {/* T2.2 — Filing-Deficiency Queries (officer view) */}
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Typography variant="h6" fontWeight={600} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <QuestionAnswer /> Filing-Deficiency Queries ({queries.filter(q => q.status !== 'resolved').length} open)
+        </Typography>
+        {queries.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">No queries raised. Officers can raise a deficiency query on any submission to request clarification from the industry.</Typography>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell>Company</TableCell>
+                  <TableCell>Query</TableCell>
+                  <TableCell>Response</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="center">Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {queries.slice(0, 15).map((q) => (
+                  <TableRow key={q.id} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{q.company_name}</TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>{q.query_text}</TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>{q.response_text || <Typography variant="caption" color="text.secondary">Awaiting response…</Typography>}</TableCell>
+                    <TableCell><Chip label={q.status} size="small" color={q.status === 'open' ? 'error' : q.status === 'responded' ? 'warning' : 'success'} variant="outlined" /></TableCell>
+                    <TableCell align="center">
+                      {q.status !== 'resolved' && <Button size="small" variant="outlined" onClick={() => handleResolveQuery(q.id)}>Resolve</Button>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      {/* T2.2 — Raise Query Dialog */}
+      <Dialog open={!!queryDialog} onClose={() => setQueryDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Raise Filing-Deficiency Query</DialogTitle>
+        <DialogContent>
+          {queryDialog && (
+            <TextField
+              autoFocus fullWidth multiline rows={3}
+              label="Query to the industry (they will be notified)…"
+              value={queryDialog.queryText || ''}
+              onChange={(e) => setQueryDialog({ ...queryDialog, queryText: e.target.value })}
+              sx={{ mt: 1 }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQueryDialog(null)}>Cancel</Button>
+          <Button variant="contained" color="primary" startIcon={<Send />} onClick={handleRaiseQuery}>Raise Query & Notify</Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>

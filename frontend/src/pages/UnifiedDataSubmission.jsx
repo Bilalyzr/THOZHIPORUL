@@ -10,7 +10,7 @@ import {
   CloudUpload, Download, CheckCircle, Edit, Visibility,
   NavigateBefore, NavigateNext, Send, Save
 } from '@mui/icons-material';
-import { submissionService } from '../services/api';
+import { submissionService, lifecycleService } from '../services/api';
 
 const steps = ['Period', 'Financial', 'Employment', 'Resources', 'CSR', 'Review & Submit'];
 
@@ -45,6 +45,8 @@ export default function UnifiedDataSubmission() {
   const [history, setHistory] = useState([]);
   const [viewDialog, setViewDialog] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  // T2.2 — Filing-deficiency query dialog (industry sees + responds to officer queries)
+  const [queryDialog, setQueryDialog] = useState(null); // { submission, queries, responseText }
 
   const refreshHistory = async () => {
     try {
@@ -126,6 +128,37 @@ export default function UnifiedDataSubmission() {
     setActiveStep(0);
     setMode('form');
     setSnackbar({ open: true, message: `Editing draft for ${entry.period}. Make changes and submit.`, severity: 'info' });
+  };
+
+  // T2.2 — Open the filing-deficiency query dialog for a submission
+  const handleOpenQueries = async (row) => {
+    try {
+      const id = row.id || row.submissionId;
+      const res = await lifecycleService.getQueries();
+      const mine = (res.data || []).filter(q => q.submission_id === id);
+      // Track responses per-query-id so multiple open queries don't
+      // cross-populate a single shared text field.
+      setQueryDialog({ submissionId: id, period: row.period, queries: mine, responses: {} });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to load queries.', severity: 'error' });
+    }
+  };
+
+  // T2.2 — Industry responds to a query
+  const handleRespondQuery = async (queryId) => {
+    const text = (queryDialog.responses && queryDialog.responses[queryId]) || '';
+    if (!text.trim()) return;
+    try {
+      await lifecycleService.respondQuery(queryId, { responseText: text });
+      setSnackbar({ open: true, message: 'Response submitted to officer.', severity: 'success' });
+      // Refresh the queries in the dialog + clear this query's response
+      const res = await lifecycleService.getQueries();
+      const mine = (res.data || []).filter(q => q.submission_id === queryDialog.submissionId);
+      const nextResponses = { ...queryDialog.responses, [queryId]: '' };
+      setQueryDialog({ ...queryDialog, queries: mine, responses: nextResponses });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to submit response.', severity: 'error' });
+    }
   };
 
   // DOWNLOAD submission as CSV
@@ -441,6 +474,7 @@ Beneficiaries,${d.csrBeneficiaries || '-'}`;
                         <Button size="small" startIcon={<Edit />} onClick={() => handleEdit(row)} variant="outlined" color="primary">Edit</Button>
                       )}
                       <Button size="small" startIcon={<Visibility />} onClick={() => setViewDialog(row)} variant="outlined">View</Button>
+                      <Button size="small" startIcon={<Send />} onClick={() => handleOpenQueries(row)} variant="outlined" color="warning">Queries</Button>
                       <Button size="small" startIcon={<Download />} onClick={() => handleDownloadSubmission(row)} variant="outlined" color="secondary">CSV</Button>
                     </Box>
                   </TableCell>
@@ -494,6 +528,49 @@ Beneficiaries,${d.csrBeneficiaries || '-'}`;
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* T2.2 — Filing-Deficiency Query Dialog (industry responds to officer queries) */}
+      <Dialog open={!!queryDialog} onClose={() => setQueryDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600 }}>
+          Filing Queries — {queryDialog?.period}
+        </DialogTitle>
+        <DialogContent>
+          {queryDialog && queryDialog.queries.length === 0 && (
+            <Alert severity="success" sx={{ mt: 1 }}>No queries raised on this submission. An officer will raise a query here if any filing deficiency is found.</Alert>
+          )}
+          {queryDialog && queryDialog.queries.map((q) => (
+            <Box key={q.id} sx={{ p: 2, mb: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Chip label={q.status} size="small" color={q.status === 'open' ? 'error' : q.status === 'responded' ? 'info' : 'success'} />
+                <Typography variant="caption" color="text.secondary">{q.raised_at ? new Date(q.raised_at).toLocaleString('en-IN') : ''}</Typography>
+              </Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>Officer query:</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{q.query_text}</Typography>
+              {q.response_text && (
+                <Box sx={{ bgcolor: 'action.hover', p: 1, borderRadius: 1, mb: 1 }}>
+                  <Typography variant="caption" fontWeight={600}>Your response:</Typography>
+                  <Typography variant="body2">{q.response_text}</Typography>
+                </Box>
+              )}
+              {q.status === 'open' && (
+                <Box>
+                  <TextField
+                    fullWidth size="small" multiline rows={2}
+                    label="Type your response…"
+                    value={(queryDialog.responses && queryDialog.responses[q.id]) || ''}
+                    onChange={(e) => setQueryDialog({ ...queryDialog, responses: { ...queryDialog.responses, [q.id]: e.target.value } })}
+                    sx={{ mb: 1 }}
+                  />
+                  <Button size="small" variant="contained" color="primary" startIcon={<Send />} onClick={() => handleRespondQuery(q.id)}>Submit Response</Button>
+                </Box>
+              )}
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQueryDialog(null)}>Close</Button>
+        </DialogActions>
       </Dialog>
 
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

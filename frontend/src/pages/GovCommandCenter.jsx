@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { analyticService, commandService } from '../services/api';
+import { analyticService, commandService, researchService, lifecycleService } from '../services/api';
 import { downloadGovernmentReport } from '../utils/reportGenerator';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, Table,
@@ -136,6 +136,9 @@ export default function GovCommandCenter() {
   const [investmentTrend, setInvestmentTrend] = useState([]);
   const [employmentTrend, setEmploymentTrend] = useState([]);
   const [activityFeed, setActivityFeed] = useState([]);
+  // T1.1 + T2.5 — realisation heatmap + MD escalations
+  const [parkRealisation, setParkRealisation] = useState([]);
+  const [mdEscalations, setMdEscalations] = useState([]);
 
   useEffect(() => {
     const fetchCommandCenterData = async () => {
@@ -193,6 +196,13 @@ export default function GovCommandCenter() {
 
     fetchCommandCenterData();
     fetchAdditionalData();
+    // T1.1 + T2.5 — load park realisation + MD escalations
+    researchService.getParkRealisation()
+      .then((res) => setParkRealisation((res.data.parks || []).filter(p => p.realisation_pct !== null)))
+      .catch(() => {});
+    lifecycleService.getMdEscalations()
+      .then((res) => setMdEscalations(res.data || []))
+      .catch(() => {});
   }, []);
 
   const [reportSnack, setReportSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -453,6 +463,66 @@ export default function GovCommandCenter() {
            </Paper>
         </Grid>
       </Grid>
+
+      {/* T1.1 — Investment Realisation by Park (committed vs actual) */}
+      {parkRealisation.length > 0 && (
+        <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
+          <Grid size={{ xs: 12 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+              <Typography variant="h6" fontWeight={600} gutterBottom>Investment Realisation by Park</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                Committed (CAF) vs actual realised investment — colour-coded by realisation %.
+              </Typography>
+              <Grid container spacing={2}>
+                {parkRealisation.slice(0, 8).map((p) => {
+                  const pct = p.realisation_pct || 0;
+                  const color = pct >= 80 ? '#2E7D32' : pct >= 50 ? '#F57C00' : '#d32f2f';
+                  return (
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={p.id}>
+                      <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, borderLeft: `4px solid ${color}` }}>
+                        <Typography variant="subtitle2" fontWeight={600} noWrap>{p.name}</Typography>
+                        <Typography variant="h6" fontWeight={700} sx={{ color }}>{pct}%</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          ₹{p.realised_cr} Cr / ₹{p.committed_cr} Cr
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* T2.5 — MD Escalations */}
+      {mdEscalations.length > 0 && (
+        <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
+          <Grid size={{ xs: 12 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 }, border: 1, borderColor: 'error.light' }}>
+              <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: 'error.main' }}>
+                ⚠️ Grievances Escalated to Managing Director ({mdEscalations.length})
+              </Typography>
+              <Grid container spacing={2}>
+                {mdEscalations.slice(0, 6).map((g) => (
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={g.id}>
+                    <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2 }}>
+                      <Typography variant="subtitle2" fontWeight={600} noWrap>{g.title}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {g.location} · {g.name} · escalated {g.escalated_at ? new Date(g.escalated_at).toLocaleDateString('en-IN') : '—'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                        {g.description ? (g.description.length > 80 ? g.description.slice(0, 80) + '…' : g.description) : ''}
+                      </Typography>
+                      {g.md_resolution && <Chip label="Resolved" size="small" color="success" sx={{ mt: 0.5 }} />}
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
 
       {/* Bottom Section: Alerts + Trends */}
       <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>

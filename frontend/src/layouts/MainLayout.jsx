@@ -4,7 +4,7 @@ import {
   AppBar, Box, CssBaseline, Drawer, IconButton,
   List, ListItem, ListItemButton, ListItemIcon,
   ListItemText, Toolbar, Typography, Avatar, Badge,
-  Menu, MenuItem, Tooltip, Collapse
+  Menu, MenuItem, Tooltip, Collapse, Button
 } from '@mui/material';
 import { notificationService, authService } from '../services/api';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -78,6 +78,20 @@ function MainLayout() {
 
   const token = localStorage.getItem('token');
   const userRole = localStorage.getItem('role') || 'admin';
+  const isImpersonating = localStorage.getItem('impersonating') === 'true';
+
+  const handleEndImpersonation = () => {
+    const adminToken = localStorage.getItem('adminToken');
+    if (adminToken) {
+      localStorage.setItem('token', adminToken);
+      localStorage.removeItem('adminToken');
+      localStorage.setItem('role', 'admin');
+      localStorage.setItem('userName', 'Administrator');
+      localStorage.removeItem('impersonating');
+      navigate('/user-management');
+      window.location.reload();
+    }
+  };
 
   useEffect(() => {
     if (!token) {
@@ -161,6 +175,7 @@ function MainLayout() {
         { text: 'Services Overview', icon: <AssignmentIcon />, path: '/services' },
         { section: 'Monitoring' },
         { text: 'Compliance Engine', icon: <SecurityIcon />, path: '/compliance-engine' },
+        { text: 'CSR Dashboard', icon: <AutoGraphIcon />, path: '/csr-dashboard' },
         { text: 'Analytics', icon: <AutoGraphIcon />, path: '/analytics' },
         { section: 'Secure Vault' },
         { text: 'Document Vault', icon: <FolderIcon />, path: '/secure-vault' },
@@ -181,6 +196,7 @@ function MainLayout() {
         { text: 'User Management', icon: <PeopleIcon />, path: '/user-management' },
         { section: 'Analytics & Compliance' },
         { text: 'Compliance Engine', icon: <SecurityIcon />, path: '/compliance-engine' },
+        { text: 'CSR Dashboard', icon: <AutoGraphIcon />, path: '/csr-dashboard' },
         { text: 'Analytics', icon: <AutoGraphIcon />, path: '/analytics' },
         { text: 'Report Center', icon: <DescriptionIcon />, path: '/report-center' },
         { section: 'Secure Vault' },
@@ -608,6 +624,14 @@ function MainLayout() {
           }}
         >
           <Toolbar />
+          {isImpersonating && (
+            <Box sx={{ bgcolor: 'warning.main', color: 'white', py: 1, px: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 1, mb: 1 }}>
+              <Typography variant="body2" fontWeight={600}>
+                ⚠️ Impersonation Mode — viewing as {userName} (industry). All actions are audit-logged.
+              </Typography>
+              <Button size="small" variant="contained" color="error" onClick={handleEndImpersonation}>Return to Admin</Button>
+            </Box>
+          )}
           <Box className="page-transition">
             <Outlet />
           </Box>

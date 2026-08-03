@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   LinearProgress, Divider, Tooltip, Switch, FormControlLabel,
   List, ListItemButton, ListItemIcon, ListItemText, ClickAwayListener, Popper, IconButton,
-  CircularProgress
+  CircularProgress, Select, MenuItem, FormControl
 } from '@mui/material';
 import UnifiedNav from '../components/UnifiedNav';
 import UnifiedFooter from '../components/UnifiedFooter';
@@ -141,6 +141,7 @@ export default function IndustrialParks() {
   const [viewMode, setViewMode] = useState('map');
   const [selectedPark, setSelectedPark] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sectorFilter, setSectorFilter] = useState('all');
   const [tileLayer, setTileLayer] = useState('street');
   const [showAvailability, setShowAvailability] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -179,8 +180,16 @@ export default function IndustrialParks() {
   };
 
   const filtered = useMemo(() => parks.filter(p => {
-    return searchMatches(p, search) && (statusFilter === 'all' || p.status === statusFilter);
-  }), [parks, search, statusFilter]);
+    const sectorOk = sectorFilter === 'all' || (p.sector_tags && p.sector_tags.includes(sectorFilter));
+    return searchMatches(p, search) && (statusFilter === 'all' || p.status === statusFilter) && sectorOk;
+  }), [parks, search, statusFilter, sectorFilter]);
+
+  // Unique sector list derived from all parks (for the filter dropdown)
+  const allSectors = useMemo(() => {
+    const s = new Set();
+    parks.forEach(p => (p.sector_tags || []).forEach(t => s.add(t)));
+    return Array.from(s).sort();
+  }, [parks]);
 
   // Dropdown suggestions when typing
   const searchSuggestions = useMemo(() => {
@@ -435,6 +444,20 @@ export default function IndustrialParks() {
             <ToggleButton value="developing" sx={{ '&.Mui-selected': { color: '#F57C00 !important' } }}>Developing</ToggleButton>
             <ToggleButton value="proposed" sx={{ '&.Mui-selected': { color: '#1565C0 !important' } }}>Proposed</ToggleButton>
           </ToggleButtonGroup>
+
+          {allSectors.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <Select
+                value={sectorFilter}
+                onChange={(e) => setSectorFilter(e.target.value)}
+                displayEmpty
+                sx={{ height: 36, borderRadius: 3, bgcolor: '#f1f5f9', fontWeight: 600, fontSize: '0.8rem', '& fieldset': { border: 'none' } }}
+              >
+                <MenuItem value="all">All Sectors</MenuItem>
+                {allSectors.map(s => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
+              </Select>
+            </FormControl>
+          )}
 
           <ToggleButtonGroup size="small" value={viewMode} exclusive onChange={(e, v) => v && setViewMode(v)}
             sx={{

@@ -181,6 +181,35 @@ router.post('/:id/feedback', async (req, res) => {
 // @desc    Sentiment + category breakdown for the dashboard.
 // @access  Private (Admin, Govt)
 // ============================================================
+// @route   GET /api/grievances/public-stats
+// @desc    Public aggregate counters for the Grievance Portal landing page
+//          (resolved count, active inquiries count, avg response time).
+//          Returns ONLY public numbers — no PII, no details. Placed BEFORE
+//          the /:reference route so it isn't shadowed by the param route.
+router.get('/public-stats', async (req, res) => {
+    try {
+        const resolved = await db.query(`SELECT COUNT(*)::int AS n FROM grievances WHERE status = 'Resolved'`);
+        const active = await db.query(`SELECT COUNT(*)::int AS n FROM grievances WHERE status IS DISTINCT FROM 'Resolved'`);
+        // Average response time: difference between submitted_at and
+        // resolved_at for resolved grievances, in hours.
+        const avgHours = await db.query(`
+            SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (resolved_at - submitted_at)) / 3600), 0)::numeric(10,1) AS hrs
+              FROM grievances
+             WHERE status = 'Resolved' AND resolved_at IS NOT NULL
+        `);
+        res.json({
+            resolved: resolved.rows[0].n,
+            active: active.rows[0].n,
+            avg_response_hours: parseFloat(avgHours.rows[0].hrs) || 0
+        });
+    } catch (err) {
+        console.error('Public Grievance Stats Error:', err.message);
+        // Never leak internals on a public endpoint — return zeros so the
+        // landing page renders gracefully if the DB is unreachable.
+        res.json({ resolved: 0, active: 0, avg_response_hours: 0 });
+    }
+});
+
 router.get('/stats', requireRole(['admin', 'govt']), async (req, res) => {
     try {
         const byCat = await db.query(`SELECT COALESCE(category,'general') AS category, COUNT(*) AS n FROM grievances GROUP BY 1 ORDER BY n DESC`);

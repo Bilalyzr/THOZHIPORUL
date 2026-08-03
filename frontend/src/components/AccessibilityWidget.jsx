@@ -1,445 +1,493 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Grid, Card, CardContent, Typography, Box, IconButton
+  Dialog, DialogContent,
+  Box, IconButton, Typography, Switch, Tooltip, Chip, Divider, Button,
+  InputAdornment, TextField
 } from '@mui/material';
 import {
   AccessibilityNew, Close, FormatSize, TextFormat, FormatLineSpacing,
   Spellcheck, Psychology, InvertColors, Contrast, Palette,
-  Link, VolumeUp, Mouse, PlayDisabled, HideImage, Refresh, Check
+  Link, VolumeUp, Mouse, PlayDisabled, HideImage, Refresh,
+  Visibility, Hearing, TouchApp, Bolt, Check, Search
 } from '@mui/icons-material';
+
+// ─── Category metadata ──────────────────────────────────────────
+const CATEGORIES = [
+  { key: 'vision', label: 'Vision', icon: '👁', color: '#1F4E79', desc: 'Text, color & contrast' },
+  { key: 'cognitive', label: 'Cognitive', icon: '🧠', color: '#7B1FA2', desc: 'Focus & readability' },
+  { key: 'motor', label: 'Motor', icon: '✋', color: '#E65100', desc: 'Cursor & animation' },
+  { key: 'audio', label: 'Audio', icon: '🔊', color: '#2E7D32', desc: 'Sound output' },
+];
+
+// ─── Preset profiles ────────────────────────────────────────────
+const PRESETS = {
+  lowVision: ['biggerText', 'contrastMode', 'highlightLinks', 'largeCursor'],
+  adhdFocus: ['adhdMode', 'pauseAnimations', 'textSpacing', 'lineHeight'],
+};
 
 export default function AccessibilityWidget() {
   const [open, setOpen] = useState(false);
 
-  // States: Booleans for toggling
-  const [biggerText, setBiggerText] = useState(() => localStorage.getItem('acc_biggerText') === 'true');
-  const [smallerText, setSmallerText] = useState(() => localStorage.getItem('acc_smallerText') === 'true');
-  const [textSpacing, setTextSpacing] = useState(() => localStorage.getItem('acc_textSpacing') === 'true');
-  const [lineHeight, setLineHeight] = useState(() => localStorage.getItem('acc_lineHeight') === 'true');
-  const [dyslexiaFriendly, setDyslexiaFriendly] = useState(() => localStorage.getItem('acc_dyslexiaFriendly') === 'true');
-  const [adhdMode, setAdhdMode] = useState(() => localStorage.getItem('acc_adhdMode') === 'true');
-  const [saturation, setSaturation] = useState(() => localStorage.getItem('acc_saturation') === 'true'); // grayscale on/off
-  const [contrastMode, setContrastMode] = useState(() => localStorage.getItem('acc_contrastMode') === 'true'); // dark contrast on/off
-  const [invertColors, setInvertColors] = useState(() => localStorage.getItem('acc_invertColors') === 'true');
-  const [highlightLinks, setHighlightLinks] = useState(() => localStorage.getItem('acc_highlightLinks') === 'true');
-  const [textToSpeech, setTextToSpeech] = useState(() => localStorage.getItem('acc_textToSpeech') === 'true');
-  const [largeCursor, setLargeCursor] = useState(() => localStorage.getItem('acc_largeCursor') === 'true');
-  const [pauseAnimations, setPauseAnimations] = useState(() => localStorage.getItem('acc_pauseAnimations') === 'true');
-  const [hideImages, setHideImages] = useState(() => localStorage.getItem('acc_hideImages') === 'true');
+  // ─── Toggle states (persisted to localStorage) ──────────────
+  const [flags, setFlags] = useState({
+    biggerText:     localStorage.getItem('acc_biggerText') === 'true',
+    smallerText:    localStorage.getItem('acc_smallerText') === 'true',
+    textSpacing:    localStorage.getItem('acc_textSpacing') === 'true',
+    lineHeight:     localStorage.getItem('acc_lineHeight') === 'true',
+    dyslexiaFriendly: localStorage.getItem('acc_dyslexiaFriendly') === 'true',
+    adhdMode:       localStorage.getItem('acc_adhdMode') === 'true',
+    saturation:     localStorage.getItem('acc_saturation') === 'true',
+    contrastMode:   localStorage.getItem('acc_contrastMode') === 'true',
+    invertColors:   localStorage.getItem('acc_invertColors') === 'true',
+    highlightLinks: localStorage.getItem('acc_highlightLinks') === 'true',
+    textToSpeech:   localStorage.getItem('acc_textToSpeech') === 'true',
+    largeCursor:    localStorage.getItem('acc_largeCursor') === 'true',
+    pauseAnimations: localStorage.getItem('acc_pauseAnimations') === 'true',
+    hideImages:     localStorage.getItem('acc_hideImages') === 'true',
+  });
 
-  // Mouse coordinate tracker for ADHD Focus Mask
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [search, setSearch] = useState('');
 
-  // Event listener to open dialog from header button
+  // Open via header event
   useEffect(() => {
-    const handleOpenEvent = () => setOpen(true);
-    window.addEventListener('open-accessibility-panel', handleOpenEvent);
-    return () => window.removeEventListener('open-accessibility-panel', handleOpenEvent);
+    const handler = () => setOpen(true);
+    window.addEventListener('open-accessibility-panel', handler);
+    return () => window.removeEventListener('open-accessibility-panel', handler);
   }, []);
 
-  const handleReset = () => {
-    setBiggerText(false);
-    setSmallerText(false);
-    setTextSpacing(false);
-    setLineHeight(false);
-    setDyslexiaFriendly(false);
-    setAdhdMode(false);
-    setSaturation(false);
-    setContrastMode(false);
-    setInvertColors(false);
-    setHighlightLinks(false);
-    setTextToSpeech(false);
-    setLargeCursor(false);
-    setPauseAnimations(false);
-    setHideImages(false);
+  // ─── Helper: toggle one flag, with mutual-exclusion for text size ─
+  const toggle = (key) => {
+    setFlags(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      // bigger/smaller text are mutually exclusive
+      if (key === 'biggerText' && next.biggerText) next.smallerText = false;
+      if (key === 'smallerText' && next.smallerText) next.biggerText = false;
+      return next;
+    });
   };
 
-  // Effects to synchronize classes to html element
+  // ─── Apply all flags to <html> + localStorage ───────────────
+  const classMap = {
+    biggerText: 'acc-text-big', smallerText: 'acc-text-small',
+    textSpacing: 'acc-spacing', lineHeight: 'acc-line-height',
+    dyslexiaFriendly: 'acc-dyslexic', saturation: 'acc-grayscale',
+    contrastMode: 'acc-contrast-dark', invertColors: 'acc-invert',
+    highlightLinks: 'acc-highlight-links', largeCursor: 'acc-large-cursor',
+    pauseAnimations: 'acc-pause-animations', hideImages: 'acc-hide-images',
+  };
   useEffect(() => {
-    localStorage.setItem('acc_biggerText', biggerText);
-    document.documentElement.classList.toggle('acc-text-big', biggerText);
-  }, [biggerText]);
+    Object.entries(classMap).forEach(([key, cls]) => {
+      localStorage.setItem('acc_' + key, flags[key]);
+      document.documentElement.classList.toggle(cls, flags[key]);
+    });
+    localStorage.setItem('acc_adhdMode', flags.adhdMode);
+    localStorage.setItem('acc_textToSpeech', flags.textToSpeech);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flags]);
 
+  // ─── ADHD focus mask ────────────────────────────────────────
   useEffect(() => {
-    localStorage.setItem('acc_smallerText', smallerText);
-    document.documentElement.classList.toggle('acc-text-small', smallerText);
-  }, [smallerText]);
+    if (!flags.adhdMode) return;
+    const handler = (e) => setMousePos({ x: e.clientX, y: e.clientY });
+    window.addEventListener('mousemove', handler);
+    return () => window.removeEventListener('mousemove', handler);
+  }, [flags.adhdMode]);
 
+  // ─── Text-to-speech hover reader ────────────────────────────
   useEffect(() => {
-    localStorage.setItem('acc_textSpacing', textSpacing);
-    document.documentElement.classList.toggle('acc-spacing', textSpacing);
-  }, [textSpacing]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_lineHeight', lineHeight);
-    document.documentElement.classList.toggle('acc-line-height', lineHeight);
-  }, [lineHeight]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_dyslexiaFriendly', dyslexiaFriendly);
-    document.documentElement.classList.toggle('acc-dyslexic', dyslexiaFriendly);
-  }, [dyslexiaFriendly]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_adhdMode', adhdMode);
-  }, [adhdMode]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_saturation', saturation);
-    document.documentElement.classList.toggle('acc-grayscale', saturation);
-  }, [saturation]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_contrastMode', contrastMode);
-    document.documentElement.classList.toggle('acc-contrast-dark', contrastMode);
-  }, [contrastMode]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_invertColors', invertColors);
-    document.documentElement.classList.toggle('acc-invert', invertColors);
-  }, [invertColors]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_highlightLinks', highlightLinks);
-    document.documentElement.classList.toggle('acc-highlight-links', highlightLinks);
-  }, [highlightLinks]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_textToSpeech', textToSpeech);
-  }, [textToSpeech]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_largeCursor', largeCursor);
-    document.documentElement.classList.toggle('acc-large-cursor', largeCursor);
-  }, [largeCursor]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_pauseAnimations', pauseAnimations);
-    document.documentElement.classList.toggle('acc-pause-animations', pauseAnimations);
-  }, [pauseAnimations]);
-
-  useEffect(() => {
-    localStorage.setItem('acc_hideImages', hideImages);
-    document.documentElement.classList.toggle('acc-hide-images', hideImages);
-  }, [hideImages]);
-
-  // ADHD Mask movement listener
-  useEffect(() => {
-    if (!adhdMode) return;
-
-    const handleMouseMove = (e) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [adhdMode]);
-
-  // Text-To-SpeechHover reader
-  useEffect(() => {
-    if (!textToSpeech) return;
-
-    const handleMouseOver = (e) => {
-      const target = e.target;
-      const text = target.innerText || target.textContent;
-      if (text && text.trim().length > 0 && target.tagName !== 'BODY' && target.tagName !== 'HTML') {
+    if (!flags.textToSpeech) return;
+    const handler = (e) => {
+      const t = e.target;
+      const text = t.innerText || t.textContent;
+      if (text && text.trim() && t.tagName !== 'BODY' && t.tagName !== 'HTML') {
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text.trim().substring(0, 150));
-        utterance.rate = 1.0;
-        window.speechSynthesis.speak(utterance);
+        const u = new SpeechSynthesisUtterance(text.trim().substring(0, 150));
+        u.rate = 1.0;
+        window.speechSynthesis.speak(u);
       }
     };
-
-    document.body.addEventListener('mouseover', handleMouseOver);
+    document.body.addEventListener('mouseover', handler);
     return () => {
-      document.body.removeEventListener('mouseover', handleMouseOver);
+      document.body.removeEventListener('mouseover', handler);
       window.speechSynthesis.cancel();
     };
-  }, [textToSpeech]);
+  }, [flags.textToSpeech]);
 
-  const options = [
-    {
-      title: 'Bigger Text',
-      icon: <FormatSize sx={{ fontSize: 32 }} />,
-      desc: biggerText ? 'Active' : 'Off (Default)',
-      active: biggerText,
-      onClick: () => {
-        const nextVal = !biggerText;
-        setBiggerText(nextVal);
-        if (nextVal) setSmallerText(false);
-      }
-    },
-    {
-      title: 'Smaller Text',
-      icon: <FormatSize sx={{ fontSize: 24 }} />,
-      desc: smallerText ? 'Active' : 'Off (Default)',
-      active: smallerText,
-      onClick: () => {
-        const nextVal = !smallerText;
-        setSmallerText(nextVal);
-        if (nextVal) setBiggerText(false);
-      }
-    },
-    {
-      title: 'Text Spacing',
-      icon: <TextFormat sx={{ fontSize: 30 }} />,
-      desc: textSpacing ? 'Extra Spacing' : 'Default',
-      active: textSpacing,
-      onClick: () => setTextSpacing(!textSpacing)
-    },
-    {
-      title: 'Line Height',
-      icon: <FormatLineSpacing sx={{ fontSize: 30 }} />,
-      desc: lineHeight ? 'Increased height' : 'Default',
-      active: lineHeight,
-      onClick: () => setLineHeight(!lineHeight)
-    },
-    {
-      title: 'Dyslexia Friendly',
-      icon: <Spellcheck sx={{ fontSize: 30 }} />,
-      desc: dyslexiaFriendly ? 'Active' : 'Off (Default)',
-      active: dyslexiaFriendly,
-      onClick: () => setDyslexiaFriendly(!dyslexiaFriendly)
-    },
-    {
-      title: 'ADHD Mode',
-      icon: <Psychology sx={{ fontSize: 30 }} />,
-      desc: adhdMode ? 'Focus bar active' : 'Off (Default)',
-      active: adhdMode,
-      onClick: () => setAdhdMode(!adhdMode)
-    },
-    {
-      title: 'Saturation',
-      icon: <Palette sx={{ fontSize: 30 }} />,
-      desc: saturation ? 'Monochrome Grayscale' : 'Off (Default)',
-      active: saturation,
-      onClick: () => setSaturation(!saturation)
-    },
-    {
-      title: 'Light-Dark',
-      icon: <Contrast sx={{ fontSize: 30 }} />,
-      desc: contrastMode ? 'Yellow/Black Contrast' : 'Off (Default)',
-      active: contrastMode,
-      onClick: () => setContrastMode(!contrastMode)
-    },
-    {
-      title: 'Invert Colors',
-      icon: <InvertColors sx={{ fontSize: 30 }} />,
-      desc: invertColors ? 'Colors Inverted' : 'Off (Default)',
-      active: invertColors,
-      onClick: () => setInvertColors(!invertColors)
-    },
-    {
-      title: 'Highlight Links',
-      icon: <Link sx={{ fontSize: 30 }} />,
-      desc: highlightLinks ? 'Highlighted' : 'Off (Default)',
-      active: highlightLinks,
-      onClick: () => setHighlightLinks(!highlightLinks)
-    },
-    {
-      title: 'Text To Speech',
-      icon: <VolumeUp sx={{ fontSize: 30 }} />,
-      desc: textToSpeech ? 'Hover to read' : 'Off (Default)',
-      active: textToSpeech,
-      onClick: () => setTextToSpeech(!textToSpeech)
-    },
-    {
-      title: 'Cursor',
-      icon: <Mouse sx={{ fontSize: 30 }} />,
-      desc: largeCursor ? 'Extra Large' : 'Off (Default)',
-      active: largeCursor,
-      onClick: () => setLargeCursor(!largeCursor)
-    },
-    {
-      title: 'Pause Animation',
-      icon: <PlayDisabled sx={{ fontSize: 30 }} />,
-      desc: pauseAnimations ? 'Paused' : 'Off (Default)',
-      active: pauseAnimations,
-      onClick: () => setPauseAnimations(!pauseAnimations)
-    },
-    {
-      title: 'Hide Images',
-      icon: <HideImage sx={{ fontSize: 30 }} />,
-      desc: hideImages ? 'Images Hidden' : 'Off (Default)',
-      active: hideImages,
-      onClick: () => setHideImages(!hideImages)
+  // ─── Preset application ─────────────────────────────────────
+  const applyPreset = (presetKey) => {
+    const presetFlags = PRESETS[presetKey] || [];
+    const blank = Object.fromEntries(Object.keys(flags).map(k => [k, false]));
+    presetFlags.forEach(k => { blank[k] = true; });
+    setFlags(blank);
+  };
+
+  const handleReset = () => {
+    setFlags(Object.fromEntries(Object.keys(flags).map(k => [k, false])));
+  };
+
+  // ─── Active count ───────────────────────────────────────────
+  const activeCount = useMemo(
+    () => Object.values(flags).filter(Boolean).length,
+    [flags]
+  );
+
+  // ─── Option definitions grouped by category ─────────────────
+  const grouped = {
+    vision: [
+      { key: 'biggerText', icon: <FormatSize sx={{ fontSize: 20 }} />, label: 'Bigger Text' },
+      { key: 'smallerText', icon: <TextFormat sx={{ fontSize: 18 }} />, label: 'Smaller Text' },
+      { key: 'contrastMode', icon: <Contrast sx={{ fontSize: 20 }} />, label: 'High Contrast' },
+      { key: 'invertColors', icon: <InvertColors sx={{ fontSize: 20 }} />, label: 'Invert Colors' },
+      { key: 'saturation', icon: <Palette sx={{ fontSize: 20 }} />, label: 'Desaturate' },
+      { key: 'highlightLinks', icon: <Link sx={{ fontSize: 20 }} />, label: 'Highlight Links' },
+    ],
+    cognitive: [
+      { key: 'dyslexiaFriendly', icon: <Spellcheck sx={{ fontSize: 20 }} />, label: 'Dyslexia Friendly' },
+      { key: 'textSpacing', icon: <TextFormat sx={{ fontSize: 20 }} />, label: 'Letter Spacing' },
+      { key: 'lineHeight', icon: <FormatLineSpacing sx={{ fontSize: 20 }} />, label: 'Line Height' },
+      { key: 'adhdMode', icon: <Psychology sx={{ fontSize: 20 }} />, label: 'ADHD Focus Mask' },
+    ],
+    motor: [
+      { key: 'largeCursor', icon: <Mouse sx={{ fontSize: 20 }} />, label: 'Large Cursor' },
+      { key: 'pauseAnimations', icon: <PlayDisabled sx={{ fontSize: 20 }} />, label: 'Pause Animations' },
+      { key: 'hideImages', icon: <HideImage sx={{ fontSize: 20 }} />, label: 'Hide Images' },
+    ],
+    audio: [
+      { key: 'textToSpeech', icon: <VolumeUp sx={{ fontSize: 20 }} />, label: 'Text to Speech', hint: 'Hover to read aloud' },
+    ],
+  };
+
+  const categoryIcon = { vision: <Visibility fontSize="small" />, cognitive: <Psychology fontSize="small" />, motor: <TouchApp fontSize="small" />, audio: <Hearing fontSize="small" /> };
+
+  // Search filter — match against the option label + hint + category label.
+  const q = search.trim().toLowerCase();
+  const filteredGrouped = useMemo(() => {
+    if (!q) return grouped;
+    const out = {};
+    for (const cat of CATEGORIES) {
+      const matches = grouped[cat.key].filter(opt =>
+        opt.label.toLowerCase().includes(q) ||
+        (opt.hint || '').toLowerCase().includes(q) ||
+        cat.label.toLowerCase().includes(q)
+      );
+      if (matches.length) out[cat.key] = matches;
     }
-  ];
+    return out;
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hasResults = Object.keys(filteredGrouped).length > 0;
 
   return (
     <>
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '24px',
-            boxShadow: '0 32px 64px rgba(0,0,0,0.25)',
-            overflow: 'hidden',
-            border: '1px solid rgba(255,255,255,0.4)',
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(20px)'
-          }
+        maxWidth="md"
+        slotProps={{
+          paper: { className: 'acc-safe', sx: styles.dialogPaper },
         }}
       >
-        <DialogTitle sx={{ 
-          m: 0, 
-          p: 2.5, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          background: 'linear-gradient(135deg, #1F4E79 0%, #2E7D32 100%)', 
-          color: 'white',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-        }}>
+        {/* ── Header ── */}
+        <Box sx={styles.header}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <AccessibilityNew className="acc-icon-keep" sx={{ fontSize: '1.75rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
-            <Typography variant="h6" fontWeight={800} sx={{ fontFamily: '"Outfit", sans-serif', letterSpacing: '0.02em', fontSize: '1.25rem' }}>
-              Accessibility Assistant
-            </Typography>
+            <Box sx={styles.headerIcon}>
+              <AccessibilityNew className="acc-icon-keep" sx={{ fontSize: 26 }} />
+            </Box>
+            <Box>
+              <Typography sx={styles.headerTitle}>Accessibility Assistant</Typography>
+              <Typography sx={styles.headerSubtitle}>
+                Customize your experience · {activeCount} setting{activeCount !== 1 ? 's' : ''} active
+              </Typography>
+            </Box>
           </Box>
-          <IconButton onClick={() => setOpen(false)} sx={{ color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', transform: 'rotate(90deg)' }, transition: 'all 0.3s ease' }}>
-            <Close />
-          </IconButton>
-        </DialogTitle>
- 
-        <DialogContent sx={{ px: { xs: 2, sm: 4 }, py: 4, bgcolor: '#F8FAFC', borderTop: 'none', borderBottom: '1px solid #E2E8F0' }}>
-          <Grid container spacing={2.5}>
-            {options.map((opt, idx) => (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
-                <Card
-                  onClick={opt.onClick}
-                  sx={{
-                    cursor: 'pointer',
-                    borderRadius: '16px',
-                    border: '1px solid',
-                    borderColor: opt.active ? 'rgba(46, 125, 50, 0.35)' : 'rgba(226, 232, 240, 0.8)',
-                    background: opt.active 
-                      ? 'linear-gradient(135deg, rgba(46, 125, 50, 0.05) 0%, rgba(46, 125, 50, 0.12) 100%)' 
-                      : 'rgba(255, 255, 255, 0.95)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: opt.active 
-                      ? '0 8px 24px rgba(46, 125, 50, 0.12), inset 0 0 0 1px rgba(46, 125, 50, 0.1)' 
-                      : '0 4px 12px rgba(0,0,0,0.02)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    '&:hover': {
-                      transform: 'translateY(-3px) scale(1.02)',
-                      borderColor: opt.active ? '#2E7D32' : 'rgba(31, 78, 121, 0.4)',
-                      boxShadow: '0 12px 28px rgba(0,0,0,0.08)'
-                    }
-                  }}
-                >
-                  <CardContent sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 2, '&:last-child': { pb: 2.5 } }}>
-                    <Box sx={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 52, height: 52, borderRadius: '12px',
-                      background: opt.active 
-                        ? 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)' 
-                        : 'rgba(15, 23, 42, 0.04)',
-                      color: opt.active ? 'white' : '#64748B',
-                      boxShadow: opt.active ? '0 4px 12px rgba(46, 125, 50, 0.3)' : 'none',
-                      transition: 'all 0.3s ease',
-                      '& svg': { fontSize: '1.6rem' }
-                    }}>
-                      {opt.icon}
-                    </Box>
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography variant="subtitle2" fontWeight={800} sx={{ fontFamily: '"Outfit", sans-serif', color: opt.active ? '#1B5E20' : '#1E293B', fontSize: '0.9rem' }}>
-                        {opt.title}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.4, fontSize: '0.75rem', fontWeight: 500 }}>
-                        {opt.desc}
-                      </Typography>
-                    </Box>
-                    {opt.active && (
-                      <Box sx={{
-                        position: 'absolute', right: 10, top: 10,
-                        width: 20, height: 20, borderRadius: '50%',
-                        bgcolor: '#2E7D32', color: 'white',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 2px 8px rgba(46, 125, 50, 0.4)',
-                        animation: 'scaleIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        '@keyframes scaleIn': {
-                          '0%': { transform: 'scale(0)' },
-                          '100%': { transform: 'scale(1)' }
-                        }
-                      }}>
-                        <Check sx={{ fontSize: 13 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {activeCount > 0 && (
+              <Chip
+                size="small"
+                color="success"
+                label={`${activeCount} active`}
+                sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 700, backdropFilter: 'blur(4px)' }}
+              />
+            )}
+            <IconButton onClick={() => setOpen(false)} sx={styles.closeBtn}>
+              <Close />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* ── Quick Presets + Search ── */}
+        <Box sx={styles.presetBar}>
+          <Typography sx={styles.presetLabel}>
+            <Bolt sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
+            Quick Profiles
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button size="small" onClick={() => applyPreset('lowVision')} sx={styles.presetBtn}>
+              <Visibility sx={{ fontSize: 15, mr: 0.5 }} /> Low Vision
+            </Button>
+            <Button size="small" onClick={() => applyPreset('adhdFocus')} sx={styles.presetBtn}>
+              <Psychology sx={{ fontSize: 15, mr: 0.5 }} /> ADHD Focus
+            </Button>
+            <Button size="small" onClick={handleReset} sx={{ ...styles.presetBtn, color: '#b91c1c', borderColor: '#fecaca' }}>
+              <Refresh sx={{ fontSize: 15, mr: 0.5 }} /> Reset All
+            </Button>
+          </Box>
+          <Box sx={{ flex: 1 }} />
+          <TextField
+            size="small"
+            placeholder="Search settings…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { borderRadius: '20px', bgcolor: '#fff', height: 36 } }}
+            InputProps={{
+              startAdornment: (<InputAdornment position="start"><Search sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment>),
+              endAdornment: search ? (
+                <InputAdornment position="end" sx={{ cursor: 'pointer' }} onClick={() => setSearch('')}>
+                  <Close sx={{ fontSize: 16, color: '#94a3b8' }} />
+                </InputAdornment>
+              ) : null,
+            }}
+          />
+        </Box>
+
+        <DialogContent sx={styles.body}>
+          {!hasResults ? (
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <Search sx={{ fontSize: 40, color: '#cbd5e1' }} />
+              <Typography sx={{ mt: 1.5, color: '#64748b', fontWeight: 600 }}>
+                No settings match "{search}"
+              </Typography>
+              <Button size="small" onClick={() => setSearch('')} sx={{ mt: 1, textTransform: 'none' }}>
+                Clear search
+              </Button>
+            </Box>
+          ) : (
+            CATEGORIES.filter(cat => filteredGrouped[cat.key]).map((cat) => (
+            <Box key={cat.key} sx={{ mb: 3.5 }}>
+              {/* Category header */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.5 }}>
+                <Box sx={{ ...styles.catBadge, bgcolor: cat.color + '15', color: cat.color }}>
+                  {categoryIcon[cat.key]}
+                </Box>
+                <Box>
+                  <Typography sx={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', fontFamily: '"Outfit",sans-serif' }}>
+                    {cat.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 }}>
+                    {cat.desc}
+                  </Typography>
+                </Box>
+                <Divider sx={{ flex: 1, ml: 1, borderColor: '#f1f5f9' }} />
+              </Box>
+
+              {/* Options grid */}
+              <Box sx={styles.optionGrid}>
+                {filteredGrouped[cat.key].map((opt) => {
+                  const active = flags[opt.key];
+                  return (
+                    <Box
+                      key={opt.key}
+                      onClick={() => toggle(opt.key)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(opt.key); } }}
+                      sx={{
+                        ...styles.optionCard,
+                        ...(active ? styles.optionCardActive : {}),
+                        borderLeft: `3px solid ${active ? cat.color : 'transparent'}`,
+                      }}
+                    >
+                      <Box sx={{ ...styles.optionIcon, ...(active ? { bgcolor: cat.color, color: '#fff' } : {}) }}>
+                        {opt.icon}
                       </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{
+                          fontSize: '0.85rem', fontWeight: 700,
+                          color: active ? cat.color : '#1e293b',
+                          fontFamily: '"Outfit",sans-serif',
+                          lineHeight: 1.2,
+                        }}>
+                          {opt.label}
+                        </Typography>
+                        {opt.hint && (
+                          <Typography sx={{ fontSize: '0.7rem', color: '#94a3b8', mt: 0.25 }}>
+                            {opt.hint}
+                          </Typography>
+                        )}
+                        {active && !opt.hint && (
+                          <Typography sx={{ fontSize: '0.7rem', color: cat.color, mt: 0.25, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                            <Check sx={{ fontSize: 12 }} /> Enabled
+                          </Typography>
+                        )}
+                      </Box>
+                      <Switch
+                        size="small"
+                        checked={active}
+                        onClick={(e) => { e.stopPropagation(); toggle(opt.key); }}
+                        sx={{ ...styles.switch, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: cat.color + '60' }, '& .MuiSwitch-switchBase.Mui-checked .MuiSwitch-thumb': { bgcolor: cat.color } }}
+                      />
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+            ))
+          )}
         </DialogContent>
- 
-        <DialogActions sx={{ p: 3, bgcolor: '#F8FAFC', justifyContent: 'space-between' }}>
-          <Button 
-            variant="outlined" 
-            startIcon={<Refresh />} 
-            onClick={handleReset} 
-            color="warning"
-            sx={{
-              borderRadius: '24px',
-              px: 3,
-              py: 1,
-              fontWeight: 700,
-              textTransform: 'none',
-              fontFamily: '"Outfit", sans-serif'
-            }}
+
+        {/* ── Footer ── */}
+        <Box sx={styles.footer}>
+          <Typography sx={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+            Settings save automatically and persist across sessions.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => setOpen(false)}
+            sx={styles.doneBtn}
           >
-            Reset Preferences
+            Done
           </Button>
-          <Button 
-            variant="contained" 
-            onClick={() => setOpen(false)} 
-            sx={{ 
-              borderRadius: '24px',
-              px: 5,
-              py: 1,
-              fontWeight: 800,
-              textTransform: 'none',
-              fontFamily: '"Outfit", sans-serif',
-              background: 'linear-gradient(135deg, #1F4E79 0%, #143656 100%)',
-              boxShadow: '0 4px 14px rgba(31, 78, 121, 0.3)',
-              '&:hover': {
-                boxShadow: '0 6px 20px rgba(31, 78, 121, 0.4)',
-                transform: 'translateY(-1px)'
-              },
-              transition: 'all 0.2s ease-in-out'
-            }}
-          >
-            Close Panel
-          </Button>
-        </DialogActions>
+        </Box>
       </Dialog>
 
-      {/* ADHD Mode Focus Mask Overlay */}
-      {adhdMode && (
+      {/* ── ADHD Focus Mask Overlay ── */}
+      {flags.adhdMode && (
         <Box
           sx={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            pointerEvents: 'none',
-            zIndex: 99999,
+            position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 99999,
             background: `linear-gradient(to bottom,
               rgba(0,0,0,0.65) 0%,
               rgba(0,0,0,0.65) ${Math.max(0, mousePos.y - 100)}px,
               transparent ${Math.max(0, mousePos.y - 100)}px,
               transparent ${Math.min(window.innerHeight, mousePos.y + 100)}px,
               rgba(0,0,0,0.65) ${Math.min(window.innerHeight, mousePos.y + 100)}px,
-              rgba(0,0,0,0.65) 100%)`
+              rgba(0,0,0,0.65) 100%)`,
           }}
         />
       )}
     </>
   );
 }
+
+// ─── Styles ─────────────────────────────────────────────────────
+const styles = {
+  dialogPaper: {
+    borderRadius: '20px',
+    overflow: 'hidden',
+    boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)',
+    border: '1px solid #e2e8f0',
+    maxWidth: 720,
+  },
+  header: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    px: 3, py: 2,
+    background: 'linear-gradient(135deg, #1F4E79 0%, #2c5f8a 100%)',
+    color: '#fff',
+  },
+  headerIcon: {
+    width: 44, height: 44, borderRadius: '12px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(255,255,255,0.15)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid rgba(255,255,255,0.2)',
+  },
+  headerTitle: {
+    fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2,
+    fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.01em',
+  },
+  headerSubtitle: {
+    fontSize: '0.75rem', opacity: 0.85, mt: 0.25, fontWeight: 500,
+  },
+  closeBtn: {
+    color: '#fff',
+    bgcolor: 'rgba(255,255,255,0.1)',
+    '&:hover': { bgcolor: 'rgba(255,255,255,0.2)', transform: 'rotate(90deg)' },
+    transition: 'all 0.25s ease',
+  },
+  presetBar: {
+    display: 'flex', alignItems: 'center', gap: 1.5,
+    px: 3, py: 1.5, flexWrap: 'wrap',
+    bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0',
+  },
+  presetLabel: {
+    fontSize: '0.7rem', fontWeight: 700, color: '#64748b',
+    textTransform: 'uppercase', letterSpacing: '0.06em',
+    display: 'flex', alignItems: 'center',
+  },
+  presetBtn: {
+    textTransform: 'none', fontWeight: 600, fontSize: '0.78rem',
+    borderRadius: '20px', px: 1.75, py: 0.5,
+    border: '1px solid #e2e8f0', color: '#334155',
+    bgcolor: '#fff',
+    '&:hover': { bgcolor: '#f1f5f9', borderColor: '#cbd5e1', transform: 'translateY(-1px)' },
+    transition: 'all 0.2s ease',
+    fontFamily: '"Outfit",sans-serif',
+  },
+  body: {
+    px: { xs: 2, sm: 3 }, py: 3,
+    bgcolor: '#ffffff',
+    maxHeight: '58vh',
+    '&::-webkit-scrollbar': { width: 8 },
+    '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 4 },
+    '&::-webkit-scrollbar-track': { bgcolor: '#f1f5f9' },
+  },
+  catBadge: {
+    width: 32, height: 32, borderRadius: '9px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  optionGrid: {
+    display: 'grid',
+    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+    gap: 1.25,
+  },
+  optionCard: {
+    display: 'flex', alignItems: 'center', gap: 1.25,
+    p: 1.75, borderRadius: '12px',
+    bgcolor: '#f8fafc',
+    border: '1px solid #eef2f6',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    minHeight: 68,
+    '&:hover': {
+      bgcolor: '#f1f5f9',
+      borderColor: '#cbd5e1',
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 12px rgba(15,23,42,0.06)',
+    },
+    '&:focus-visible': {
+      outline: '2px solid #1F4E79',
+      outlineOffset: '2px',
+    },
+  },
+  optionCardActive: {
+    bgcolor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  optionIcon: {
+    width: 40, height: 40, borderRadius: '10px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    bgcolor: '#e2e8f0', color: '#64748b',
+    flexShrink: 0,
+    transition: 'all 0.2s ease',
+  },
+  switch: {
+    '& .MuiSwitch-track': { borderRadius: 12, bgcolor: '#cbd5e1' },
+    '& .MuiSwitch-thumb': { bgcolor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' },
+  },
+  footer: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    px: 3, py: 2,
+    bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0',
+  },
+  doneBtn: {
+    borderRadius: '10px', px: 4, py: 0.95,
+    fontWeight: 700, textTransform: 'none', fontSize: '0.85rem',
+    fontFamily: '"Outfit",sans-serif',
+    background: 'linear-gradient(135deg, #1F4E79 0%, #143656 100%)',
+    boxShadow: '0 3px 10px rgba(31,78,121,0.3)',
+    '&:hover': { boxShadow: '0 5px 14px rgba(31,78,121,0.4)', transform: 'translateY(-1px)' },
+    transition: 'all 0.2s ease',
+  },
+};

@@ -10,6 +10,7 @@ import './index.css';
 import MainLayout from './layouts/MainLayout';
 import AIChatbot from './components/AIChatbot';
 import AccessibilityWidget from './components/AccessibilityWidget';
+import ScrollToTop from './components/ScrollToTop';
 import { LanguageProvider } from './context/LanguageContext';
 
 // Loading Fallback Component
@@ -55,6 +56,7 @@ const AuditLogViewer = lazy(() => import('./pages/AuditLogViewer'));
 const MobileInspection = lazy(() => import('./pages/MobileInspection'));
 const SecureVault = lazy(() => import('./pages/SecureVault'));
 const SubscriptionPlans = lazy(() => import('./pages/SubscriptionPlans'));
+const CsrDashboard = lazy(() => import('./pages/CsrDashboard'));
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -62,6 +64,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <CssBaseline />
       <LanguageProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Auth Routes */}
@@ -101,6 +104,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/services" element={<ServicesTracker />} />
               <Route path="/report-center" element={<ReportExportCenter />} />
               <Route path="/parks-explorer" element={<IndustrialParks />} />
+              <Route path="/csr-dashboard" element={<CsrDashboard />} />
             </Route>
 
             {/* Public Pages */}

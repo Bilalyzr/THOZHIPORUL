@@ -283,7 +283,8 @@ export default function SecureVault() {
 
     setUploading(true);
     setProgress(10);
-    const interval = setInterval(() => {
+    let interval = null;
+    interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
@@ -318,8 +319,6 @@ export default function SecureVault() {
         };
 
         setDocumentsList((prevDocs) => [newDoc, ...prevDocs]);
-        setUploading(false);
-        setUploadModalOpen(false);
 
         // Append audit logs if Enterprise Suite is active
         setAuditLogs((prevLogs) => [
@@ -342,10 +341,15 @@ export default function SecureVault() {
         setUploadExpiryDate('');
         setMockFileSizeKb(300);
       } catch (err) {
-        setUploading(false);
-        setUploadModalOpen(false);
         const msg = err.response?.data?.error || 'Failed to upload document.';
         setSnackbar({ open: true, message: msg, severity: 'error' });
+      } finally {
+        // ALWAYS clear the progress interval + close the modal, whether
+        // the upload succeeded or failed — otherwise the timer leaks and
+        // keeps mutating progress state after the dialog is gone.
+        if (interval) clearInterval(interval);
+        setUploading(false);
+        setUploadModalOpen(false);
       }
     }, 1800);
   };

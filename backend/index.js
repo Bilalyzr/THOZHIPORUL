@@ -9,6 +9,33 @@ if (missingEnv.length > 0) {
     process.exit(1);
 }
 
+// Production-only JWT_SECRET strength check. A weak/guessable secret lets an
+// attacker forge admin tokens, so we refuse to boot in production with one.
+const WEAK_SECRETS = new Set([
+    'sipcot_sims_super_secret_key_2026',
+    'your_long_random_jwt_secret_here',
+    'dev_only_insecure_secret_do_not_use_in_prod',
+    'secret', 'changeme', 'password',
+]);
+if (process.env.NODE_ENV === 'production') {
+    const secret = process.env.JWT_SECRET;
+    if (secret.length < 32) {
+        console.error('[SERVER] [FATAL] JWT_SECRET must be at least 32 characters in production.');
+        process.exit(1);
+    }
+    if (WEAK_SECRETS.has(secret)) {
+        console.error('[SERVER] [FATAL] JWT_SECRET matches a known weak value. Generate a strong, unique secret.');
+        process.exit(1);
+    }
+}
+
+// Refuse to boot in production if demo login is enabled — seed accounts with
+// the '$demo$' placeholder hash accept any password when this is true.
+if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_LOGIN === 'true') {
+    console.error('[SERVER] [FATAL] ENABLE_DEMO_LOGIN must be false in production.');
+    process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -188,9 +215,12 @@ async function applyMigration(label, filename) {
     }
 }
 
-// Convenience wrappers for each migration (order matters: v3 before v4).
+// Convenience wrappers for each migration (order matters: v3 -> v4 -> v5).
 const applyV3Migration = () => applyMigration('v3 enhancements', 'schema_v3_enhancements.sql');
 const applyV4Migration = () => applyMigration('v4 research (Tier 1)', 'schema_v4_research.sql');
+const applyV4bMigration = () => applyMigration('v4b real tenants', 'schema_v4b_realtenants.sql');
+const applyV5Migration = () => applyMigration('v5 Tier 2 (allottee lifecycle)', 'schema_v5_tier2.sql');
+const applyV6Migration = () => applyMigration('v6 Tier 3 (strategic)', 'schema_v6_tier3.sql');
 
 // Auth Routes
 const auth = require('./routes/auth');
@@ -232,6 +262,10 @@ app.use('/api/i18n', require('./routes/i18n-routes'));
 app.use('/api/account', require('./routes/account'));
 // Research-grounded Tier 1 (committed-vs-actual, CSR, GST, quotas).
 app.use('/api/research', require('./routes/research'));
+// Tier 2 allottee lifecycle (billing, queries, inspections HO, incentives, MD escalation).
+app.use('/api/lifecycle', require('./routes/lifecycle'));
+// Tier 3 strategic (circulars, gov integrations, directory, tier access, Inaippagam).
+app.use('/api/strategy', require('./routes/strategy'));
 app.use('/api/assistant', require('./routes/ai-assistant'));
 app.use('/api/gis', require('./routes/gis'));
 app.use('/api/inspections', require('./routes/inspections'));
@@ -268,7 +302,14 @@ app.listen(PORT, () => {
         // 2. v4 research-grounded schema (Tier 1): committed-vs-actual,
         //    CSR restructure, water/power quotas, GSTIN, sector tags.
         await applyV4Migration();
-        // 3. After v3+v4 tables exist, backfill seed-doc files + users.name.
+        await applyV4bMigration();
+        // 3. v5 Tier 2 (allottee lifecycle): lease billing, submission
+        //    queries, incentive disbursements, MD escalation, inspections HO.
+        await applyV5Migration();
+        // 4. v6 Tier 3 (strategic): gov integration framework, circulars,
+        //    directory contacts, Inaippagam cache, tier feature access.
+        await applyV6Migration();
+        // 5. After all migrations, backfill seed-doc files + users.name.
         ensureSeedDocuments();
         ensureUsersNameColumn();
     });

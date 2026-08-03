@@ -5,6 +5,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Transient runtime logs (backend boot/vite dev output)
+*.log
+.boot.log
+.vite.log
+
 # Environment
 .env
 .env.local

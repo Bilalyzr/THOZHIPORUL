@@ -11,7 +11,7 @@ import {
   People, CurrencyRupee, Bolt, WaterDrop, Description,
   UploadFile, Gavel, Assignment, Schedule
 } from '@mui/icons-material';
-import { workspaceService, researchService } from '../services/api';
+import { workspaceService, researchService, lifecycleService, strategyService } from '../services/api';
 
 const SCORE_COLORS = { high: '#2E7D32', good: '#43A047', medium: '#F57C00', low: '#d32f2f' };
 const getScoreColor = (score) => score >= 80 ? SCORE_COLORS.high : score >= 60 ? SCORE_COLORS.good : score >= 40 ? SCORE_COLORS.medium : SCORE_COLORS.low;
@@ -50,6 +50,11 @@ export default function IndustryWorkspace() {
   const [error, setError] = useState(null);
   // T1.1 + T1.3 — realisation vs commitment + resource quotas
   const [realisation, setRealisation] = useState(null);
+  // T2.1 — billing & dues
+  const [billing, setBilling] = useState(null);
+  const [billingStatements, setBillingStatements] = useState([]);
+  // T3.2 — CSR funding opportunities (from Mission Inaippagam)
+  const [csrNeeds, setCsrNeeds] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -77,6 +82,17 @@ export default function IndustryWorkspace() {
     researchService.getRealisation()
       .then((res) => { if (active) setRealisation(res.data); })
       .catch(() => { /* optional feature — fail silently */ });
+    // T2.1 — load billing summary + statements
+    lifecycleService.getBillingSummary()
+      .then((res) => { if (active) setBilling(res.data); })
+      .catch(() => { /* optional */ });
+    lifecycleService.getBilling()
+      .then((res) => { if (active) setBillingStatements(res.data); })
+      .catch(() => { /* optional */ });
+    // T3.2 — Load CSR funding opportunities for this industry
+    strategyService.getCsrNeeds()
+      .then((res) => { if (active) setCsrNeeds(res.data || []); })
+      .catch(() => { /* optional */ });
     return () => { active = false; };
   }, []);
 
@@ -176,6 +192,42 @@ export default function IndustryWorkspace() {
         </Paper>
       )}
 
+      {/* T1.3 — Resource Usage Quota vs Actual */}
+      {realisation && realisation.available && realisation.quotas && (
+        <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 } }}>
+          <Typography variant="h6" fontWeight={600} gutterBottom>Resource Usage vs Allocation</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            Over-draw beyond 120% of allocation triggers an environmental compliance violation.
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><WaterDrop color="info" fontSize="small" /> Water</Typography>
+                <Typography variant="body2" fontWeight={600}>{quick_stats.water_usage_kl || 0} KL used</Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={realisation.quotas.water_allocated_kl > 0 ? Math.min(((quick_stats.water_usage_kl || 0) / realisation.quotas.water_allocated_kl) * 100, 100) : 0}
+                sx={{ height: 8, borderRadius: 4, mb: 0.5, '& .MuiLinearProgress-bar': { bgcolor: ((quick_stats.water_usage_kl || 0) > realisation.quotas.water_allocated_kl * 1.2 ? '#d32f2f' : '#1565C0'), borderRadius: 4 } }}
+              />
+              <Typography variant="caption" color="text.secondary">Allocated: {realisation.quotas.water_allocated_kl} KL/month · Quota: {realisation.quotas.water_allocated_kl > 0 ? Math.round(((quick_stats.water_usage_kl || 0) / realisation.quotas.water_allocated_kl) * 100) : 0}% used</Typography>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><Bolt color="warning" fontSize="small" /> Power</Typography>
+                <Typography variant="body2" fontWeight={600}>{quick_stats.power_usage_kwh || 0} kWh</Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={realisation.quotas.sanctioned_load_kw > 0 ? Math.min(((quick_stats.power_usage_kwh || 0) / (realisation.quotas.sanctioned_load_kw * 730)) * 100, 100) : 0}
+                sx={{ height: 8, borderRadius: 4, mb: 0.5, '& .MuiLinearProgress-bar': { bgcolor: ((quick_stats.power_usage_kwh || 0) > realisation.quotas.sanctioned_load_kw * 1.2 * 730 ? '#d32f2f' : '#F57C00'), borderRadius: 4 } }}
+              />
+              <Typography variant="caption" color="text.secondary">Sanctioned: {realisation.quotas.sanctioned_load_kw} kW · Tariff: ₹{realisation.quotas.tariff_per_unit}/unit</Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
       <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
         {/* Actionable Task List */}
         <Grid size={{ xs: 12, md: 7 }}>
@@ -247,8 +299,72 @@ export default function IndustryWorkspace() {
             </Box>
             <Button variant="outlined" size="small" fullWidth sx={{ mt: 2 }} startIcon={<Description />} onClick={() => setLeaseDialogOpen(true)}>View Lease Agreement</Button>
           </Paper>
+
+          {/* T2.1 — Billing & Dues */}
+          <Paper sx={{ p: { xs: 2, sm: 3 }, mt: 2 }}>
+            <Typography variant="h6" fontWeight={600} gutterBottom>Billing &amp; Dues</Typography>
+            {billing ? (
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">Outstanding</Typography>
+                  <Typography variant="h6" fontWeight={700} color={billing.total_outstanding > 0 ? 'error.main' : 'success.main'}>
+                    ₹{Number(billing.total_outstanding).toLocaleString('en-IN')}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary">Overdue statements: {billing.overdue_count}</Typography>
+                  <Typography variant="caption" color={billing.arrears_gt_90d > 0 ? 'error.main' : 'text.secondary'}>Arrears &gt;90d: ₹{Number(billing.arrears_gt_90d).toLocaleString('en-IN')}</Typography>
+                </Box>
+                {billingStatements.length > 0 ? (
+                  <Box sx={{ mt: 1 }}>
+                    {billingStatements.slice(0, 3).map((s) => (
+                      <Box key={s.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5, borderBottom: 1, borderColor: 'divider' }}>
+                        <Box>
+                          <Typography variant="caption" fontWeight={600}>{s.invoice_no}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{s.billing_period} · ₹{Number(s.total_amount).toLocaleString('en-IN')}</Typography>
+                        </Box>
+                        <Chip label={s.status} size="small" color={s.status === 'paid' ? 'success' : s.status === 'overdue' ? 'error' : 'warning'} variant="outlined" sx={{ fontSize: '0.65rem' }} />
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">No billing statements generated yet.</Typography>
+                )}
+              </Box>
+            ) : (
+              <Typography variant="caption" color="text.secondary">Billing module loading…</Typography>
+            )}
+          </Paper>
         </Grid>
       </Grid>
+
+      {/* T3.2 — CSR Funding Opportunities (from Mission Inaippagam) */}
+      {csrNeeds.length > 0 && (
+        <Paper sx={{ p: { xs: 2, sm: 3 }, mt: 2 }}>
+          <Typography variant="h6" fontWeight={600} gutterBottom>CSR Funding Opportunities</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            Verified community development needs aligned with Mission Inaippagam — fund these to meet your 2% PAT mandate.
+          </Typography>
+          <Grid container spacing={2}>
+            {csrNeeds.slice(0, 4).map((n) => (
+              <Grid size={{ xs: 12, sm: 6, md: 3 }} key={n.id}>
+                <Card variant="outlined" sx={{ p: 1.5, height: '100%' }}>
+                  <Typography variant="subtitle2" fontWeight={600} noWrap>{n.title}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    {n.department || 'Govt Dept'} · {n.district || 'TN'}
+                  </Typography>
+                  {n.budget_required && <Typography variant="caption" sx={{ display: 'block' }}>Budget: ₹{Number(n.budget_required).toLocaleString('en-IN')}</Typography>}
+                  {n.sdg_goals && n.sdg_goals.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                      {n.sdg_goals.slice(0, 4).map(g => <Chip key={g} label={`SDG ${g}`} size="small" sx={{ fontSize: '0.6rem', height: 18 }} />)}
+                    </Box>
+                  )}
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      )}
 
 
 

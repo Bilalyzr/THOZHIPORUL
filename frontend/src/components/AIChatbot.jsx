@@ -2,13 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Typography, IconButton, TextField, Paper, Fab, Fade, Chip,
-  Avatar, InputAdornment, Divider, Slide
+  Avatar, InputAdornment, Divider, Slide, Tooltip
 } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import QuickReplyIcon from '@mui/icons-material/QuickReply';
 import { keyframes } from '@emotion/react';
 
 import fabIcon from '../assets/vazhiporul_fab_icon.png';
@@ -967,27 +969,37 @@ export default function AIChatbot() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Initialize greeting on mount or whenever login state might change
-  useEffect(() => {
+  // Seed the greeting ONLY when the chat is first opened with no history.
+  // Previously this ran on every open, wiping the conversation — now the
+  // greeting is added only once (when messages is empty), so reopening the
+  // panel keeps your prior conversation intact.
+  const seedGreeting = () => {
     const token = localStorage.getItem('token');
     const name = localStorage.getItem('userName');
     const role = localStorage.getItem('role');
-
     const initialText = (token && name)
       ? `Welcome back **${name}**! 👋\n\nI'm **VazhiPorul AI** - your SIPCOT intelligent assistant.\n\nAs a **${role || 'user'}**, I can help you:\n• Navigate to your dashboard\n• Track services and compliance\n• Answer questions about SIPCOT\n• Find information about parks and schemes`
       : `👋 Welcome to **THOZHIRPORUL**!\n\nI'm **VazhiPorul AI** - your SIPCOT intelligent assistant.\n\nI can help you:\n• Explore our 6 industrial parks\n• Understand services like NOCs and plot allotment\n• Learn about compliance and incentives\n• Navigate to any page`;
+    setMessages([
+      {
+        role: 'ai',
+        text: initialText,
+        suggestions: ['Show industrial parks', 'How to apply for plot?', 'Available services']
+      }
+    ]);
+  };
 
-    const timer = setTimeout(() => {
-      setMessages([
-        {
-          role: 'ai',
-          text: initialText,
-          suggestions: ['Show industrial parks', 'How to apply for plot?', 'Available services']
-        }
-      ]);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [open]); // Refresh greeting when chat is opened
+  useEffect(() => {
+    if (open && messages.length === 0) seedGreeting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Reset the conversation back to a fresh greeting.
+  const handleClearChat = () => {
+    setIsTyping(false);
+    setInput('');
+    seedGreeting();
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1001,18 +1013,19 @@ export default function AIChatbot() {
     const userMsg = text || input.trim();
     if (!userMsg) return;
     setInput('');
+    const now = new Date();
 
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setMessages(prev => [...prev, { role: 'user', text: userMsg, ts: now }]);
     setIsTyping(true);
 
     setTimeout(() => {
       const response = findBestResponse(
-        userMsg, 
-        !!localStorage.getItem('token'), 
+        userMsg,
+        !!localStorage.getItem('token'),
         location.pathname,
         localStorage.getItem('userName')
       );
-      setMessages(prev => [...prev, { role: 'ai', ...response }]);
+      setMessages(prev => [...prev, { role: 'ai', ts: new Date(), ...response }]);
       setIsTyping(false);
 
       if (response.autoNavigate && response.path) {
@@ -1052,7 +1065,18 @@ export default function AIChatbot() {
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {open ? <CloseIcon sx={{ color: 'white', fontSize: 26 }} /> : <img src={fabIcon} alt="AI" style={{ width: 44, height: 44, mixBlendMode: 'screen', objectFit: 'contain', animation: `${float} 3s ease-in-out infinite` }} />}
+        {open ? <CloseIcon sx={{ color: 'white', fontSize: 26 }} /> : (
+          <Box sx={{
+            width: 44, height: 44, borderRadius: '50%',
+            overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            bgcolor: 'rgba(255,255,255,0.95)',
+            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.3)',
+            animation: `${float} 3s ease-in-out infinite`,
+          }}>
+            <img src={fabIcon} alt="AI Assistant" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+          </Box>
+        )}
       </Fab>
 
       {/* Chat Window */}
@@ -1080,12 +1104,18 @@ export default function AIChatbot() {
               <Typography variant="subtitle1" fontWeight={900} sx={{ lineHeight: 1.2, letterSpacing: '-0.01em' }}>VazhiPorul AI</Typography>
               <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '0.7rem' }}>THOZHIRPORUL Intelligent Assistant</Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{
                 width: 8, height: 8, borderRadius: '50%', bgcolor: '#10B981',
                 boxShadow: '0 0 8px #10B981',
-                animation: `${pulseGreen} 2s infinite ease-in-out`
+                animation: `${pulseGreen} 2s infinite ease-in-out`,
+                mr: 0.5,
               }} />
+              <Tooltip title="Clear conversation">
+                <IconButton size="small" onClick={handleClearChat} sx={{ color: 'rgba(255, 255, 255, 0.5)', '&:hover': { color: '#34D399', bgcolor: 'rgba(16,185,129,0.12)' } }}>
+                  <RestartAltIcon sx={{ fontSize: 17 }} />
+                </IconButton>
+              </Tooltip>
               <IconButton size="small" onClick={() => setOpen(false)} sx={{ color: 'rgba(255, 255, 255, 0.5)', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.08)' } }}>
                 <CloseIcon sx={{ fontSize: 18 }} />
               </IconButton>
@@ -1151,6 +1181,13 @@ export default function AIChatbot() {
                       ))}
                     </Box>
                   )}
+
+                  {/* Timestamp */}
+                  {msg.ts && (
+                    <Typography variant="caption" sx={{ display: 'block', textAlign: msg.role === 'user' ? 'right' : 'left', mt: 0.6, fontSize: '0.6rem', color: msg.role === 'user' ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.35)', letterSpacing: '0.02em' }}>
+                      {msg.ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Typography>
+                  )}
                 </Box>
               </Box>
             ))}
@@ -1170,6 +1207,31 @@ export default function AIChatbot() {
 
           {/* Input */}
           <Box sx={{ p: 2, bgcolor: 'rgba(15, 23, 42, 0.95)', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            {/* Quick-start prompts — only when the conversation is just the greeting */}
+            {messages.length <= 1 && !isTyping && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 1.5 }}>
+                {[
+                  { label: '🏭 Parks', q: 'Show industrial parks' },
+                  { label: '📋 Services', q: 'Available services' },
+                  { label: '📊 Compliance', q: 'What is compliance score?' },
+                  { label: '📞 Contact', q: 'How to contact SIPCOT?' },
+                ].map((p) => (
+                  <Chip
+                    key={p.q}
+                    label={p.label}
+                    size="small"
+                    onClick={() => handleSend(p.q)}
+                    sx={{
+                      cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700,
+                      bgcolor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      transition: 'all 0.2s ease',
+                      '&:hover': { bgcolor: 'rgba(16,185,129,0.15)', color: '#34D399', borderColor: 'rgba(16,185,129,0.4)' },
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
             <TextField
               inputRef={inputRef}
               fullWidth size="small" placeholder="Ask VazhiPorul AI..."

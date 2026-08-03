@@ -29,7 +29,7 @@ services:
       - DB_NAME=sipcot_sims
       - DB_HOST=db
       - DB_PORT=5432
-      - JWT_SECRET=sipcot_sims_super_secret_key_2026
+      - JWT_SECRET=${JWT_SECRET:-dev_only_insecure_secret_do_not_use_in_prod}
     depends_on:
       - db
 

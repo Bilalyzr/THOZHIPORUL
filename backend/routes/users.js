@@ -61,35 +61,45 @@ router.post('/', requireRole(['admin']), async (req, res) => {
         const passwordHash = await bcrypt.hash('password123', salt);
 
         const dbRole = role.toLowerCase();
-        
-        await db.query('BEGIN');
-        
-        const newUser = await db.query(
-            "INSERT INTO users (email, password_hash, role, status) VALUES ($1, $2, $3, $4) RETURNING id, email, role, status",
-            [rootEmail, passwordHash, dbRole, status || 'Pending']
-        );
-        
-        const userId = newUser.rows[0].id;
-        
-        if (dbRole === 'industry') {
-            await db.query(
-                "INSERT INTO industry_profiles (user_id, company_name, industry_type, location) VALUES ($1, $2, 'Other', 'Other')",
-                [userId, name || rootEmail]
+
+        // Use a single pooled client so BEGIN/INSERT/COMMIT form a real
+        // transaction (db.query() checks out a NEW client each call, which
+        // would break the transaction boundary).
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const newUser = await client.query(
+                "INSERT INTO users (email, password_hash, role, status) VALUES ($1, $2, $3, $4) RETURNING id, email, role, status",
+                [rootEmail, passwordHash, dbRole, status || 'Pending']
             );
+
+            const userId = newUser.rows[0].id;
+
+            if (dbRole === 'industry') {
+                await client.query(
+                    "INSERT INTO industry_profiles (user_id, company_name, industry_type, location) VALUES ($1, $2, 'Other', 'Other')",
+                    [userId, name || rootEmail]
+                );
+            }
+
+            await client.query('COMMIT');
+
+            res.json({
+                id: userId,
+                name: name || rootEmail,
+                rootEmail: rootEmail,
+                role: role,
+                status: status || 'Pending'
+            });
+        } catch (txErr) {
+            await client.query('ROLLBACK');
+            throw txErr;
+        } finally {
+            client.release();
         }
-        
-        await db.query('COMMIT');
-        
-        res.json({
-            id: userId,
-            name: name || rootEmail,
-            rootEmail: rootEmail,
-            role: role,
-            status: status || 'Pending'
-        });
-        
+
     } catch (err) {
-        await db.query('ROLLBACK');
         console.error("Create User Error:", err.message);
         res.status(500).send('Server Error');
     }
@@ -122,28 +132,37 @@ router.put('/:id', requireRole(['admin']), async (req, res) => {
     try {
         const { name, rootEmail, role, status } = req.body;
         const { id } = req.params;
-        
-        await db.query('BEGIN');
-        
-        const dbRole = role.toLowerCase();
-        
-        await db.query(
-            "UPDATE users SET email = $1, role = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4",
-            [rootEmail, dbRole, status, id]
-        );
-        
-        if (dbRole === 'industry') {
-            await db.query(
-                "UPDATE industry_profiles SET company_name = $1 WHERE user_id = $2",
-                [name, id]
+
+        // Use a single pooled client so BEGIN/UPDATE/COMMIT form a real
+        // transaction (db.query() checks out a NEW client each call).
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const dbRole = role.toLowerCase();
+
+            await client.query(
+                "UPDATE users SET email = $1, role = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4",
+                [rootEmail, dbRole, status, id]
             );
+
+            if (dbRole === 'industry') {
+                await client.query(
+                    "UPDATE industry_profiles SET company_name = $1 WHERE user_id = $2",
+                    [name, id]
+                );
+            }
+
+            await client.query('COMMIT');
+            res.json({ msg: "User updated successfully" });
+        } catch (txErr) {
+            await client.query('ROLLBACK');
+            throw txErr;
+        } finally {
+            client.release();
         }
-        
-        await db.query('COMMIT');
-        res.json({ msg: "User updated successfully" });
-        
+
     } catch (err) {
-        await db.query('ROLLBACK');
         console.error("Update User Error:", err.message);
         res.status(500).send('Server Error');
     }

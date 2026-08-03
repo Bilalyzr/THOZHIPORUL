@@ -118,26 +118,97 @@ router.delete('/sessions-all', requireRole(['admin', 'govt', 'industry']), async
 });
 
 // ============================================================
-// MFA — TOTP setup + verify
+// MFA — TOTP setup + verify + disable
+// (Uses the shared services/totp.js module — single source of truth)
 // ============================================================
+const totp = require('../services/totp');
+
+// Per-user MFA attempt rate limiting (prevents brute-forcing the code).
+// Keyed on user_id; resets after the window. In-memory (sufficient for
+// a single-instance deploy; use Redis for multi-instance).
+const _mfaAttempts = new Map(); // userId → { count, firstAt }
+const MFA_MAX_ATTEMPTS = 5;
+const MFA_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+function checkMfaRateLimit(userId) {
+    const now = Date.now();
+    const entry = _mfaAttempts.get(userId);
+    if (entry && (now - entry.firstAt) < MFA_WINDOW_MS) {
+        if (entry.count >= MFA_MAX_ATTEMPTS) {
+            return { blocked: true, retryAfterSec: Math.ceil((entry.firstAt + MFA_WINDOW_MS - now) / 1000) };
+        }
+        entry.count++;
+    } else {
+        _mfaAttempts.set(userId, { count: 1, firstAt: now });
+    }
+    return { blocked: false };
+}
+
+// ------------------------------------------------------------
+// Flexible MFA auth: accepts EITHER a real session token (already
+// logged in, managing MFA via Settings) OR a challenge token (admin
+// forced to set up MFA before first login). Used only for setup/verify.
+// ------------------------------------------------------------
+const jwtLib = require('jsonwebtoken');
+
+function mfaFlexibleAuth(req, res, next) {
+    const token = req.header('x-auth-token');
+    if (!token) return res.status(401).json({ error: 'No token.' });
+    try {
+        const decoded = jwtLib.verify(token, process.env.JWT_SECRET);
+        // If it's a challenge token (mfa_setup_required flow), extract user_id.
+        if (decoded.mfa_challenge) {
+            req.user = { id: decoded.user_id, email: decoded.email, name: decoded.email || 'admin' };
+            return next();
+        }
+        // Normal token — use the standard role check.
+        req.user = decoded.user;
+        return next();
+    } catch {
+        return res.status(401).json({ error: 'Token invalid or expired.' });
+    }
+}
+
+// @route   GET /api/security/mfa/status
+// @desc    Check if MFA is enabled for the current user.
+router.get('/mfa/status', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT enabled FROM user_mfa WHERE user_id = $1', [req.user.id]);
+        res.json({ enabled: rows.length > 0 && rows[0].enabled });
+    } catch (_) {
+        res.json({ enabled: false });
+    }
+});
 
 // @route   POST /api/security/mfa/setup
-// @desc    Generate a new MFA secret + otpauth URL for the user.
-router.post('/mfa/setup', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+// @desc    Begin MFA enrollment. IDEMPOTENT: if a pending (not-yet-enabled)
+//          secret already exists for the user, return the SAME secret so the
+//          QR they scanned stays valid. Only generate a fresh secret when no
+//          row exists yet. Returns 400 if already enabled (disable first).
+router.post('/mfa/setup', mfaFlexibleAuth, async (req, res) => {
     try {
-        // Generate a base32-style secret (20 random bytes -> hex, chunked).
-        const secret = crypto.randomBytes(20).toString('hex').toUpperCase();
-        // "Encrypt" with a simple XOR-by-env-key for at-rest obfuscation.
-        // (Production would use a KMS/AES-GCM; this is the documented placeholder.)
-        const enc = Buffer.from(secret).toString('base64');
-        await db.query(
-            `INSERT INTO user_mfa (user_id, secret_encrypted, enabled) VALUES ($1,$2,FALSE)
-             ON CONFLICT (user_id) DO UPDATE SET secret_encrypted = EXCLUDED.secret_encrypted`,
-            [req.user.id, enc]);
+        const existing = await db.query('SELECT secret_encrypted, enabled FROM user_mfa WHERE user_id = $1', [req.user.id]);
+        if (existing.rows.length && existing.rows[0].enabled) {
+            return res.status(400).json({ error: '2FA is already enabled. Disable it first to re-enroll.' });
+        }
 
-        const issuer = 'THOZHIRPORUL';
-        const label = encodeURIComponent(`${issuer}:${req.user.email || req.user.name}`);
-        const otpauthUrl = `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&digits=6&period=30`;
+        // The stored secret is a Base32 string (RFC 4648) — the format all
+        // authenticator apps require. We persist it directly; no extra
+        // encoding layer (the column is text and Base32 is safe text).
+        let secret;
+        if (existing.rows.length && /^[A-Z2-7]+$/i.test(existing.rows[0].secret_encrypted)) {
+            // Reuse the pending Base32 secret so the already-scanned QR stays valid.
+            secret = existing.rows[0].secret_encrypted;
+        } else {
+            // First-time setup (or legacy non-Base32 secret) — generate a fresh one.
+            secret = totp.generateSecret();
+            await db.query(
+                `INSERT INTO user_mfa (user_id, secret_encrypted, enabled) VALUES ($1,$2,FALSE)
+                 ON CONFLICT (user_id) DO UPDATE SET secret_encrypted = EXCLUDED.secret_encrypted, enabled = FALSE`,
+                [req.user.id, secret]);
+        }
+
+        const accountLabel = req.user.email || req.user.name || 'user';
+        const otpauthUrl = totp.provisioningUri(secret, accountLabel);
         res.json({ secret, otpauth_url: otpauthUrl });
     } catch (err) {
         console.error('MFA Setup Error:', err.message);
@@ -146,25 +217,65 @@ router.post('/mfa/setup', requireRole(['admin', 'govt', 'industry']), async (req
 });
 
 // @route   POST /api/security/mfa/verify
-// @desc    Verify a 6-digit TOTP code and enable MFA. Generates backup codes.
-router.post('/mfa/verify', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+// @desc    Verify a 6-digit TOTP code and enable MFA.
+//          Rate-limited to 5 attempts per 5 minutes.
+router.post('/mfa/verify', mfaFlexibleAuth, async (req, res) => {
     try {
+        // Rate-limit check
+        const rl = checkMfaRateLimit(req.user.id);
+        if (rl.blocked) {
+            return res.status(429).json({ error: `Too many attempts. Try again in ${rl.retryAfterSec}s.` });
+        }
+
         const { code } = req.body;
         if (!code) return res.status(400).json({ error: 'code required' });
 
-        // Lightweight TOTP verification (RFC 6238) without an external dep:
-        // compute the expected code for the current 30s window ±1.
         const row = await db.query('SELECT secret_encrypted FROM user_mfa WHERE user_id=$1', [req.user.id]);
         if (!row.rows.length) return res.status(400).json({ error: 'Run MFA setup first.' });
-        const secret = Buffer.from(row.rows[0].secret_encrypted, 'base64').toString();
-        const valid = verifyTotp(secret, code);
-        if (!valid) return res.status(401).json({ error: 'Invalid verification code.' });
 
-        const backups = Array.from({ length: 8 }, () => crypto.randomBytes(4).toString('hex'));
+        // Stored secret is already a Base32 string (RFC 4648) — pass it
+        // directly to verifyTotp, which decodes Base32 internally.
+        const secret = row.rows[0].secret_encrypted;
+        const valid = totp.verifyTotp(secret, code);
+        if (!valid) return res.status(401).json({ error: 'Invalid verification code. Check your device clock and try again.' });
+
+        // Success — clear rate limiter + enable + generate backup codes.
+        _mfaAttempts.delete(req.user.id);
+        const backups = totp.generateBackupCodes();
         await db.query(
             'UPDATE user_mfa SET enabled=TRUE, enabled_at=NOW(), backup_codes=$1 WHERE user_id=$2',
             [backups, req.user.id]);
         await recordAudit(req.user.id, 'Enabled MFA', req.ip, { entityType: 'security', severity: 'warning' });
+
+        // If this came from a challenge token (forced setup on first login),
+        // issue the real session token so the admin is now logged in.
+        const authToken = req.header('x-auth-token');
+        let decoded;
+        try { decoded = jwtLib.verify(authToken, process.env.JWT_SECRET); } catch { decoded = null; }
+        if (decoded && decoded.mfa_challenge) {
+            // Fetch the user's role/name for the real token payload.
+            const u = await db.query(
+                `SELECT u.*, ip.id AS profile_id, ip.company_name
+                   FROM users u LEFT JOIN industry_profiles ip ON ip.user_id = u.id
+                  WHERE u.id = $1`, [req.user.id]);
+            if (u.rows.length) {
+                const user = u.rows[0];
+                const name = user.role === 'industry' ? user.company_name : 'Admin';
+                const realToken = jwtLib.sign(
+                    { user: { id: user.id, role: user.role, name } },
+                    process.env.JWT_SECRET, { expiresIn: '8h' }
+                );
+                return res.json({
+                    msg: 'MFA enabled',
+                    backup_codes: backups,
+                    token: realToken,
+                    role: user.role,
+                    name,
+                    email: user.email
+                });
+            }
+        }
+
         res.json({ msg: 'MFA enabled', backup_codes: backups });
     } catch (err) {
         console.error('MFA Verify Error:', err.message);
@@ -172,27 +283,32 @@ router.post('/mfa/verify', requireRole(['admin', 'govt', 'industry']), async (re
     }
 });
 
-// Minimal RFC-6238 TOTP (HMAC-SHA1, 30s, 6 digits). Accepts ±1 window.
-function verifyTotp(secret, code) {
-    const key = Buffer.from(secret, 'hex');
-    const t = Math.floor(Date.now() / 1000);
-    for (const step of [0, -1, 1]) {
-        const counter = Math.floor(t / 30) + step;
-        const buf = Buffer.alloc(8);
-        buf.writeBigUInt64BE(BigInt(counter));
-        const hmac = crypto.createHmac('sha1', key).update(buf).digest();
-        const offset = hmac[hmac.length - 1] & 0x0f;
-        const bin = ((hmac[offset] & 0x7f) << 24) | (hmac[offset+1] << 16) | (hmac[offset+2] << 8) | hmac[offset+3];
-        const token = String(bin % 1000000).padStart(6, '0');
-        if (token === String(code)) return true;
-    }
-    return false;
-}
-
 // @route   DELETE /api/security/mfa
-// @desc    Disable MFA (requires re-auth implied at client).
+// @desc    Disable MFA. BLOCKED for admins (2FA is mandatory). For
+//          govt/industry, requires a current code or backup code.
 router.delete('/mfa', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+    // 2FA is MANDATORY for admins — cannot be disabled, ever.
+    if (req.user.role === 'admin') {
+        return res.status(403).json({ error: '2FA is mandatory for admin accounts and cannot be disabled.' });
+    }
     try {
+        const { code, backupCode } = req.body || {};
+        const row = await db.query('SELECT secret_encrypted, backup_codes FROM user_mfa WHERE user_id=$1', [req.user.id]);
+        if (!row.rows.length || !row.rows[0].secret_encrypted) {
+            return res.status(400).json({ error: 'MFA not configured.' });
+        }
+        let authorized = false;
+        if (code) {
+            const secret = row.rows[0].secret_encrypted; // Base32, decoded inside verifyTotp
+            authorized = totp.verifyTotp(secret, code);
+        }
+        if (!authorized && backupCode) {
+            const stored = row.rows[0].backup_codes || [];
+            authorized = stored.includes(backupCode);
+        }
+        if (!authorized) {
+            return res.status(401).json({ error: 'A valid code or backup code is required to disable 2FA.' });
+        }
         await db.query('UPDATE user_mfa SET enabled=FALSE WHERE user_id=$1', [req.user.id]);
         await recordAudit(req.user.id, 'Disabled MFA', req.ip, { entityType: 'security', severity: 'warning' });
         res.json({ msg: 'MFA disabled' });

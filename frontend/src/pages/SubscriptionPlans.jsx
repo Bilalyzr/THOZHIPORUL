@@ -48,8 +48,8 @@ export default function SubscriptionPlans() {
       subtitle: 'Perfect for MSMEs',
       monthlyPrice: 'Free',
       annualPrice: 'Free',
-      badge: 'ESSENTIAL',
-      features: ['Basic Data Submission Forms', 'Overall Compliance Score', 'Standard NOC Pipeline', 'Email Notifications', 'Secure Vault (10 MB)', 'Community Support'],
+      badge: 'ALWAYS FREE',
+      features: ['Basic Data Submission Forms', 'Overall Compliance Score', 'Standard NOC Pipeline', 'Email Notifications', 'Secure Vault (10 MB)', 'Community Support', 'Statutory filing — never gated'],
       isPopular: false,
       color: '#64748B',
       gradient: 'linear-gradient(135deg, #64748B 0%, #475569 100%)',
@@ -88,7 +88,7 @@ export default function SubscriptionPlans() {
         label="Subscription Plans"
         title="Choose Your"
         titleHighlight="Perfect Plan"
-        subtitle="Select the perfect subscription for your industry. All plans include core compliance features with scalable options as you grow."
+        subtitle="Statutory compliance is always FREE — data submission, compliance score, and NOC tracking. Premium tiers unlock value-added analytics, automation, and storage as you grow."
         accentColor="#2E7D32"
         accentColor2="#1F4E79"
         bgImage="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&q=60&w=1600"

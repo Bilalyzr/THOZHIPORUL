@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, TextField, Button, Grid, Alert,
   Snackbar, Card, CardContent, Divider, List, ListItem,
@@ -31,6 +31,17 @@ export default function PublicGrievance() {
   const [submitted, setSubmitted] = useState(false);
   const [refId, setRefId] = useState('');
 
+  // Real-time grievance stats fetched from the public endpoint.
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    grievanceService.getPublicStats()
+      .then(res => { if (active) setStats(res.data); })
+      .catch(() => { /* stats are decorative — fail silently */ });
+    return () => { active = false; };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -49,10 +60,29 @@ export default function PublicGrievance() {
     }
   };
 
-  const stats = [
-    { label: 'Grievances Resolved', value: '4,850+', icon: <AssignmentTurnedIn sx={{ fontSize: 30 }} />, color: '#2E7D32' },
-    { label: 'Active Inquiries', value: '124', icon: <HourglassEmpty sx={{ fontSize: 30 }} />, color: '#1F4E79' },
-    { label: 'Avg. Response Time', value: '24 hrs', icon: <Speed sx={{ fontSize: 30 }} />, color: '#2E7D32' },
+  // Real-time stat cards. Numbers come from the DB; fallbacks render while
+  // the fetch is in-flight (or if it fails) so the cards never look empty.
+  const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
+  const avgHrs = stats ? Math.max(1, Math.round(stats.avg_response_hours)) : null;
+  const statCards = [
+    {
+      label: 'Grievances Resolved',
+      value: stats ? fmt(stats.resolved) : '—',
+      icon: <AssignmentTurnedIn sx={{ fontSize: 30 }} />,
+      color: '#2E7D32',
+    },
+    {
+      label: 'Active Inquiries',
+      value: stats ? fmt(stats.active) : '—',
+      icon: <HourglassEmpty sx={{ fontSize: 30 }} />,
+      color: '#1F4E79',
+    },
+    {
+      label: 'Avg. Response Time',
+      value: avgHrs ? `${avgHrs} hr${avgHrs !== 1 ? 's' : ''}` : '—',
+      icon: <Speed sx={{ fontSize: 30 }} />,
+      color: '#2E7D32',
+    },
   ];
 
   const faqs = [
@@ -81,7 +111,7 @@ export default function PublicGrievance() {
       <Box sx={{ bgcolor: '#f8fafc', pt: 0, pb: 0 }}>
         <Container maxWidth="lg">
           <Grid container spacing={3} sx={{ mt: { xs: -5, md: -8 }, position: 'relative', zIndex: 2, pb: 2 }}>
-            {stats.map((stat, i) => (
+            {statCards.map((stat, i) => (
               <Grid key={i} size={{ xs: 12, sm: 4 }}>
                 <Fade in timeout={300 + i * 120}>
                   <Paper

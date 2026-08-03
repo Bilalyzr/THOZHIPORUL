@@ -79,6 +79,7 @@ router.get('/compare', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const parkId = parseInt(req.params.id);
+        if (isNaN(parkId)) return res.status(400).json({ error: 'Invalid park id.' });
 
         const parkResult = await db.query('SELECT * FROM industrial_parks WHERE id = $1', [parkId]);
         if (parkResult.rows.length === 0) {

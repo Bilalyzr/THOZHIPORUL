@@ -220,19 +220,29 @@ router.get('/comparison', requireRole(['admin', 'govt']), async (req, res) => {
         async function totalFor(period) {
             const { year, quarter } = parsePeriod(period);
             if (!year) return 0;
-            const qFilter = quarter ? `AND UPPER(ds.period_quarter) = '${quarter}'` : '';
+            // Parameterize the quarter filter — never interpolate user-derived
+            // input into SQL, even though parsePeriod's regex constrains it.
+            // $1 = year, $2 = quarter (when present).
             if (metric === 'investment') {
-                const r = await db.query(
-                    `SELECT COALESCE(SUM(CASE WHEN f.investment_amount>=100000 THEN f.investment_amount/1e7 ELSE f.investment_amount END),0) AS v
-                       FROM data_submissions ds JOIN financial_data f ON f.submission_id=ds.id
-                      WHERE ds.period_year=$1 ${qFilter}`, [year]);
+                const sql = quarter
+                    ? `SELECT COALESCE(SUM(CASE WHEN f.investment_amount>=100000 THEN f.investment_amount/1e7 ELSE f.investment_amount END),0) AS v
+                         FROM data_submissions ds JOIN financial_data f ON f.submission_id=ds.id
+                        WHERE ds.period_year=$1 AND UPPER(ds.period_quarter)=$2`
+                    : `SELECT COALESCE(SUM(CASE WHEN f.investment_amount>=100000 THEN f.investment_amount/1e7 ELSE f.investment_amount END),0) AS v
+                         FROM data_submissions ds JOIN financial_data f ON f.submission_id=ds.id
+                        WHERE ds.period_year=$1`;
+                const r = await db.query(sql, quarter ? [year, quarter] : [year]);
                 return parseFloat(r.rows[0].v) || 0;
             }
             if (metric === 'employment') {
-                const r = await db.query(
-                    `SELECT COALESCE(SUM(COALESCE(e.permanent_employees,0)+COALESCE(e.contract_employees,0)),0) AS v
-                       FROM data_submissions ds JOIN employment_data e ON e.submission_id=ds.id
-                      WHERE ds.period_year=$1 ${qFilter}`, [year]);
+                const sql = quarter
+                    ? `SELECT COALESCE(SUM(COALESCE(e.permanent_employees,0)+COALESCE(e.contract_employees,0)),0) AS v
+                         FROM data_submissions ds JOIN employment_data e ON e.submission_id=ds.id
+                        WHERE ds.period_year=$1 AND UPPER(ds.period_quarter)=$2`
+                    : `SELECT COALESCE(SUM(COALESCE(e.permanent_employees,0)+COALESCE(e.contract_employees,0)),0) AS v
+                         FROM data_submissions ds JOIN employment_data e ON e.submission_id=ds.id
+                        WHERE ds.period_year=$1`;
+                const r = await db.query(sql, quarter ? [year, quarter] : [year]);
                 return parseInt(r.rows[0].v) || 0;
             }
             // compliance: avg score in that year

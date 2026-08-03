@@ -29,68 +29,72 @@ router.post('/', requireRole(['industry']), async (req, res) => {
 
     const industry_id = req.user.profile_id || 101;
 
+    // Use a single pooled client so BEGIN/INSERT/COMMIT form a real
+    // transaction (db.query() checks out a NEW client each call, which
+    // would break the transaction boundary and leave partial rows).
+    const client = await db.pool.connect();
     try {
-        await db.query('BEGIN');
-        
+        await client.query('BEGIN');
+
         // 1. Create Submission Master Record
-        // Using ON CONFLICT to allow updates to a Draft or updating an existing submission
-        // But for simplicity, let's assume it's an UPSERT or just INSERT
-        const subRes = await db.query(
-            `INSERT INTO data_submissions (industry_id, period_year, period_quarter, status, submitted_at) 
-             VALUES ($1, $2, $3, $4, NOW()) 
-             ON CONFLICT (industry_id, period_year, period_quarter) 
+        const subRes = await client.query(
+            `INSERT INTO data_submissions (industry_id, period_year, period_quarter, status, submitted_at)
+             VALUES ($1, $2, $3, $4, NOW())
+             ON CONFLICT (industry_id, period_year, period_quarter)
              DO UPDATE SET status = EXCLUDED.status, submitted_at = NOW()
              RETURNING id`,
             [industry_id, periodYear, periodQuarter, 'Submitted']
         );
         const subId = subRes.rows[0].id;
-        
+
         // 2. Insert/Update Sub-tables
-        await db.query(
-            `INSERT INTO financial_data (submission_id, investment_amount, annual_turnover, export_revenue, rd_expenditure) 
+        await client.query(
+            `INSERT INTO financial_data (submission_id, investment_amount, annual_turnover, export_revenue, rd_expenditure)
              VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (submission_id) DO UPDATE SET 
-             investment_amount = EXCLUDED.investment_amount, annual_turnover = EXCLUDED.annual_turnover, 
+             ON CONFLICT (submission_id) DO UPDATE SET
+             investment_amount = EXCLUDED.investment_amount, annual_turnover = EXCLUDED.annual_turnover,
              export_revenue = EXCLUDED.export_revenue, rd_expenditure = EXCLUDED.rd_expenditure`,
             [subId, investmentAmount || 0, annualTurnover || 0, exportRevenue || 0, rdExpenditure || 0]
         );
-        
-        await db.query(
-            `INSERT INTO employment_data (submission_id, permanent_employees, contract_employees, sc_st_employees, women_employees) 
+
+        await client.query(
+            `INSERT INTO employment_data (submission_id, permanent_employees, contract_employees, sc_st_employees, women_employees)
              VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (submission_id) DO UPDATE SET 
-             permanent_employees = EXCLUDED.permanent_employees, contract_employees = EXCLUDED.contract_employees, 
+             ON CONFLICT (submission_id) DO UPDATE SET
+             permanent_employees = EXCLUDED.permanent_employees, contract_employees = EXCLUDED.contract_employees,
              sc_st_employees = EXCLUDED.sc_st_employees, women_employees = EXCLUDED.women_employees`,
             [subId, permanentEmployees || 0, contractEmployees || 0, scStEmployees || 0, womenEmployees || 0]
         );
 
-        await db.query(
-            `INSERT INTO resource_usage (submission_id, water_consumption, power_usage, waste_generated, waste_recycled_pct) 
+        await client.query(
+            `INSERT INTO resource_usage (submission_id, water_consumption, power_usage, waste_generated, waste_recycled_pct)
              VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (submission_id) DO UPDATE SET 
-             water_consumption = EXCLUDED.water_consumption, power_usage = EXCLUDED.power_usage, 
+             ON CONFLICT (submission_id) DO UPDATE SET
+             water_consumption = EXCLUDED.water_consumption, power_usage = EXCLUDED.power_usage,
              waste_generated = EXCLUDED.waste_generated, waste_recycled_pct = EXCLUDED.waste_recycled_pct`,
             [subId, waterConsumption || 0, powerUsage || 0, wasteGenerated || 0, wasteRecycledPct || 0]
         );
-        
+
         if (csrActivities || csrSpent) {
-            await db.query(
-                `INSERT INTO csr_activities (submission_id, description, amount_spent, beneficiary_count) 
+            await client.query(
+                `INSERT INTO csr_activities (submission_id, description, amount_spent, beneficiary_count)
                  VALUES ($1, $2, $3, $4)
-                 ON CONFLICT (submission_id) DO UPDATE SET 
+                 ON CONFLICT (submission_id) DO UPDATE SET
                  description = EXCLUDED.description, amount_spent = EXCLUDED.amount_spent, beneficiary_count = EXCLUDED.beneficiary_count`,
                 [subId, csrActivities || '', csrSpent || 0, csrBeneficiaries || 0]
             );
         }
 
-        await db.query('COMMIT');
+        await client.query('COMMIT');
 
         console.log(`[DB] Industry ID ${industry_id} submitted Data for ${periodYear} Q${periodQuarter}`);
         res.status(201).json({ msg: 'Industrial Data Successfully Submitted and Validated!' });
     } catch (err) {
-        await db.query('ROLLBACK');
+        try { await client.query('ROLLBACK'); } catch (_) { /* already rolled back or client lost */ }
         console.error("Data Submission Database Transaction Error:", err);
         res.status(500).send('Server Error during Submission Transaction.');
+    } finally {
+        client.release();
     }
 });
 
@@ -215,6 +219,23 @@ router.put('/:id/status', requireRole(['admin', 'govt']), async (req, res) => {
     }
 
     try {
+        // T2.2 — Block approval if there are open filing-deficiency queries.
+        if (status === 'Approved') {
+            try {
+                const openQ = await db.query(
+                    `SELECT COUNT(*)::int AS n FROM submission_queries
+                      WHERE submission_id = $1 AND status IN ('open','responded')`,
+                    [submissionId]
+                );
+                if (openQ.rows.length && openQ.rows[0].n > 0) {
+                    return res.status(409).json({
+                        error: `Cannot approve: ${openQ.rows[0].n} open filing-deficiency query/queries must be resolved first.`,
+                        code: 'OPEN_QUERIES_BLOCK_APPROVAL'
+                    });
+                }
+            } catch (_) { /* submission_queries table may be absent pre-v5 — allow */ }
+        }
+
         const updateQuery = `
             UPDATE data_submissions
             SET status = $1, approved_by = $2
