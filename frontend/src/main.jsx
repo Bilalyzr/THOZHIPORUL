@@ -42,6 +42,7 @@ const ReportsDashboard = lazy(() => import('./pages/ReportsDashboard'));
 const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const IndustryProfile = lazy(() => import('./pages/IndustryProfile'));
+const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 // Industrial OS v2 Pages
@@ -84,8 +85,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/reports" element={<ReportsDashboard />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />
               <Route path="/user-management" element={<UserManagement />} />
-              <Route path="/industry-profile" element={<IndustryProfile />} />
-              <Route path="/profile" element={<IndustryProfile />} />
+              <Route path="/industry-profile" element={<Profile />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
 
               {/* Industrial OS v2 Routes */}

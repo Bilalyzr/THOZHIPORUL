@@ -4,7 +4,8 @@ import {
   AppBar, Box, CssBaseline, Drawer, IconButton,
   List, ListItem, ListItemButton, ListItemIcon,
   ListItemText, Toolbar, Typography, Avatar, Badge,
-  Menu, MenuItem, Tooltip, Collapse, Button
+  Menu, MenuItem, Tooltip, Collapse, Button, Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Divider
 } from '@mui/material';
 import { notificationService, authService } from '../services/api';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -38,6 +39,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import AccessibilityNew from '@mui/icons-material/AccessibilityNew';
 import LanguageIcon from '@mui/icons-material/Language';
 import { useLanguage } from '../context/useLanguage';
+import { useSubscription } from '../hooks/useSubscription';
 
 const drawerWidth = 280;
 const miniDrawerWidth = 80;
@@ -73,8 +75,15 @@ function MainLayout() {
   const [notifAnchorEl, setNotifAnchorEl] = useState(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
+  // Read-notification tracking (client-side — notifications are dynamic).
+  const [readNotifIds, setReadNotifIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('readNotifIds') || '[]')); }
+    catch { return new Set(); }
+  });
+  const [selectedNotif, setSelectedNotif] = useState(null); // for detail dialog
   const navigate = useNavigate();
   const { lang, setLang } = useLanguage();
+  const { tier, displayName, color } = useSubscription();
 
   const token = localStorage.getItem('token');
   const userRole = localStorage.getItem('role') || 'admin';
@@ -121,6 +130,25 @@ function MainLayout() {
   const handleNotifClose = () => {
     setNotifAnchorEl(null);
   };
+
+  // Mark all notifications as read (stored locally — the notifications are
+  // computed dynamically from DB state, so read-status is client-tracked).
+  const handleMarkAllRead = () => {
+    const allIds = notifications.map(n => n.id);
+    const newSet = new Set([...readNotifIds, ...allIds]);
+    setReadNotifIds(newSet);
+    localStorage.setItem('readNotifIds', JSON.stringify([...newSet]));
+  };
+
+  const handleMarkOneRead = (id) => {
+    const newSet = new Set(readNotifIds);
+    newSet.add(id);
+    setReadNotifIds(newSet);
+    localStorage.setItem('readNotifIds', JSON.stringify([...newSet]));
+  };
+
+  // Unread count = notifications whose id isn't in the read set.
+  const unreadCount = notifications.filter(n => !readNotifIds.has(n.id)).length;
 
   const handleProfileClick = (event) => {
     setProfileAnchorEl(event.currentTarget);
@@ -481,6 +509,7 @@ function MainLayout() {
               </Tooltip>
               <Tooltip title="Accessibility Options" arrow>
                 <IconButton
+                  className="acc-safe"
                   size="large"
                   aria-label="open accessibility panel"
                   onClick={() => window.dispatchEvent(new Event('open-accessibility-panel'))}
@@ -501,8 +530,9 @@ function MainLayout() {
                   '&:hover': { bgcolor: `${theme.primary}15` },
                 }}
               >
-                <Badge badgeContent={notifications.length} max={99} sx={{ '& .MuiBadge-badge': { bgcolor: theme.primary } }}>
-                  {notifications.length > 0 ? <NotificationsActiveIcon sx={{ color: theme.primary }} /> : <NotificationsIcon />}
+                <Badge badgeContent={unreadCount} max={99} color="error"
+                  sx={{ '& .MuiBadge-badge': { bgcolor: unreadCount > 0 ? theme.primary : 'transparent' } }}>
+                  {unreadCount > 0 ? <NotificationsActiveIcon sx={{ color: theme.primary }} /> : <NotificationsIcon sx={{ color: 'text.secondary' }} />}
                 </Badge>
               </IconButton>
               <Menu
@@ -516,17 +546,34 @@ function MainLayout() {
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                 sx={{ zIndex: 1400 }}
               >
-                <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: `${theme.primary}08` }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: theme.primary }}>Notifications</Typography>
+                <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: `${theme.primary}08`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: theme.primary }}>Notifications {unreadCount > 0 && `(${unreadCount})`}</Typography>
+                  {unreadCount > 0 && (
+                    <Button size="small" onClick={handleMarkAllRead} sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 600, color: theme.primary, minWidth: 'auto', p: 0.5 }}>
+                      Mark all read
+                    </Button>
+                  )}
                 </Box>
-                {notifications.length > 0 ? notifications.map(n => (
-                  <MenuItem key={n.id} onClick={handleNotifClose} sx={{ whiteSpace: 'normal', py: 1.5, borderBottom: '1px solid #eee' }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: n.severity === 'error' ? 700 : 500 }}>{n.message}</Typography>
-                      <Typography variant="caption" color="text.secondary">{n.time}</Typography>
-                    </Box>
-                  </MenuItem>
-                )) : <MenuItem disabled><Typography variant="body2" color="text.secondary">No new notifications</Typography></MenuItem>}
+                {notifications.length > 0 ? notifications.map(n => {
+                  const isUnread = !readNotifIds.has(n.id);
+                  return (
+                    <MenuItem key={n.id}
+                      onClick={() => { setSelectedNotif(n); handleMarkOneRead(n.id); }}
+                      sx={{ whiteSpace: 'normal', py: 1.5, borderBottom: '1px solid #f1f5f9', bgcolor: isUnread ? `${theme.primary}04` : 'transparent', position: 'relative', cursor: 'pointer' }}>
+                      <Box sx={{ flex: 1, pr: isUnread ? 3 : 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: n.severity === 'error' ? 700 : (isUnread ? 600 : 400), color: isUnread ? 'text.primary' : 'text.secondary' }}>{n.message}</Typography>
+                        <Typography variant="caption" color="text.secondary">{n.time}</Typography>
+                      </Box>
+                      {isUnread && (
+                        <Box onClick={(e) => { e.stopPropagation(); handleMarkOneRead(n.id); }} sx={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}>
+                          <Tooltip title="Mark as read">
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: theme.primary, '&:hover': { transform: 'scale(1.3)' }, transition: 'all 0.2s ease' }} />
+                          </Tooltip>
+                        </Box>
+                      )}
+                    </MenuItem>
+                  );
+                }) : <MenuItem disabled><Typography variant="body2" color="text.secondary">No new notifications</Typography></MenuItem>}
               </Menu>
 
               <Tooltip title="Profile" arrow>
@@ -557,9 +604,26 @@ function MainLayout() {
                 sx={{ zIndex: 1400 }}
               >
                 <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{userName}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{userName}</Typography>
+                    {tier && tier !== 'internal' && displayName && (
+                      <Chip
+                        label={displayName}
+                        size="small"
+                        sx={{
+                          height: 18, fontSize: '0.65rem', fontWeight: 700,
+                          bgcolor: (color || '#64748b') + '18',
+                          color: color || '#64748b',
+                        }}
+                      />
+                    )}
+                  </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>{userRole} Account</Typography>
                 </Box>
+                <MenuItem onClick={() => { handleProfileClose(); navigate('/profile'); }}>
+                  <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>My Profile</ListItemText>
+                </MenuItem>
                 <MenuItem onClick={() => { handleProfileClose(); navigate('/settings'); }}>
                   <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>Settings</ListItemText>
@@ -637,6 +701,81 @@ function MainLayout() {
           </Box>
         </Box>
       </Box>
+
+      {/* ── Notification Detail Dialog ── */}
+      <Dialog
+        open={Boolean(selectedNotif)}
+        onClose={() => setSelectedNotif(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        {selectedNotif && (
+          <>
+            <DialogTitle sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5,
+              bgcolor: selectedNotif.severity === 'error' ? '#fef2f2'
+                     : selectedNotif.severity === 'warning' ? '#fffbeb'
+                     : `${theme.primary}08`,
+              borderBottom: '1px solid', borderColor: 'divider',
+            }}>
+              <Box sx={{
+                width: 32, height: 32, borderRadius: '8px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                bgcolor: selectedNotif.severity === 'error' ? '#fee2e2'
+                       : selectedNotif.severity === 'warning' ? '#fef3c7'
+                       : `${theme.primary}15`,
+                color: selectedNotif.severity === 'error' ? '#dc2626'
+                     : selectedNotif.severity === 'warning' ? '#d97706'
+                     : theme.primary,
+                fontSize: 16, fontWeight: 700,
+              }}>
+                {selectedNotif.type === 'compliance' ? '⚠' : selectedNotif.type === 'submission' ? '📋' : selectedNotif.type === 'service' ? '🔧' : '🔔'}
+              </Box>
+              <Typography variant="subtitle1" fontWeight={700}>
+                {selectedNotif.title || 'Notification'}
+              </Typography>
+            </DialogTitle>
+            <DialogContent sx={{ py: 3 }}>
+              <Typography variant="body1" sx={{ lineHeight: 1.7, color: 'text.primary', mb: 2 }}>
+                {selectedNotif.message}
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                {selectedNotif.company_name && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>Company</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedNotif.company_name}</Typography>
+                  </Box>
+                )}
+                {selectedNotif.severity && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>Severity</Typography>
+                    <Chip label={selectedNotif.severity} size="small"
+                      sx={{
+                        fontWeight: 700, fontSize: '0.7rem',
+                        bgcolor: selectedNotif.severity === 'error' ? '#fee2e2' : selectedNotif.severity === 'warning' ? '#fef3c7' : '#e0f2fe',
+                        color: selectedNotif.severity === 'error' ? '#dc2626' : selectedNotif.severity === 'warning' ? '#d97706' : '#0284c7',
+                      }} />
+                  </Box>
+                )}
+                {selectedNotif.time && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>Time</Typography>
+                    <Typography variant="body2">{selectedNotif.time}</Typography>
+                  </Box>
+                )}
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Button onClick={() => setSelectedNotif(null)} variant="contained" size="small"
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}>
+                Close
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </>
   );
 }

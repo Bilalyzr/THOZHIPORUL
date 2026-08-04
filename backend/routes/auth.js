@@ -367,7 +367,9 @@ router.post('/impersonate/:industryId', requireRole(['admin']), async (req, res)
                 impersonated_by: req.user.id  // ← the audit flag
             }
         };
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
+        // Impersonation tokens expire in 1 HOUR (shorter than the normal 8h
+        // session) to limit the blast radius if an admin session is compromised.
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 
         // Audit the impersonation start.
         db.query(

@@ -1,0 +1,47 @@
+# ============================================================
+# Caddyfile — reverse proxy for THOZHIRPORUL.
+#
+# FOR LOCAL TESTING: uses :80 (HTTP, no SSL).
+# FOR PRODUCTION: replace the `:80` line below with your real domain
+#   (e.g. `thozhirporul.tn.gov.in {`) and Caddy will auto-provision
+#   Let's Encrypt SSL certificates.
+#
+# Traffic flow:
+#   http://localhost/        → frontend (nginx, serves React build)
+#   http://localhost/api/*   → backend (Node.js on port 5001)
+# ============================================================
+
+# ─── LOCAL TESTING (HTTP, no SSL) ───
+# For production, replace `:80` with your domain: thozhirporul.tn.gov.in {
+:80 {
+	# API requests → backend container
+	handle /api/* {
+		reverse_proxy backend:5001 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# Everything else → frontend container (React SPA)
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	# Security headers
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Compress responses
+	encode gzip zstd
+
+	# Access logs
+	log {
+		output stdout
+		format json
+	}
+}
+

@@ -40,15 +40,20 @@ html.acc-dyslexic * {
   line-height: 1.7 !important;
 }
 
-/* 7. Saturation (Grayscale) — desaturate the whole page. The panel
-   is excluded via .acc-safe so toggle colours remain visible. */
-html.acc-grayscale body:not(.acc-safe),
-html.acc-grayscale body:not(.acc-safe) * {
+/* 7. Saturation (Grayscale) — desaturate page content. Elements marked
+   .acc-safe (the panel + its trigger button) are double-saturated to
+   restore their colour, since you can't opt a descendant out of an
+   ancestor filter. */
+html.acc-grayscale {
   filter: grayscale(100%) !important;
+}
+html.acc-grayscale .acc-safe,
+html.acc-grayscale .acc-safe * {
+  filter: grayscale(0%) !important;
 }
 
 /* 8. High Contrast — yellow-on-black for WCAG-level contrast. Applied
-   only to page content, NOT the accessibility panel. */
+   to page content only; .acc-safe elements keep their normal colours. */
 html.acc-contrast-dark body:not(.acc-safe),
 html.acc-contrast-dark body:not(.acc-safe) *:not(.acc-safe) {
   background-color: #000000 !important;
@@ -58,9 +63,11 @@ html.acc-contrast-dark body:not(.acc-safe) *:not(.acc-safe) {
   text-shadow: none !important;
 }
 
-/* 9. Invert Colors — invert the page, then double-invert media + the
-   accessibility panel so they render naturally. */
-html.acc-invert body:not(.acc-safe) {
+/* 9. Invert Colors — invert the whole page, then DOUBLE-invert media and
+   any element marked .acc-safe (the accessibility panel + trigger button)
+   so they render in their natural colours. A descendant cannot opt out of
+   an ancestor's invert() filter — it must be inverted again to cancel out. */
+html.acc-invert {
   filter: invert(100%) !important;
 }
 html.acc-invert img,
@@ -68,7 +75,9 @@ html.acc-invert video,
 html.acc-invert iframe,
 html.acc-invert .leaflet-container,
 html.acc-invert .MuiAvatar-root,
-html.acc-invert .MuiSvgIcon-root {
+html.acc-invert .MuiSvgIcon-root,
+html.acc-invert .acc-safe,
+html.acc-invert .acc-safe * {
   filter: invert(100%) !important;
 }
 

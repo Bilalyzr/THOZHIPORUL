@@ -13,9 +13,11 @@ const { requireRole } = require('./auth');
 // counts, industry counts) it is queried live.
 //
 // Access is guarded by the platform's normal role auth (admin/govt).
-// A demonstration API key is still surfaced by /key-info for the UI.
+// The API key MUST be provided via the SIPCOT_API_KEY env var — there is
+// no hardcoded fallback, so a missing key never silently runs on a
+// known/shared secret. The /key-info endpoint returns a 503 if unset.
 // ─────────────────────────────────────────────────
-const SIPCOT_API_KEY = process.env.SIPCOT_API_KEY || 'SIPCOT-SIMS-2026-a4f8e2d1-b7c3-49e5-9612-3f8a1d0e7b5c';
+const SIPCOT_API_KEY = process.env.SIPCOT_API_KEY || null;
 
 // ─────────────────────────────────────────────────
 // Sample: SIPCOT Authority's verified submissions
@@ -127,6 +129,9 @@ router.get('/verified-submissions', requireRole(['admin', 'govt']), (req, res) =
 // Shows info about the demonstration API key (for admin panel display)
 // ─────────────────────────────────────────────────
 router.get('/key-info', requireRole(['admin', 'govt']), (req, res) => {
+  if (!SIPCOT_API_KEY) {
+    return res.status(503).json({ error: 'SIPCOT_API_KEY not configured.' });
+  }
   res.json({
     success: true,
     simulated: true,

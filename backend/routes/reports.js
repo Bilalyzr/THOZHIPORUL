@@ -161,9 +161,11 @@ router.post('/generate', requireRole(['admin', 'govt']), async (req, res) => {
 // ------------------------------------------------------------
 function parsePeriod(p) {
     if (!p) return {};
-    const m = String(p).match(/^(\d{4})(?:[-/](Q[1-4]|S[12]))?$/i);
+    const m = String(p).match(/^(\d{4})(?:[-/](Q([1-4])|S([12]))?)?$/i);
     if (!m) return {};
-    return { year: parseInt(m[1]), quarter: m[2] ? m[2].toUpperCase() : null };
+    // period_quarter is an INTEGER in the DB — extract the digit, not "Q1".
+    const quarter = m[3] ? parseInt(m[3]) : (m[4] ? parseInt(m[4]) : null);
+    return { year: parseInt(m[1]), quarter };
 }
 
 // ============================================================
@@ -227,7 +229,7 @@ router.get('/comparison', requireRole(['admin', 'govt']), async (req, res) => {
                 const sql = quarter
                     ? `SELECT COALESCE(SUM(CASE WHEN f.investment_amount>=100000 THEN f.investment_amount/1e7 ELSE f.investment_amount END),0) AS v
                          FROM data_submissions ds JOIN financial_data f ON f.submission_id=ds.id
-                        WHERE ds.period_year=$1 AND UPPER(ds.period_quarter)=$2`
+                        WHERE ds.period_year=$1 AND ds.period_quarter=$2`
                     : `SELECT COALESCE(SUM(CASE WHEN f.investment_amount>=100000 THEN f.investment_amount/1e7 ELSE f.investment_amount END),0) AS v
                          FROM data_submissions ds JOIN financial_data f ON f.submission_id=ds.id
                         WHERE ds.period_year=$1`;
@@ -238,7 +240,7 @@ router.get('/comparison', requireRole(['admin', 'govt']), async (req, res) => {
                 const sql = quarter
                     ? `SELECT COALESCE(SUM(COALESCE(e.permanent_employees,0)+COALESCE(e.contract_employees,0)),0) AS v
                          FROM data_submissions ds JOIN employment_data e ON e.submission_id=ds.id
-                        WHERE ds.period_year=$1 AND UPPER(ds.period_quarter)=$2`
+                        WHERE ds.period_year=$1 AND ds.period_quarter=$2`
                     : `SELECT COALESCE(SUM(COALESCE(e.permanent_employees,0)+COALESCE(e.contract_employees,0)),0) AS v
                          FROM data_submissions ds JOIN employment_data e ON e.submission_id=ds.id
                         WHERE ds.period_year=$1`;

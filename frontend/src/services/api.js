@@ -168,6 +168,11 @@ export const paymentsService = {
   verifyPayment: (data) => api.post('/payments/verify', data),
 };
 
+// Subscription tier state (used by useSubscription hook + GatedFeature)
+export const subscriptionService = {
+  getMe: () => api.get('/subscriptions/me'),
+};
+
 export const grievanceService = {
   getAll: () => api.get('/grievances'),
   create: (data) => api.post('/grievances', data),
@@ -227,6 +232,7 @@ export const accountService = {
   updateProfile: (data) => api.put('/account/profile', data),
   getSettings: () => api.get('/account/settings'),
   updateSettings: (data) => api.put('/account/settings', data),
+  changePassword: (data) => api.put('/account/password', data),
 };
 
 // Research-grounded Tier 1 (committed-vs-actual, CSR, GST, quotas)

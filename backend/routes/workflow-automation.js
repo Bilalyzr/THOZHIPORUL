@@ -625,8 +625,11 @@ router.put('/definitions/:id', requireRole(['admin']), async (req, res) => {
                 action_json     = COALESCE($5::jsonb, action_json),
                 is_active       = COALESCE($6, is_active)
               WHERE id = $7 RETURNING *`,
-            [name, description, conditions ? JSON.stringify(conditions) : null,
-             actions ? JSON.stringify(actions) : null, isActive, req.params.id]
+            [name, description,
+             triggerConfig ? JSON.stringify(triggerConfig) : null,
+             conditions ? JSON.stringify(conditions) : null,
+             actions ? JSON.stringify(actions) : null,
+             isActive, req.params.id]
         );
         if (!upd.rows.length) return res.status(404).json({ error: 'Workflow not found' });
         res.json(upd.rows[0]);

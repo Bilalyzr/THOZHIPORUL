@@ -147,6 +147,7 @@ export default function UnifiedNav({ transparent = false }) {
                 );
               })}
               <IconButton
+                className="acc-safe"
                 onClick={() => window.dispatchEvent(new Event('open-accessibility-panel'))}
                 sx={{
                   ml: 1,

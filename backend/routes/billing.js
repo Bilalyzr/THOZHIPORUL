@@ -20,11 +20,20 @@ const { notify } = require('../services/notify');
 
 const GST_RATE = 0.18; // 18% GST on SaaS
 
-// Plan catalog (mirrors subscription_tier_design.md).
+// Plan catalog. Keys are the CANONICAL tier vocabulary
+// (free_starter / sme_pro / enterprise_suite) used everywhere else in the
+// system — the DB column default, the tier_feature_access matrix, and
+// payments.js. The legacy 'basic'/'pro'/'enterprise' aliases are kept so
+// any existing subscription_subscriptions rows or admin calls still work.
+// Prices are the ANNUAL equivalents (used for GST invoice generation).
 const PLANS = {
-    basic:     { name: 'Basic',      price: 12000,  gst: 12000 * GST_RATE },
-    pro:       { name: 'Pro',        price: 36000,  gst: 36000 * GST_RATE },
-    enterprise:{ name: 'Enterprise', price: 120000, gst: 120000 * GST_RATE }
+    free_starter:     { name: 'Free Starter',     price: 0,      gst: 0,                      alias: 'basic' },
+    sme_pro:          { name: 'SME Professional', price: 36000,  gst: 36000 * GST_RATE,       alias: 'pro' },
+    enterprise_suite: { name: 'Enterprise Suite', price: 120000, gst: 120000 * GST_RATE,      alias: 'enterprise' },
+    // Legacy aliases (map old keys → canonical plan)
+    basic:            { name: 'Free Starter',     price: 0,      gst: 0,                      alias: 'free_starter' },
+    pro:              { name: 'SME Professional', price: 36000,  gst: 36000 * GST_RATE,       alias: 'sme_pro' },
+    enterprise:       { name: 'Enterprise Suite', price: 120000, gst: 120000 * GST_RATE,      alias: 'enterprise_suite' },
 };
 
 function financialYear(date = new Date()) {

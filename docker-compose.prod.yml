@@ -1,26 +1,65 @@
+# ============================================================
+# docker-compose.prod.yml — Production stack for THOZHIRPORUL.
+#
+# Architecture: Caddy (auto-SSL) → frontend (nginx) + backend (node)
+#                + Postgres (internal only).
+#
+# Usage:
+#   1. Copy .env.prod.example → .env.prod and fill in your secrets.
+#   2. Edit Caddyfile → replace thozhirporul.tn.gov.in with your domain.
+#   3. docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Caddy auto-provisions Let's Encrypt certs on first boot (needs ports
+# 80+443 reachable from the internet).
+# ============================================================
+
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: sims_db_prod
+  # ─── Reverse proxy + auto-SSL ───
+  caddy:
+    image: caddy:2-alpine
+    container_name: sipcot_caddy
     restart: always
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5435:5432"
+      - "80:80"
+      - "443:443"
     volumes:
-      - db_data_prod:/var/lib/postgresql/data
-      - ./backend/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
-      - ./backend/schema_v2.sql:/docker-entrypoint-initdb.d/2-schema_v2.sql
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - sipcot_net
 
+  # ─── Frontend (nginx serving the built React app) ───
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Same-origin /api — Caddy proxies /api to the backend.
+        - VITE_API_URL=/api
+    container_name: sipcot_frontend
+    restart: always
+    networks:
+      - sipcot_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ─── Backend (Node.js API) ───
   backend:
     build: ./backend
-    container_name: sims_backend_prod
+    container_name: sipcot_backend
     restart: always
     environment:
+      - NODE_ENV=production
       - PORT=5001
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -28,17 +67,62 @@ services:
       - DB_HOST=db
       - DB_PORT=5432
       - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - ENABLE_DEMO_LOGIN=false
+      # Optional integrations (unset = feature disabled cleanly):
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      - SIPCOT_API_KEY=${SIPCOT_API_KEY:-}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - sipcot_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - uploads_data:/app/uploads
 
-  frontend:
-    build: ./frontend
-    container_name: sims_frontend_prod
+  # ─── Database (Postgres) — internal only, NO host port exposed ───
+  db:
+    image: postgres:15-alpine
+    container_name: sipcot_db
     restart: always
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    # NOTE: No `ports:` mapping — the DB is NOT reachable from the host.
+    # Only the backend container can reach it via the internal network.
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # ALL schema files applied in order on first boot (fresh DB):
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/schema_v2.sql:/docker-entrypoint-initdb.d/02-schema_v2.sql:ro
+      - ./backend/schema_v3_enhancements.sql:/docker-entrypoint-initdb.d/03-schema_v3.sql:ro
+      - ./backend/schema_v4_research.sql:/docker-entrypoint-initdb.d/04-schema_v4.sql:ro
+      - ./backend/schema_v4b_realtenants.sql:/docker-entrypoint-initdb.d/05-schema_v4b.sql:ro
+      - ./backend/schema_v5_tier2.sql:/docker-entrypoint-initdb.d/06-schema_v5.sql:ro
+      - ./backend/schema_v6_tier3.sql:/docker-entrypoint-initdb.d/07-schema_v6.sql:ro
+    networks:
+      - sipcot_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
-  db_data_prod:
+  db_data:
+  uploads_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  sipcot_net:
+    driver: bridge

@@ -99,7 +99,8 @@ router.post('/', requireRole(['industry']), async (req, res) => {
             return res.status(400).json({ error: 'Invalid data format for a field' });
         }
 
-        res.status(500).json({ error: err.message || 'Failed to submit service request. Please try again.' });
+        console.error('Service Request Error:', err.message);
+        res.status(500).json({ error: 'Failed to submit service request. Please try again.' });
     }
 });
 

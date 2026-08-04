@@ -25,10 +25,24 @@ const storage = multer.diskStorage({
         cb(null, `${Date.now()}-${safeName}`);
     }
 });
+// Allowed document file types for the Secure Vault. Blocks executables,
+// scripts, and HTML (stored-XSS vectors). Extensions are checked
+// case-insensitively after extracting the real extension from the filename.
+const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.csv'];
+
+const fileFilter = (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ALLOWED_EXTENSIONS.includes(ext)) {
+        return cb(null, true);
+    }
+    return cb(new Error(`File type "${ext}" is not allowed. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`));
+};
+
 // 25 MB hard cap — matches the frontend's tier-quota enforcement.
 const upload = multer({
     storage,
-    limits: { fileSize: 25 * 1024 * 1024 }
+    limits: { fileSize: 25 * 1024 * 1024 },
+    fileFilter,
 });
 
 // @route   GET /api/workspace/overview

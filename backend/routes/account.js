@@ -195,4 +195,43 @@ router.put('/settings', requireRole(['admin', 'govt', 'industry']), async (req, 
     res.json({ msg: 'Settings saved successfully', saved });
 });
 
+// ============================================================
+// PASSWORD — change (current → new)
+// ============================================================
+router.put('/password', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Current and new passwords are required.' });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+        }
+        const bcrypt = require('bcrypt');
+        const u = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+        if (!u.rows.length) return res.status(404).json({ error: 'User not found.' });
+
+        // Verify current password (handle demo hash gracefully).
+        const hash = u.rows[0].password_hash;
+        let isMatch = false;
+        if (hash === '$demo$') {
+            isMatch = true; // demo accounts accept any current password
+        } else {
+            isMatch = await bcrypt.compare(currentPassword, hash);
+        }
+        if (!isMatch) return res.status(401).json({ error: 'Current password is incorrect.' });
+
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.user.id]);
+        try {
+            await db.query('INSERT INTO audit_logs (user_id, action, severity) VALUES ($1, $2, $3)',
+                [req.user.id, 'Changed account password', 'warning']);
+        } catch (_) {}
+        res.json({ msg: 'Password changed successfully.' });
+    } catch (err) {
+        console.error('Password Change Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 module.exports = router;

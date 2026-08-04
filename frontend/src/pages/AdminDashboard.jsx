@@ -38,10 +38,10 @@ import {
 } from '@mui/material';
 import { submissionService, grievanceService, complianceService } from '../services/api';
 import { downloadAdminReport } from '../utils/reportGenerator';
+import { createDashboardStyles } from '../utils/dashboardStyles';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
-import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+const ds = createDashboardStyles('admin');
 
 import {
   BarChart, Bar,
@@ -471,7 +471,7 @@ function AdminDashboard() {
       <Grid container spacing={{ xs: 2, md: 3 }}>
         {/* Industry Growth Line Chart */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, height: '100%', minHeight: { xs: 300, md: 400 } }}>
+          <Paper elevation={0} sx={{ ...ds.paper, height: '100%', minHeight: { xs: 300, md: 400 } }}>
             <Typography variant="h6" color="text.primary" gutterBottom>
               Aggregated Industrial Growth (2021-2025)
             </Typography>
@@ -490,7 +490,7 @@ function AdminDashboard() {
 
         {/* Resource Consumption Bar Chart */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, height: '100%', minHeight: { xs: 300, md: 400 } }}>
+          <Paper elevation={0} sx={{ ...ds.paper, height: '100%', minHeight: { xs: 300, md: 400 } }}>
             <Typography variant="h6" color="text.primary" gutterBottom>
               Resource Consumption By Park Comparison
             </Typography>

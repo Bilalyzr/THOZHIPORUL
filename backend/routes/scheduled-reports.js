@@ -12,6 +12,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const { requireFeature, TIER_FEATURES } = require('../middleware/subscriptionGuard');
 
 const VALID_FREQ = ['daily', 'weekly', 'monthly', 'quarterly'];
 
@@ -142,7 +143,7 @@ router.get('/configs', requireRole(['admin', 'govt', 'industry']), async (req, r
 });
 
 // @route   POST /api/scheduled-reports/configs
-router.post('/configs', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+router.post('/configs', requireRole(['admin', 'govt', 'industry']), requireFeature(TIER_FEATURES.SCHEDULED_REPORTS), async (req, res) => {
     try {
         const { name, reportType, config, isTemplate = false } = req.body;
         if (!name || !reportType || !config) return res.status(400).json({ error: 'name, reportType, config required' });

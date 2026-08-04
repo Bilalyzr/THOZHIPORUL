@@ -61,7 +61,8 @@ async function getPreferences(userId) {
 async function getUserContact(userId) {
     if (!userId) return {};
     const { rows } = await db.query(
-        'SELECT email, phone_number FROM users u LEFT JOIN industry_profiles ip ON ip.user_id = u.id WHERE u.id = $1',
+        // phone_number lives on industry_profiles, NOT users.
+        'SELECT u.email, ip.phone_number FROM users u LEFT JOIN industry_profiles ip ON ip.user_id = u.id WHERE u.id = $1',
         [userId]
     );
     return rows[0] || {};

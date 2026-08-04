@@ -45,20 +45,40 @@ const rateLimit = require('express-rate-limit');
 const db = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 5001; // changed due to port conflict
+const PORT = process.env.PORT || 5001;
+const IS_PROD = process.env.NODE_ENV === 'production';
 
-// Security headers
-app.use(helmet());
+// Trust the reverse proxy (Caddy/Nginx) so req.ip captures the real client
+// IP — critical for audit logs and rate limiting behind a load balancer.
+app.set('trust proxy', 1);
 
-// CORS — restrict to configured frontend origins. Set CORS_ORIGIN in production
-// to your deployed frontend URL(s), comma-separated. '*' allows any origin.
+// Security headers. In production, enable HSTS (forces HTTPS for 1 year).
+app.use(helmet(
+    IS_PROD ? { hsts: { maxAge: 31536000, includeSubDomains: true, preload: true } } : {}
+));
+
+// Force HTTPS in production (behind Caddy/Nginx). The proxy sets
+// X-Forwarded-Proto; if it's http, redirect to the https equivalent.
+if (IS_PROD) {
+    app.use((req, res, next) => {
+        if (req.headers['x-forwarded-proto'] === 'http') {
+            return res.redirect(301, `https://${req.headers.host}${req.url}`);
+        }
+        next();
+    });
+}
+
+// CORS — restrict to configured frontend origins. In production, reject '*'.
 const allowedOrigins = (process.env.CORS_ORIGIN ||
     'http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://localhost:3000')
     .split(',').map(s => s.trim());
+if (IS_PROD && allowedOrigins.includes('*')) {
+    console.error('[SERVER] [FATAL] CORS_ORIGIN cannot be "*" in production. Exiting.');
+    process.exit(1);
+}
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow non-browser clients (curl, mobile apps) that send no Origin header
-        if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        if (!origin || allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
         return callback(new Error(`Origin ${origin} not allowed by CORS`));
@@ -67,7 +87,19 @@ app.use(cors({
 
 app.use(express.json());
 
-// Throttle authentication attempts to slow brute-force / credential stuffing
+// Global rate limiter — protects ALL /api routes from abuse/DoS.
+// 300 requests per 5 minutes per IP (generous enough for normal use,
+// tight enough to stop a flood). Stricter limiters apply to /api/auth.
+const globalLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please slow down.' },
+});
+app.use('/api/', globalLimiter);
+
+// Stricter limiter on auth endpoints — slows brute-force / credential stuffing.
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 20,                  // per IP per window
@@ -87,13 +119,15 @@ app.get('/api/health', async (req, res) => {
         await db.query('SELECT 1');
         res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
     } catch (err) {
-        res.status(503).json({ status: 'degraded', database: 'disconnected', error: err.message });
+        // Don't leak DB error details on a public endpoint.
+        res.status(503).json({ status: 'degraded', database: 'disconnected' });
     }
 });
 
-// Serve Secure Vault uploaded files from disk. The documents table stores
-// file_path as "/uploads/<filename>"; this makes those URLs resolvable.
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// NOTE: The public /uploads static mount was REMOVED for security — it let
+// anyone download vault files by guessing filenames. Files are now served
+// ONLY through the authenticated /api/workspace/documents/:id/download
+// route, which checks ownership before streaming the file.
 
 // ----------------------------------------------------------------
 // Ensure every documents row has a real, downloadable file on disk.
@@ -216,6 +250,7 @@ async function applyMigration(label, filename) {
 }
 
 // Convenience wrappers for each migration (order matters: v3 -> v4 -> v5).
+const applyGrievancesMigration = () => applyMigration('grievances', 'migrations_grievances.sql');
 const applyV3Migration = () => applyMigration('v3 enhancements', 'schema_v3_enhancements.sql');
 const applyV4Migration = () => applyMigration('v4 research (Tier 1)', 'schema_v4_research.sql');
 const applyV4bMigration = () => applyMigration('v4b real tenants', 'schema_v4b_realtenants.sql');
@@ -270,6 +305,7 @@ app.use('/api/assistant', require('./routes/ai-assistant'));
 app.use('/api/gis', require('./routes/gis'));
 app.use('/api/inspections', require('./routes/inspections'));
 app.use('/api/billing', require('./routes/billing'));
+app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/security', require('./routes/security'));
 
 // Background scheduler — starts SLA escalation, doc-expiry reminders,
@@ -297,8 +333,11 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     console.log(`[SERVER] Sipcot SIMS Backend running on port ${PORT}`);
     // Boot-time migrations (all idempotent + best-effort):
-    // 1. Apply v3 enhancements schema so enhancement endpoints resolve.
-    applyV3Migration().then(async () => {
+    // 0. Create the grievances table FIRST — v3 migration ALTERs it, so it
+    //    must exist before v3 runs. Without this, every grievance endpoint 500s.
+    applyGrievancesMigration().then(async () => {
+        // 1. Apply v3 enhancements schema so enhancement endpoints resolve.
+        await applyV3Migration();
         // 2. v4 research-grounded schema (Tier 1): committed-vs-actual,
         //    CSR restructure, water/power quotas, GSTIN, sector tags.
         await applyV4Migration();
@@ -312,5 +351,5 @@ app.listen(PORT, () => {
         // 5. After all migrations, backfill seed-doc files + users.name.
         ensureSeedDocuments();
         ensureUsersNameColumn();
-    });
+    }).catch(err => console.warn('[BOOT] Migration chain error:', err.message));
 });

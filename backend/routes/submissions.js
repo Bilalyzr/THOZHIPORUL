@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const { requireFeature, TIER_FEATURES } = require('../middleware/subscriptionGuard');
 
 // @route   POST /api/submissions
 // @desc    Submit periodic industrial data (The Multi-step Form)
@@ -367,7 +368,7 @@ router.get('/prefill', requireRole(['industry']), async (req, res) => {
 //          validation; valid rows commit, invalid rows are itemised.
 // @access  Private (Industry)
 // ============================================================
-router.post('/bulk', requireRole(['industry']), async (req, res) => {
+router.post('/bulk', requireRole(['industry']), requireFeature(TIER_FEATURES.EXCEL_UPLOAD), async (req, res) => {
     const industryId = req.user.profile_id;
     if (!industryId) return res.status(400).json({ error: 'No industry profile' });
     const periods = Array.isArray(req.body.periods) ? req.body.periods : [];

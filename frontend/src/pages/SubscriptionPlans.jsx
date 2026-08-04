@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Container, Typography, Grid, Card, CardContent,
   Button, Chip, Paper, Stack,
-  Snackbar, Alert, List, ListItem, ListItemText, ListItemIcon, Divider, Fade
+  Snackbar, Alert, List, ListItem, ListItemText, ListItemIcon, Divider, Fade,
+  CircularProgress
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Check, Star, ArrowForward, WorkspacePremium, AutoAwesome } from '@mui/icons-material';
+import { Check, Star, ArrowForward, WorkspacePremium, AutoAwesome, CheckCircle } from '@mui/icons-material';
 import { keyframes } from '@emotion/react';
 import UnifiedNav from '../components/UnifiedNav';
 import UnifiedFooter from '../components/UnifiedFooter';
 import PageHero from '../components/PageHero';
+import { paymentsService } from '../services/api';
+import { useSubscription, invalidateSubscriptionCache } from '../hooks/useSubscription';
 
 const float = keyframes`
   0%, 100% { transform: translateY(0px); }
@@ -36,14 +39,118 @@ export default function SubscriptionPlans() {
   const navigate = useNavigate();
   const [billingPeriod, setBillingPeriod] = useState('monthly');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [processing, setProcessing] = useState(null); // plan key being processed
+  const { tier: currentTier, refresh } = useSubscription();
 
-  const handleSelectPlan = (planName) => {
-    setSnackbar({ open: true, message: `${planName} plan selected. Redirecting to payment...`, severity: 'success' });
-    setTimeout(() => navigate('/role-selection'), 1500);
+  // Dynamically inject the Razorpay checkout script once.
+  useEffect(() => {
+    if (!document.getElementById('razorpay-script')) {
+      const s = document.createElement('script');
+      s.id = 'razorpay-script';
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      s.async = true;
+      document.head.appendChild(s);
+    }
+  }, []);
+
+  // Real Razorpay checkout — reuses the proven /api/payments/order + verify flow.
+  const handleSelectPlan = async (planKey, planName) => {
+    // Free plan — no payment needed.
+    if (planKey === 'free_starter') {
+      setSnackbar({ open: true, message: 'You are on the free Starter plan. Statutory features are always available!', severity: 'info' });
+      return;
+    }
+
+    // Must be logged in as industry to upgrade.
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+    if (!token) {
+      setSnackbar({ open: true, message: 'Please log in as an industry user to upgrade.', severity: 'warning' });
+      setTimeout(() => navigate('/login/industry'), 1200);
+      return;
+    }
+    if (role !== 'industry') {
+      setSnackbar({ open: true, message: 'Subscription upgrades are for industry accounts only.', severity: 'warning' });
+      return;
+    }
+
+    setProcessing(planKey);
+    try {
+      // 1. Create order on the backend.
+      const orderRes = await paymentsService.createOrder(planKey);
+      const order = orderRes.data;
+
+      // Mock mode (dev/test) — backend auto-verifies.
+      if (order.mock) {
+        // eslint-disable-next-line react-hooks/purity
+        const mockPayId = 'mock_pay_' + Date.now();
+        const verifyRes = await paymentsService.verifyPayment({
+          razorpay_order_id: order.orderId,
+          razorpay_payment_id: mockPayId,
+          razorpay_signature: 'mock',
+          plan: planKey,
+        });
+        if (verifyRes.data && !verifyRes.data.error) {
+          setSnackbar({ open: true, message: `🎉 Successfully upgraded to ${planName}! (Mock mode)`, severity: 'success' });
+          invalidateSubscriptionCache();
+          refresh();
+        }
+        setProcessing(null);
+        return;
+      }
+
+      // Real Razorpay checkout.
+      if (!window.Razorpay) {
+        setSnackbar({ open: true, message: 'Payment gateway failed to load. Please try again.', severity: 'error' });
+        setProcessing(null);
+        return;
+      }
+
+      const rzp = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: 'THOZHIPORUL',
+        description: `${planName} Subscription`,
+        order_id: order.orderId,
+        theme: { color: '#1F4E79' },
+        handler: async (response) => {
+          try {
+            const verifyRes = await paymentsService.verifyPayment({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              plan: planKey,
+            });
+            if (verifyRes.data && !verifyRes.data.error) {
+              setSnackbar({ open: true, message: `🎉 Successfully upgraded to ${planName}!`, severity: 'success' });
+              invalidateSubscriptionCache();
+              refresh();
+            } else {
+              setSnackbar({ open: true, message: 'Payment verification failed.', severity: 'error' });
+            }
+          } catch {
+            setSnackbar({ open: true, message: 'Payment verification failed.', severity: 'error' });
+          }
+          setProcessing(null);
+        },
+        modal: {
+          ondismiss: () => {
+            setSnackbar({ open: true, message: 'Payment cancelled.', severity: 'info' });
+            setProcessing(null);
+          },
+        },
+      });
+      rzp.open();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Could not start checkout. Please try again.', severity: 'error' });
+      setProcessing(null);
+    }
   };
 
   const plans = [
     {
+      key: 'free_starter',
       name: 'Starter',
       subtitle: 'Perfect for MSMEs',
       monthlyPrice: 'Free',
@@ -55,6 +162,7 @@ export default function SubscriptionPlans() {
       gradient: 'linear-gradient(135deg, #64748B 0%, #475569 100%)',
     },
     {
+      key: 'sme_pro',
       name: 'Professional',
       subtitle: 'For growing industries',
       monthlyPrice: '₹4,999',
@@ -66,6 +174,7 @@ export default function SubscriptionPlans() {
       gradient: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)',
     },
     {
+      key: 'enterprise_suite',
       name: 'Enterprise',
       subtitle: 'For large conglomerates',
       monthlyPrice: '₹24,999',
@@ -186,8 +295,9 @@ export default function SubscriptionPlans() {
 
                     <Button
                       fullWidth variant={plan.isPopular ? 'contained' : 'outlined'} size="large"
-                      onClick={() => handleSelectPlan(plan.name)}
-                      endIcon={<ArrowForward />}
+                      disabled={processing === plan.key || currentTier === plan.key}
+                      onClick={() => handleSelectPlan(plan.key, plan.name)}
+                      endIcon={currentTier === plan.key ? <CheckCircle /> : (processing === plan.key ? <CircularProgress size={18} color="inherit" /> : <ArrowForward />)}
                       sx={{
                         py: 1.8, fontWeight: 700, borderRadius: 3,
                         background: plan.isPopular ? plan.gradient : undefined,
@@ -200,9 +310,18 @@ export default function SubscriptionPlans() {
                           transform: 'translateY(-3px)',
                           boxShadow: plan.isPopular ? `0 16px 40px ${plan.color}50` : `0 8px 24px ${plan.color}20`,
                         },
+                        '&.Mui-disabled': {
+                          bgcolor: currentTier === plan.key ? `${plan.color}15` : 'transparent',
+                          color: currentTier === plan.key ? plan.color : 'text.disabled',
+                          borderColor: currentTier === plan.key ? plan.color : 'text.disabled',
+                        },
                       }}
                     >
-                      {plan.name === 'Starter' ? 'Get Started Free' : `Subscribe to ${plan.name}`}
+                      {currentTier === plan.key
+                        ? '✓ Current Plan'
+                        : processing === plan.key
+                          ? 'Processing…'
+                          : plan.key === 'free_starter' ? 'Get Started Free' : `Subscribe to ${plan.name}`}
                     </Button>
                   </CardContent>
                 </Card>

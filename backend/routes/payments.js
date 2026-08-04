@@ -5,15 +5,16 @@ const crypto = require('crypto');
 const db = require('../db');
 const { requireRole } = require('./auth');
 
-// Initialize Razorpay SDK using env variables. In production these MUST be
-// set (fail boot); in dev we tolerate fallbacks for offline testing.
+// Initialize Razorpay SDK using env variables. In production these SHOULD be
+// set — but missing keys DON'T crash the app (payments just 503). This lets
+// the stack boot for testing/preview without a real Razorpay account.
+// The mock-bypass path is NEVER available in production regardless.
 const IS_PROD = process.env.NODE_ENV === 'production';
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
 if (IS_PROD && (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET)) {
-    console.error('[FATAL] RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required in production.');
-    process.exit(1);
+    console.warn('[PAYMENTS] RAZORPAY_KEY_ID/SECRET not set — payment endpoints will return 503. Set them to enable subscriptions.');
 }
 // Mock mode is ONLY available outside production, so a missing/placeholder
 // key never enables payment bypass in a live deploy.

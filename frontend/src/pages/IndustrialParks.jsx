@@ -216,7 +216,7 @@ export default function IndustrialParks() {
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
-      {!isAuthenticated && <UnifiedNav transparent={false} />}
+      <UnifiedNav transparent={false} />
 
       {/* ── Premium Hero (public view only) ── */}
       {!isAuthenticated ? (

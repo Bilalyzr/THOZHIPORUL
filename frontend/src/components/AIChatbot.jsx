@@ -10,7 +10,6 @@ import SendIcon from '@mui/icons-material/Send';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import QuickReplyIcon from '@mui/icons-material/QuickReply';
 import { keyframes } from '@emotion/react';
 
 import fabIcon from '../assets/vazhiporul_fab_icon.png';

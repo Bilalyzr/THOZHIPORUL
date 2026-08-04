@@ -12,6 +12,9 @@ import {
   UploadFile, Gavel, Assignment, Schedule
 } from '@mui/icons-material';
 import { workspaceService, researchService, lifecycleService, strategyService } from '../services/api';
+import { createDashboardStyles } from '../utils/dashboardStyles';
+
+const ds = createDashboardStyles('industry');
 
 const SCORE_COLORS = { high: '#2E7D32', good: '#43A047', medium: '#F57C00', low: '#d32f2f' };
 const getScoreColor = (score) => score >= 80 ? SCORE_COLORS.high : score >= 60 ? SCORE_COLORS.good : score >= 40 ? SCORE_COLORS.medium : SCORE_COLORS.low;
@@ -115,12 +118,12 @@ export default function IndustryWorkspace() {
 
   if (!overview) return null;
 
-  const { company, compliance_score, quick_stats, lease, pending_tasks, notices, service_summary } = overview;
+  const { company = {}, compliance_score = {}, quick_stats = {}, lease = {}, pending_tasks = [], notices = [], service_summary = {} } = overview || {};
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* Company Header */}
-      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 }, background: 'linear-gradient(135deg, #1F4E79 0%, #2E7D32 100%)', color: 'white' }}>
+      <Paper sx={{ ...ds.heroBanner }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2 }, flexWrap: 'wrap' }}>
           <Avatar sx={{ width: { xs: 40, sm: 56 }, height: { xs: 40, sm: 56 }, bgcolor: 'rgba(255,255,255,0.2)' }}>
             <Business fontSize="large" />
@@ -135,7 +138,7 @@ export default function IndustryWorkspace() {
       </Paper>
 
       {/* Compliance Health Score */}
-      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 } }}>
+      <Paper sx={{ ...ds.paper, mb: { xs: 2, md: 3 } }}>
         <Typography variant="h6" fontWeight={600} gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Compliance Health Score</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 2, sm: 3 }, mb: 2, flexWrap: 'wrap' }}>
           <Box sx={{ position: 'relative', display: 'inline-flex' }}>
@@ -158,7 +161,7 @@ export default function IndustryWorkspace() {
 
       {/* T1.1 — Investment & Employment Realisation (committed vs actual) */}
       {realisation && realisation.available && (
-        <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 } }}>
+        <Paper sx={{ ...ds.paper, mb: { xs: 2, md: 3 } }}>
           <Typography variant="h6" fontWeight={600} gutterBottom>Allotment Commitment vs Actual</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
             Measured against your CAF / allotment baseline — SIPCOT governs on the realisation gap.
@@ -194,7 +197,7 @@ export default function IndustryWorkspace() {
 
       {/* T1.3 — Resource Usage Quota vs Actual */}
       {realisation && realisation.available && realisation.quotas && (
-        <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 } }}>
+        <Paper sx={{ ...ds.paper, mb: { xs: 2, md: 3 } }}>
           <Typography variant="h6" fontWeight={600} gutterBottom>Resource Usage vs Allocation</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
             Over-draw beyond 120% of allocation triggers an environmental compliance violation.
@@ -231,7 +234,7 @@ export default function IndustryWorkspace() {
       <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
         {/* Actionable Task List */}
         <Grid size={{ xs: 12, md: 7 }}>
-          <Paper sx={{ p: { xs: 2, sm: 3 }, height: '100%' }}>
+          <Paper sx={{ ...ds.paper, height: '100%' }}>
             <Typography variant="h6" fontWeight={600} gutterBottom>Actionable Tasks</Typography>
             <List dense>
               {pending_tasks.map((task) => (
@@ -264,7 +267,7 @@ export default function IndustryWorkspace() {
 
         {/* Quick Stats + Lease */}
         <Grid size={{ xs: 12, md: 5 }}>
-          <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 2 }}>
+          <Paper sx={{ ...ds.paper, mb: 2 }}>
             <Typography variant="h6" fontWeight={600} gutterBottom>Quick Stats</Typography>
             <Grid container spacing={2}>
               {[
@@ -283,7 +286,7 @@ export default function IndustryWorkspace() {
               ))}
             </Grid>
           </Paper>
-          <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+          <Paper sx={{ ...ds.paper }}>
             <Typography variant="h6" fontWeight={600} gutterBottom>Lease Status</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="body2" color="text.secondary">Status</Typography>
@@ -301,7 +304,7 @@ export default function IndustryWorkspace() {
           </Paper>
 
           {/* T2.1 — Billing & Dues */}
-          <Paper sx={{ p: { xs: 2, sm: 3 }, mt: 2 }}>
+          <Paper sx={{ ...ds.paper, mt: 2 }}>
             <Typography variant="h6" fontWeight={600} gutterBottom>Billing &amp; Dues</Typography>
             {billing ? (
               <Box>
@@ -340,7 +343,7 @@ export default function IndustryWorkspace() {
 
       {/* T3.2 — CSR Funding Opportunities (from Mission Inaippagam) */}
       {csrNeeds.length > 0 && (
-        <Paper sx={{ p: { xs: 2, sm: 3 }, mt: 2 }}>
+        <Paper sx={{ ...ds.paper, mt: 2 }}>
           <Typography variant="h6" fontWeight={600} gutterBottom>CSR Funding Opportunities</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
             Verified community development needs aligned with Mission Inaippagam — fund these to meet your 2% PAT mandate.
@@ -369,7 +372,7 @@ export default function IndustryWorkspace() {
 
 
       {/* Service Request Status */}
-      <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+      <Paper sx={{ ...ds.paper }}>
         <Typography variant="h6" fontWeight={600} gutterBottom>Service Requests</Typography>
         <Grid container spacing={2}>
           {[
