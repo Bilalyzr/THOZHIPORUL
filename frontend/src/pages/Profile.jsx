@@ -12,10 +12,41 @@ import { accountService } from '../services/api';
 import { useSubscription } from '../hooks/useSubscription';
 import { createDashboardStyles } from '../utils/dashboardStyles';
 
+// ── Standalone field renderer (defined OUTSIDE the component to satisfy
+//    react-hooks/static-components rule — defining a component inside render
+//    resets its state on every parent re-render) ──
+function ProfileField({ icon, label, value, editKey, type = 'text', editable = true, editing, form, setForm, color }) {
+  return (
+    <Grid size={{ xs: 12, sm: 6 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ color, display: 'flex' }}>{icon}</Box>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.65rem' }}>
+            {label}
+          </Typography>
+          {editing && editable ? (
+            <TextField
+              size="small" fullWidth
+              type={type}
+              value={form[editKey] || ''}
+              onChange={(e) => setForm({ ...form, [editKey]: e.target.value })}
+              sx={{ mt: 0.3 }}
+            />
+          ) : (
+            <Typography variant="body2" fontWeight={600} sx={{ color: '#1e293b' }}>
+              {value || '—'}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </Grid>
+  );
+}
+
 export default function Profile() {
   const role = localStorage.getItem('role') || 'admin';
   const ds = createDashboardStyles(role);
-  const { tier, displayName, color: tierColor } = useSubscription();
+  const { tier, displayName } = useSubscription();
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,33 +85,6 @@ export default function Profile() {
   };
   const meta = roleMeta[role] || roleMeta.admin;
   const initial = (profile.companyName || profile.officerName || profile.name || profile.email || 'U').charAt(0).toUpperCase();
-
-  // ── Field renderer ──
-  const Field = ({ icon, label, value, editKey, type = 'text', editable = true }) => (
-    <Grid size={{ xs: 12, sm: 6 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Box sx={{ color: meta.color, display: 'flex' }}>{icon}</Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.65rem' }}>
-            {label}
-          </Typography>
-          {editing && editable ? (
-            <TextField
-              size="small" fullWidth
-              type={type}
-              value={form[editKey] || ''}
-              onChange={(e) => setForm({ ...form, [editKey]: e.target.value })}
-              sx={{ mt: 0.3 }}
-            />
-          ) : (
-            <Typography variant="body2" fontWeight={600} sx={{ color: '#1e293b' }}>
-              {value || '—'}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-    </Grid>
-  );
 
   return (
     <Box sx={ds.page}>
@@ -136,11 +140,11 @@ export default function Profile() {
         <Typography sx={{ ...ds.sectionTitle, mb: 2 }}>Account Information</Typography>
         <Divider sx={{ mb: 2.5 }} />
         <Grid container spacing={2.5}>
-          <Field icon={<Email fontSize="small" />} label="Email Address" value={profile.email} editKey="email" editable={false} />
-          <Field icon={<Person fontSize="small" />} label="Role" value={meta.label} editable={false} />
-          <Field icon={<Badge fontSize="small" />} label="Account Status" value={profile.status} editable={false} />
+          <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Email fontSize="small" />} label="Email Address" value={profile.email} editKey="email" editable={false} />
+          <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Person fontSize="small" />} label="Role" value={meta.label} editable={false} />
+          <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Badge fontSize="small" />} label="Account Status" value={profile.status} editable={false} />
           {tier && tier !== 'internal' && (
-            <Field icon={<Shield fontSize="small" />} label="Subscription Tier" value={displayName} editable={false} />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Shield fontSize="small" />} label="Subscription Tier" value={displayName} editable={false} />
           )}
         </Grid>
       </Paper>
@@ -151,12 +155,12 @@ export default function Profile() {
           <Typography sx={{ ...ds.sectionTitle, mb: 2 }}>Company Details</Typography>
           <Divider sx={{ mb: 2.5 }} />
           <Grid container spacing={2.5}>
-            <Field icon={<Business fontSize="small" />} label="Company Name" value={profile.companyName} editKey="companyName" />
-            <Field icon={<Factory fontSize="small" />} label="Industry Type" value={profile.industryType} editKey="industryType" />
-            <Field icon={<LocationOn fontSize="small" />} label="Location" value={profile.location} editKey="location" />
-            <Field icon={<Person fontSize="small" />} label="Contact Person" value={profile.contactPerson} editKey="contactPerson" />
-            <Field icon={<Phone fontSize="small" />} label="Phone Number" value={profile.phoneNumber} editKey="phoneNumber" />
-            <Field icon={<LocationOn fontSize="small" />} label="Assigned Park" value={profile.parkName} editable={false} />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Business fontSize="small" />} label="Company Name" value={profile.companyName} editKey="companyName" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Factory fontSize="small" />} label="Industry Type" value={profile.industryType} editKey="industryType" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<LocationOn fontSize="small" />} label="Location" value={profile.location} editKey="location" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Person fontSize="small" />} label="Contact Person" value={profile.contactPerson} editKey="contactPerson" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Phone fontSize="small" />} label="Phone Number" value={profile.phoneNumber} editKey="phoneNumber" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<LocationOn fontSize="small" />} label="Assigned Park" value={profile.parkName} editable={false} />
           </Grid>
         </Paper>
       )}
@@ -166,10 +170,10 @@ export default function Profile() {
           <Typography sx={{ ...ds.sectionTitle, mb: 2 }}>Officer Details</Typography>
           <Divider sx={{ mb: 2.5 }} />
           <Grid container spacing={2.5}>
-            <Field icon={<Person fontSize="small" />} label="Officer Name" value={profile.officerName} editKey="officerName" />
-            <Field icon={<Badge fontSize="small" />} label="Designation" value={profile.designation} editKey="designation" />
-            <Field icon={<Business fontSize="small" />} label="Department" value={profile.department} editKey="department" />
-            <Field icon={<LocationOn fontSize="small" />} label="Jurisdiction" value={profile.jurisdiction} editKey="jurisdiction" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Person fontSize="small" />} label="Officer Name" value={profile.officerName} editKey="officerName" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Badge fontSize="small" />} label="Designation" value={profile.designation} editKey="designation" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Business fontSize="small" />} label="Department" value={profile.department} editKey="department" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<LocationOn fontSize="small" />} label="Jurisdiction" value={profile.jurisdiction} editKey="jurisdiction" />
           </Grid>
         </Paper>
       )}
@@ -179,8 +183,8 @@ export default function Profile() {
           <Typography sx={{ ...ds.sectionTitle, mb: 2 }}>Admin Details</Typography>
           <Divider sx={{ mb: 2.5 }} />
           <Grid container spacing={2.5}>
-            <Field icon={<Person fontSize="small" />} label="Admin Name" value={profile.name || 'Administrator'} editKey="name" />
-            <Field icon={<Security fontSize="small" />} label="2FA Status" value="Enabled (Mandatory)" editable={false} />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Person fontSize="small" />} label="Admin Name" value={profile.name || 'Administrator'} editKey="name" />
+            <ProfileField editing={editing} form={form} setForm={setForm} color={meta.color} icon={<Security fontSize="small" />} label="2FA Status" value="Enabled (Mandatory)" editable={false} />
           </Grid>
         </Paper>
       )}
