@@ -58,3 +58,8 @@ backend/uploads/*
 *.heapprofile
 system_flow_diagram.md
 .zcode/
+
+# Documentation, assets, and demo materials (not needed for execution)
+docs/
+assets/
+demo/
