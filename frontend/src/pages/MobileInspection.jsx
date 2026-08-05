@@ -101,7 +101,7 @@ export default function MobileInspection() {
 
   // T2.4 — Create incentive disbursement
   const handleCreateIncentive = async () => {
-    if (!incentiveDialog?.incentiveScheme || !incentiveDialog?.amountSanctioned) return;
+    if (!incentiveDialog?.industryId || !incentiveDialog?.incentiveScheme || !incentiveDialog?.amountSanctioned) return;
     try {
       await lifecycleService.createIncentive({
         industryId: parseInt(incentiveDialog.industryId),

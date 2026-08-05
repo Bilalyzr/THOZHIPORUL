@@ -44,6 +44,28 @@ import { useSubscription } from '../hooks/useSubscription';
 const drawerWidth = 280;
 const miniDrawerWidth = 80;
 
+// Role-exclusive routes: authenticated users must ALSO be authorized for the
+// page. MainLayout previously only checked "is there a token?", so an industry
+// user could type /admin-dashboard or /user-management and see the admin shell
+// (backend data calls still 403, but the wrong UI rendered). Paths not listed
+// here stay open to every signed-in role (shared pages: profile, settings,
+// services, report-center, parks-explorer, secure-vault, etc.).
+const ROLE_ROUTE_ACCESS = {
+  '/admin-dashboard': ['admin'],
+  '/user-management': ['admin'],
+  '/audit-logs': ['admin'],
+  '/command-center': ['admin', 'govt'],
+  '/compliance-engine': ['admin', 'govt'],
+  '/csr-dashboard': ['admin', 'govt'],
+  '/analytics': ['admin', 'govt'],
+  '/mobile-inspection': ['admin', 'govt'],
+  '/workspace': ['industry'],
+  '/submit-data': ['industry'],
+};
+
+// Where to send a user who lands on a page their role can't access.
+const ROLE_HOME = { admin: '/admin-dashboard', govt: '/command-center', industry: '/workspace' };
+
 const ROLE_THEMES = {
   admin: {
     primary: '#1F4E79',
@@ -109,6 +131,16 @@ function MainLayout() {
   }, [token, navigate]);
 
   const location = useLocation();
+
+  // Enforce role-based access on role-exclusive routes. If the current role
+  // isn't allowed on this path, bounce to the role's own home dashboard.
+  useEffect(() => {
+    if (!token) return;
+    const allowed = ROLE_ROUTE_ACCESS[location.pathname];
+    if (allowed && !allowed.includes(userRole)) {
+      navigate(ROLE_HOME[userRole] || '/home', { replace: true });
+    }
+  }, [token, userRole, location.pathname, navigate]);
 
   useEffect(() => {
     // Notifications are role-scoped server-side, so fetch for any signed-in user.

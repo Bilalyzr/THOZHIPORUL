@@ -128,6 +128,14 @@ EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN
     ALTER TABLE compliance_rules ADD COLUMN updated_by INTEGER REFERENCES users(id);
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+-- severity: the create/edit-rule endpoints (POST/PUT /api/compliance/rules)
+-- and the auto-detection engine all read/write compliance_rules.severity, but
+-- the base table never defined it — so every rule create/edit was 500'ing on
+-- "column severity does not exist". Add it (free-form text to match the
+-- 'low'/'medium'/'high'/'critical' values the API and UI use).
+DO $$ BEGIN
+    ALTER TABLE compliance_rules ADD COLUMN severity VARCHAR(20) DEFAULT 'medium';
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 -- Escalation matrix: how long a violation can stay in each state before auto-escalating.
 CREATE TABLE IF NOT EXISTS compliance_escalation_matrix (

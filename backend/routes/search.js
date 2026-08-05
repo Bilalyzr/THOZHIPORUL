@@ -39,7 +39,7 @@ router.get('/', requireRole(['admin', 'govt', 'industry']), async (req, res) => 
         const groups = {};
 
         // 1. Industries (scoped for industry users to their own).
-        const indWhere = role === 'industry' ? 'AND id = $1' : '';
+        const indWhere = role === 'industry' ? 'AND id = $2' : '';
         const indParams = role === 'industry' ? [term, profileId] : [term];
         try {
             const ind = await db.query(`

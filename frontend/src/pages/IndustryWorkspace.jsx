@@ -298,7 +298,7 @@ export default function IndustryWorkspace() {
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" color="text.secondary">Monthly Rent</Typography>
-              <Typography variant="body2" fontWeight={600}>Rs. {(lease.monthly_amount / 100000).toFixed(1)}L</Typography>
+              <Typography variant="body2" fontWeight={600}>Rs. {lease.monthly_amount ? (lease.monthly_amount / 100000).toFixed(1) : '0.0'}L</Typography>
             </Box>
             <Button variant="outlined" size="small" fullWidth sx={{ mt: 2 }} startIcon={<Description />} onClick={() => setLeaseDialogOpen(true)}>View Lease Agreement</Button>
           </Paper>

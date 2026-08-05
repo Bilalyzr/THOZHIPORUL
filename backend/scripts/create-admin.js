@@ -42,12 +42,13 @@ const crypto = require('crypto');
             [email, hash, 'admin', 'Active']
         );
 
-        // Create the user_mfa row (disabled — admin will enroll on first login
-        // via the mandatory 2FA gate).
-        const adminRow = await db.query("SELECT id FROM users WHERE email = $1", [email]);
-        if (adminRow.rows.length) {
-            await db.query('INSERT INTO user_mfa (user_id, enabled) VALUES ($1, FALSE) ON CONFLICT DO NOTHING', [adminRow.rows[0].id]);
-        }
+        // NOTE: we intentionally do NOT pre-seed a user_mfa row here.
+        // The user_mfa.secret_encrypted column is NOT NULL, and the admin has
+        // no secret yet — inserting a bare (user_id, enabled=FALSE) row throws
+        // a NOT NULL violation that bricks the bootstrap (admin created but
+        // password never printed). The mandatory-2FA login gate already treats
+        // "no user_mfa row" as mfa_setup_required, and POST /api/security/mfa/setup
+        // creates the row (with a real secret) on first login via ON CONFLICT.
 
         console.log('\n╔══════════════════════════════════════════════════════════╗');
         console.log('║  ✅ ADMIN ACCOUNT CREATED SUCCESSFULLY                   ║');
