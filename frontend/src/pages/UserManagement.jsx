@@ -104,7 +104,7 @@ function UserManagement() {
   const fetchUsers = async () => {
     try {
       const response = await userService.getAll();
-      setUsers(response.data);
+      setUsers(Array.isArray(response.data) ? response.data : []);
     } catch {
       showSnackbar('Failed to fetch users', 'error');
     }
@@ -114,7 +114,7 @@ function UserManagement() {
     let active = true;
     userService.getAll()
       .then(response => {
-        if (active) setUsers(response.data);
+        if (active) setUsers(Array.isArray(response.data) ? response.data : []);
       })
       .catch(() => {
         if (active) showSnackbar('Failed to fetch users', 'error');

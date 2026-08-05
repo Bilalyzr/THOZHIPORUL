@@ -28,11 +28,12 @@ function register(name, intervalMs, fn) {
 }
 
 // Wrap a job so it never throws out to the timer (which would kill it).
-async function safeRun(job) {
-    const tick = async () => {
-        try { await job.fn(); }
-        catch (err) { console.error(`[SCHEDULER:${job.name}] error:`, err.message); }
-    };
+// `tick` is awaited with a `.catch` so a synchronous throw in any job body
+// becomes a logged rejection instead of an unhandled-rejection process exit.
+function safeRun(job) {
+    const tick = () => Promise.resolve()
+        .then(() => job.fn())
+        .catch((err) => console.error(`[SCHEDULER:${job.name}] error:`, err.message));
     // Run once immediately on startup, then on the interval.
     tick();
     return setInterval(tick, job.intervalMs);
@@ -240,7 +241,7 @@ async function scheduledReports() {
                 category: 'system',
                 severity: 'info',
                 title: `Scheduled report ready: ${sched.name}`,
-                message: `Your ${sched.frequency} "${sched.report_type}" report has been generated and emailed to ${sched.recipients.length} recipient(s).`,
+                message: `Your ${sched.frequency} "${sched.report_type}" report has been generated and emailed to ${(Array.isArray(sched.recipients) ? sched.recipients : []).length} recipient(s).`,
                 link: '/report-center',
                 metadata: { reportType: sched.report_type, frequency: sched.frequency }
             });

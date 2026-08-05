@@ -66,12 +66,15 @@ export default function ComplianceEngine() {
   const [queries, setQueries] = useState([]);
   const [queryDialog, setQueryDialog] = useState(null); // { submissionId, company, queryText }
 
-  const mapOverview = (o) => ({
+  const mapOverview = (o) => {
+    o = o || {};
+    return {
     compliant: { count: o.compliant?.count || 0, pct: o.compliant?.percentage || 0 },
     warning: { count: o.warning?.count || 0, pct: o.warning?.percentage || 0 },
     violation: { count: o.violation?.count || 0, pct: o.violation?.percentage || 0 },
     missing: { count: o.missing?.count || 0, pct: o.missing?.percentage || 0 },
-  });
+  };
+  };
 
   const fetchViolations = async () => {
     const res = await complianceService.getViolations({ limit: 100 });
@@ -88,7 +91,7 @@ export default function ComplianceEngine() {
 
   const fetchOverview = async () => {
     const res = await complianceService.getOverview();
-    setOverview(mapOverview(res.data));
+    setOverview(mapOverview(res.data || {}));
   };
 
   useEffect(() => {

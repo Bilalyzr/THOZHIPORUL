@@ -68,6 +68,7 @@ export const submissionService = {
 export const analyticService = {
   getGlobalData: () => api.get('/analytics/global'),
   getCommandCenterStats: () => api.get('/analytics/command-center'),
+  getUtilityBreakdown: (type) => api.get('/analytics/utility-breakdown', { params: { type } }),
 };
 
 export const userService = {

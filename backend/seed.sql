@@ -76,6 +76,39 @@ VALUES
 ((SELECT id FROM industrial_parks WHERE code='SIRUS'), 'T-05', 2.50, 'allotted', '2019-06-15', '2019-07-01', '2039-06-30', 500000.00, 'IT / ITES'),
 ((SELECT id FROM industrial_parks WHERE code='SRPBR'), 'E-303', 5.00, 'allotted', '2020-08-10', '2020-09-01', '2035-08-31', 100000.00, 'Electronics');
 
+-- 4b. Available (un-allotted) plots. The seeded plots above are all
+-- 'allotted', which left the plot-allotment workflow with an empty
+-- dropdown ("No available plots found"). These guarantee every major
+-- park has free plots an officer can allot during the land_allotment
+-- approval flow. ON CONFLICT makes this idempotent (safe on re-seed).
+INSERT INTO park_plots (park_id, plot_number, area_acres, status, zone_type)
+VALUES
+  -- Oragadam (ORGDM) — primary demo park, needs the most stock
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'A-102', 5.00,  'available', 'Sector A'),
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'A-103', 7.50,  'available', 'Sector A'),
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'A-104', 10.00, 'available', 'Sector A'),
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'B-205', 3.25,  'available', 'Sector B'),
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'B-206', 6.00,  'available', 'Sector B'),
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'C-301', 12.00, 'available', 'Sector C'),
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'C-302', 8.75,  'available', 'Sector C'),
+  ((SELECT id FROM industrial_parks WHERE code='ORGDM'), 'D-401', 4.50,  'available', 'Sector D'),
+  -- Sriperumbudur (SRPBR)
+  ((SELECT id FROM industrial_parks WHERE code='SRPBR'), 'SP-01', 6.00, 'available', 'Zone 1'),
+  ((SELECT id FROM industrial_parks WHERE code='SRPBR'), 'SP-02', 9.00, 'available', 'Zone 1'),
+  ((SELECT id FROM industrial_parks WHERE code='SRPBR'), 'SP-03', 3.50, 'available', 'Zone 2'),
+  -- Hosur (HOSUR)
+  ((SELECT id FROM industrial_parks WHERE code='HOSUR'), 'HO-01', 5.50, 'available', 'East'),
+  ((SELECT id FROM industrial_parks WHERE code='HOSUR'), 'HO-02', 7.00, 'available', 'West'),
+  -- Siruseri (SIRUS)
+  ((SELECT id FROM industrial_parks WHERE code='SIRUS'), 'SR-01', 2.00, 'available', 'IT Block 1'),
+  ((SELECT id FROM industrial_parks WHERE code='SIRUS'), 'SR-02', 2.50, 'available', 'IT Block 2'),
+  -- Gangaikondan (GNGKN), Vallam-Vadagal (VLMVD), Pillaipakkam (PLLPK), Cheyyar (CHEYR)
+  ((SELECT id FROM industrial_parks WHERE code='GNGKN'), 'GK-01', 8.00, 'available', 'Phase 1'),
+  ((SELECT id FROM industrial_parks WHERE code='VLMVD'), 'VV-01', 6.50, 'available', 'Phase 1'),
+  ((SELECT id FROM industrial_parks WHERE code='PLLPK'), 'PP-01', 5.00, 'available', 'Phase 1'),
+  ((SELECT id FROM industrial_parks WHERE code='CHEYR'), 'CY-01', 7.25, 'available', 'Phase 1')
+ON CONFLICT (park_id, plot_number) DO NOTHING;
+
 -- Link plots back to industry profiles
 UPDATE industry_profiles ip SET plot_id = pp.id 
 FROM park_plots pp 

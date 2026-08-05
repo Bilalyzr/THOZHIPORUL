@@ -402,7 +402,7 @@ router.post('/run-auto-detection', requireRole(['admin']), async (req, res) => {
                     [h.industry_id, rule.id, rule.severity || 'medium',
                      h.description, JSON.stringify({ metric: h.metric, value: h.value, threshold: h.threshold })]
                 );
-                created.push({ violationId: insert.rows[0].id, industryId: h.industry_id, rule: rule.rule_code });
+                if (insert.rows.length) created.push({ violationId: insert.rows[0].id, industryId: h.industry_id, rule: rule.rule_code });
             }
         }
 
@@ -671,7 +671,13 @@ router.post('/certificate', requireRole(['admin', 'govt']), async (req, res) => 
         }
 
         const certNo = `TZP-COMP-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`;
-        const verCode = (await db.query("SELECT gen_random_uuid()::text AS v")).rows[0].v.replace(/-/g, '').slice(0, 32);
+        // Fall back to a JS UUID if pgcrypto isn't enabled (gen_random_uuid would throw).
+        let verCode;
+        try {
+            verCode = (await db.query("SELECT gen_random_uuid()::text AS v")).rows[0].v.replace(/-/g, '').slice(0, 32);
+        } catch (_) {
+            verCode = (require('crypto').randomUUID().replace(/-/g, '')).slice(0, 32);
+        }
         const validUntil = new Date();
         validUntil.setFullYear(validUntil.getFullYear() + 1);
 

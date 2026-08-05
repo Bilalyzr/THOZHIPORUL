@@ -181,7 +181,7 @@ export default function CsrDashboard() {
                     </Typography>
                   </Box>
                   <Typography variant="h6" fontWeight={800} sx={{ color: meta.color, mb: 1, fontFamily: '"Outfit",sans-serif' }}>
-                    ₹{val.spend.toFixed(2)} Cr
+                    ₹{Number(val.spend || 0).toFixed(2)} Cr
                   </Typography>
                   <LinearProgress variant="determinate" value={pct}
                     sx={{ height: 6, borderRadius: 3, bgcolor: meta.color + '15',

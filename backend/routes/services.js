@@ -3,6 +3,98 @@ const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
 
+// ============================================================
+// MILESTONE TEMPLATES per service type.
+// When a service request is created, these stages are auto-seeded
+// into service_milestones so the timeline stepper has content.
+// The first stage is marked 'pending'; the rest stay 'pending'
+// until an officer advances them via PUT /:id/milestones/:mid.
+// ============================================================
+const MILESTONE_TEMPLATES = {
+    land_allotment: [
+        'Application Received',
+        'Document Verification',
+        'Eligibility Scrutiny',
+        'Plot Identification & Allotment',
+        'Allotment Letter Issued',
+        'Lease Agreement Execution',
+        'Possession Handed Over'
+    ],
+    water_connection: [
+        'Application Received',
+        'Document Verification',
+        'Site Inspection',
+        'Estimate & Fee Approval',
+        'Connection Sanctioned',
+        'Meter Installation & Activation'
+    ],
+    power_connection: [
+        'Application Received',
+        'Document Verification',
+        'Load Assessment',
+        'Estimate & Fee Approval',
+        'TANGEDCO Coordination',
+        'Energization & Meter Sealing'
+    ],
+    noc_fire: [
+        'Application Received',
+        'Document Verification',
+        'Site Inspection',
+        'Compliance Review',
+        'NOC Issued'
+    ],
+    noc_pollution: [
+        'Application Received',
+        'Document Verification',
+        'Site Inspection',
+        'TNPCB Review',
+        'Consent Order Issued'
+    ],
+    building_approval: [
+        'Application Received',
+        'Plan Scrutiny',
+        'Site Inspection',
+        'Approval Committee Review',
+        'Building Plan Sanctioned'
+    ],
+    lease_renewal: [
+        'Application Received',
+        'Compliance & Dues Check',
+        'Eligibility Review',
+        'Renewal Sanctioned',
+        'Lease Deed Updated'
+    ],
+    transfer_request: [
+        'Application Received',
+        'Document Verification',
+        'Dues & Compliance Clearance',
+        'Transfer Committee Approval',
+        'Transfer Completed'
+    ]
+};
+const DEFAULT_MILESTONES = ['Application Received', 'Under Review', 'Approval', 'Completed'];
+
+// Seed the milestone timeline for a freshly-created request.
+// Idempotent: only inserts if the request has no milestones yet.
+async function seedMilestones(client, requestId, serviceType) {
+    try {
+        const existing = await client.query(
+            'SELECT 1 FROM service_milestones WHERE request_id = $1 LIMIT 1', [requestId]
+        );
+        if (existing.rows.length) return; // already seeded
+
+        const stages = MILESTONE_TEMPLATES[serviceType] || DEFAULT_MILESTONES;
+        let order = 1;
+        for (const stage of stages) {
+            await client.query(
+                `INSERT INTO service_milestones (request_id, stage_name, status, sort_order)
+                 VALUES ($1, $2, 'pending', $3)`,
+                [requestId, stage, order++]
+            );
+        }
+    } catch (_) { /* service_milestones table absent — skip gracefully */ }
+}
+
 // @route   GET /api/services
 // @desc    List service requests (filtered by role)
 // @access  Private
@@ -76,7 +168,12 @@ router.post('/', requireRole(['industry']), async (req, res) => {
         // v3 migration hasn't been applied yet.
         try {
             const client = await db.pool.connect();
-            try { await ensureSla(client, rows[0].id, serviceType); }
+            try {
+                await ensureSla(client, rows[0].id, serviceType);
+                // Seed the milestone timeline stepper (land_allotment gets a
+                // 7-stage timeline, others get their own template).
+                await seedMilestones(client, rows[0].id, serviceType);
+            }
             finally { client.release(); }
         } catch (_) { /* sla table missing — skip gracefully */ }
 

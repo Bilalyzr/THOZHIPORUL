@@ -51,7 +51,7 @@ export default function UnifiedDataSubmission() {
   const refreshHistory = async () => {
     try {
       const res = await submissionService.getMySubmissions();
-      setHistory(res.data);
+      setHistory(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to fetch history:', err);
     }
@@ -61,7 +61,7 @@ export default function UnifiedDataSubmission() {
     let active = true;
     submissionService.getMySubmissions()
       .then(res => {
-        if (active) setHistory(res.data);
+        if (active) setHistory(Array.isArray(res.data) ? res.data : []);
       })
       .catch(err => {
         console.error('Failed to fetch history:', err);

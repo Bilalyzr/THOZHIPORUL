@@ -1039,7 +1039,7 @@ export default function AIChatbot() {
   };
 
   const renderMarkdown = (text) => {
-    return text.split('\n').map((line, i) => {
+    return String(text || '').split('\n').map((line, i) => {
       let html = line
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')

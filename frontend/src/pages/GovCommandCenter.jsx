@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { analyticService, commandService, researchService, lifecycleService } from '../services/api';
+import { analyticService, commandService, researchService, lifecycleService, aiDecisionService } from '../services/api';
 import { downloadGovernmentReport } from '../utils/reportGenerator';
 import { createDashboardStyles } from '../utils/dashboardStyles';
 
@@ -9,13 +9,14 @@ import {
   TableBody, TableCell, TableContainer, TableHead, TableRow,
   ToggleButton, ToggleButtonGroup, List, ListItem, ListItemIcon,
   ListItemText, Divider, Button, Select, MenuItem, FormControl, InputLabel,
-  Switch, FormControlLabel, Snackbar, Alert
+  Switch, FormControlLabel, Snackbar, Alert,
+  Dialog, DialogTitle, DialogContent, LinearProgress, IconButton
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, Warning, Error as ErrorIcon,
   Info, CheckCircle, Assessment, Map as MapIcon,
   Flag, Business, People, CurrencyRupee, NotificationsActive,
-  SmartToy, ElectricBolt, Opacity
+  SmartToy, ElectricBolt, Opacity, Close, Bolt, WaterDrop
 } from '@mui/icons-material';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -220,6 +221,61 @@ export default function GovCommandCenter() {
     lifecycleService.getMdEscalations()
       .then((res) => setMdEscalations(res.data || []))
       .catch(() => {});
+
+    // AI Decision Support — populate the action panel from the REAL
+    // dashboard-summary endpoint (risk_distribution + recommendations)
+    // instead of leaving it empty. Only seeds tasks the officer hasn't
+    // dismissed yet, so the dismiss button still works.
+    aiDecisionService.getDashboardSummary()
+      .then((res) => {
+        const data = res.data || {};
+        const risk = data.risk_distribution || {};
+        const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+        // Already-dismissed task ids are kept off the list.
+        setAiTasks((current) => {
+          if (current.length) return current; // keep dismissed state if user interacted
+          const dismissed = new Set((JSON.parse(localStorage.getItem('aiTasks') || '[]')).map(t => t.title));
+          const tasks = [];
+          if ((risk.critical || 0) > 0) {
+            tasks.push({
+              id: 'ai-critical', type: 'critical',
+              title: `${risk.critical} industr${risk.critical === 1 ? 'y' : 'ies'} at CRITICAL risk`,
+              desc: 'Compliance score below 40. Immediate inspection recommended.',
+              actions: ['Schedule Inspection', 'Send Warning Notice']
+            });
+          }
+          if ((risk.high || 0) > 0) {
+            tasks.push({
+              id: 'ai-high', type: 'critical',
+              title: `${risk.high} industr${risk.high === 1 ? 'y' : 'ies'} at HIGH risk`,
+              desc: 'Score in the warning band (40–70). Proactive outreach advised.',
+              actions: ['Send Warning Notice', 'Defer']
+            });
+          }
+          recs.slice(0, 2).forEach((r, i) => {
+            const isPositive = r.type && /lease|incentive|expansion|renewal/i.test(r.type);
+            tasks.push({
+              id: `ai-rec-${i}`, type: isPositive ? 'success' : 'critical',
+              title: r.type || 'AI Recommendation',
+              desc: `${r.count || 0} industrie${(r.count || 0) === 1 ? 's' : ''} — ${r.priority || 'medium'} priority`,
+              actions: isPositive ? ['Review', 'Defer'] : ['Review', 'Defer']
+            });
+          });
+          // Filter out previously dismissed titles, fall back to sensible defaults
+          // if the endpoint returned nothing useful so the panel is never empty.
+          let final = tasks.filter(t => !dismissed.has(t.title));
+          if (final.length === 0 && tasks.length === 0) {
+            final = [{
+              id: 'ai-default', type: 'success',
+              title: `${data.total_industries || 0} industries monitored`,
+              desc: 'AI engine is running continuous compliance scans across all parks.',
+              actions: ['View Details']
+            }];
+          }
+          return final;
+        });
+      })
+      .catch(() => { /* endpoint unavailable — keep existing aiTasks */ });
   }, []);
 
   const [reportSnack, setReportSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -237,6 +293,24 @@ export default function GovCommandCenter() {
       setDownloadingReport(false);
     }
   };
+
+  // ---- Utility drill-down dialog state ----
+  // Clicking either the Electricity or Water real-time panel opens this
+  // dialog, which lists every industry's latest usage, the per-unit tariff,
+  // and the amount billed at the current rate. Data comes from the live
+  // /api/analytics/utility-breakdown endpoint.
+  const [utilityDialog, setUtilityDialog] = useState({ open: false, type: 'power', loading: false, data: null, error: null });
+
+  const openUtilityDialog = async (type) => {
+    setUtilityDialog({ open: true, type, loading: true, data: null, error: null });
+    try {
+      const res = await analyticService.getUtilityBreakdown(type);
+      setUtilityDialog({ open: true, type, loading: false, data: res.data, error: null });
+    } catch (err) {
+      setUtilityDialog({ open: true, type, loading: false, data: null, error: 'Failed to load breakdown.' });
+    }
+  };
+  const closeUtilityDialog = () => setUtilityDialog(d => ({ ...d, open: false }));
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -362,10 +436,18 @@ export default function GovCommandCenter() {
       {/* Real-time Utility Tariffs & Flow */}
       <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ ...ds.paperStriped('#F57C00') }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <ElectricBolt sx={{ mr: 1, color: '#F57C00' }} />
-              <Typography variant="h6" fontWeight={600}>Electricity - Real-Time Flow & Tariffs</Typography>
+          <Paper
+            onClick={() => openUtilityDialog('power')}
+            sx={{ ...ds.paperStriped('#F57C00'), cursor: 'pointer', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: 6, borderColor: '#F57C00' } }}
+            role="button"
+            aria-label="View electricity usage breakdown by industry"
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <ElectricBolt sx={{ mr: 1, color: '#F57C00' }} />
+                <Typography variant="h6" fontWeight={600}>Electricity - Real-Time Flow & Tariffs</Typography>
+              </Box>
+              <Chip icon={<Bolt />} label="Tap for breakdown" size="small" color="warning" variant="outlined" sx={{ fontWeight: 600 }} />
             </Box>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -388,10 +470,18 @@ export default function GovCommandCenter() {
         </Grid>
 
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ ...ds.paperStriped('#0288d1') }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Opacity sx={{ mr: 1, color: '#0288d1' }} />
-              <Typography variant="h6" fontWeight={600}>Water - Real-Time Flow & Tariffs</Typography>
+          <Paper
+            onClick={() => openUtilityDialog('water')}
+            sx={{ ...ds.paperStriped('#0288d1'), cursor: 'pointer', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: 6, borderColor: '#0288d1' } }}
+            role="button"
+            aria-label="View water usage breakdown by industry"
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Opacity sx={{ mr: 1, color: '#0288d1' }} />
+                <Typography variant="h6" fontWeight={600}>Water - Real-Time Flow & Tariffs</Typography>
+              </Box>
+              <Chip icon={<WaterDrop />} label="Tap for breakdown" size="small" color="info" variant="outlined" sx={{ fontWeight: 600 }} />
             </Box>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -585,7 +675,7 @@ export default function GovCommandCenter() {
                 <XAxis dataKey="year" />
                 <YAxis />
                 <Tooltip formatter={(value) => [
-                  trendMetric === 'investment' ? `Rs. ${value.toLocaleString()} Cr` : value.toLocaleString(),
+                  trendMetric === 'investment' ? `Rs. ${(Number(value) || 0).toLocaleString()} Cr` : (Number(value) || 0).toLocaleString(),
                   trendMetric === 'investment' ? 'Investment' : 'Employment'
                 ]} />
                 <Line type="monotone" dataKey="value" stroke="#1F4E79" strokeWidth={3} dot={{ r: 6 }} />
@@ -611,6 +701,124 @@ export default function GovCommandCenter() {
           ))}
         </List>
       </Paper>
+
+      {/* Utility drill-down dialog — shows per-industry usage + billed amount */}
+      <Dialog open={utilityDialog.open} onClose={closeUtilityDialog} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {utilityDialog.type === 'power'
+              ? <ElectricBolt color="warning" />
+              : <Opacity color="info" />}
+            <Box>
+              <Typography variant="h6" fontWeight={700}>
+                {utilityDialog.type === 'power' ? 'Electricity' : 'Water'} Usage — Industry Breakdown
+              </Typography>
+              {utilityDialog.data && (
+                <Typography variant="caption" color="text.secondary">
+                  Billed at current rate: {utilityDialog.data.rate_display}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+          <IconButton onClick={closeUtilityDialog} size="small"><Close /></IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {utilityDialog.loading && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <LinearProgress />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                Loading live consumption data…
+              </Typography>
+            </Box>
+          )}
+
+          {utilityDialog.error && (
+            <Alert severity="error">{utilityDialog.error}</Alert>
+          )}
+
+          {utilityDialog.data && (
+            <>
+              {/* Summary strip */}
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">Industries</Typography>
+                    <Typography variant="h6" fontWeight={700}>{utilityDialog.data.industries.length}</Typography>
+                  </Box>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">Total {utilityDialog.data.unit}</Typography>
+                    <Typography variant="h6" fontWeight={700}>{Number(utilityDialog.data.total_usage).toLocaleString('en-IN')}</Typography>
+                  </Box>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">Total Billed</Typography>
+                    <Typography variant="h6" fontWeight={700} color="error.main">{utilityDialog.data.total_amount_display}</Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+
+              {utilityDialog.data.overdraw_count > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }} icon={<Warning />}>
+                  {utilityDialog.data.overdraw_count} industr{utilityDialog.data.overdraw_count === 1 ? 'y is' : 'ies are'} exceeding 120% of sanctioned quota (over-draw alert).
+                </Alert>
+              )}
+
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: 'action.hover' }}>
+                    <TableRow>
+                      <TableCell><Typography variant="subtitle2" fontWeight={700}>Industry</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="subtitle2" fontWeight={700}>Usage ({utilityDialog.data.unit})</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="subtitle2" fontWeight={700}>Tariff</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="subtitle2" fontWeight={700}>Amount</Typography></TableCell>
+                      <TableCell align="center"><Typography variant="subtitle2" fontWeight={700}>Quota Usage</Typography></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {utilityDialog.data.industries.map((row) => (
+                      <TableRow key={row.industry_id} hover sx={row.overdraw ? { bgcolor: 'error.light' } : {}}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600}>{row.company_name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{row.park_name}</Typography>
+                        </TableCell>
+                        <TableCell align="right">{Number(row.usage).toLocaleString('en-IN')}</TableCell>
+                        <TableCell align="right">₹ {Number(row.tariff).toFixed(2)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{row.amount_display}</TableCell>
+                        <TableCell align="center">
+                          {row.quota_pct === null ? (
+                            <Typography variant="caption" color="text.secondary">—</Typography>
+                          ) : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 110 }}>
+                              <Box sx={{ width: 60 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={Math.min(row.quota_pct, 100)}
+                                  color={row.overdraw ? 'error' : row.quota_pct > 80 ? 'warning' : 'success'}
+                                  sx={{ height: 6, borderRadius: 3 }}
+                                />
+                              </Box>
+                              <Typography variant="caption" fontWeight={600} color={row.overdraw ? 'error.main' : 'text.secondary'}>
+                                {row.quota_pct}%
+                              </Typography>
+                            </Box>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, textAlign: 'right' }}>
+                Amounts computed at the current statewide tariff. Click a panel anytime to refresh.
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Snackbar
         open={reportSnack.open}

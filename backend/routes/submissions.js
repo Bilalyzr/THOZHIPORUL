@@ -46,6 +46,7 @@ router.post('/', requireRole(['industry']), async (req, res) => {
              RETURNING id`,
             [industry_id, periodYear, periodQuarter, 'Submitted']
         );
+        if (!subRes.rows.length) throw new Error('Submission upsert returned no row.');
         const subId = subRes.rows[0].id;
 
         // 2. Insert/Update Sub-tables
@@ -279,6 +280,7 @@ async function writeSubmission(client, industryId, p, status) {
          RETURNING id`,
         [industryId, p.periodYear, p.periodQuarter, status]
     );
+    if (!subRes.rows.length) throw new Error('Submission upsert returned no row.');
     const subId = subRes.rows[0].id;
 
     await client.query(

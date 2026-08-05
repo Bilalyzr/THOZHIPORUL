@@ -82,7 +82,7 @@ function AdminDashboard() {
     try {
       // 1. Fetch compliance data/submissions
       const complianceRes = await submissionService.getCompliance();
-      const complianceData = complianceRes.data;
+      const complianceData = Array.isArray(complianceRes.data) ? complianceRes.data : [];
       setSubmissions(complianceData);
 
       // Aggregate KPI metrics
@@ -109,7 +109,7 @@ function AdminDashboard() {
     try {
       // 2. Fetch grievances
       const grievanceRes = await grievanceService.getAll();
-      setGrievances(grievanceRes.data);
+      setGrievances(Array.isArray(grievanceRes.data) ? grievanceRes.data : []);
     } catch (err) {
       console.error("Failed to load grievances", err);
     }

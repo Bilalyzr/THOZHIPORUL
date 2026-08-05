@@ -594,7 +594,7 @@ export default function IndustrialParks() {
                               </Box>
                               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.75rem' }}>Occupancy:</span>
-                                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{Math.round((1 - park.available_area / park.total_area) * 100)}%</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{park.total_area > 0 ? Math.round((1 - park.available_area / park.total_area) * 100) : 0}%</span>
                               </Box>
                             </Box>
                           </Popup>
@@ -632,7 +632,7 @@ export default function IndustrialParks() {
                       { label: 'Total Area', value: `${selectedPark.total_area.toLocaleString()} ac`, icon: <SquareFoot sx={{ fontSize: 16 }} />, color: '#1F4E79' },
                       { label: 'Industries', value: selectedPark.industries, icon: <Factory sx={{ fontSize: 16 }} />, color: '#2E7D32' },
                       { label: 'Available Plots', value: `${selectedPark.available_area.toLocaleString()} ac`, icon: <LocationOn sx={{ fontSize: 16 }} />, color: '#2E7D32' },
-                      { label: 'Occupancy', value: `${Math.round((1 - selectedPark.available_area / selectedPark.total_area) * 100)}%`, icon: <Layers sx={{ fontSize: 16 }} />, color: '#1F4E79' },
+                      { label: 'Occupancy', value: `${selectedPark.total_area > 0 ? Math.round((1 - selectedPark.available_area / selectedPark.total_area) * 100) : 0}%`, icon: <Layers sx={{ fontSize: 16 }} />, color: '#1F4E79' },
                     ].map((m, i) => (
                       <Grid key={i} size={{ xs: 6 }}>
                         <Box sx={{ 

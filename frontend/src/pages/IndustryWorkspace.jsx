@@ -118,7 +118,19 @@ export default function IndustryWorkspace() {
 
   if (!overview) return null;
 
-  const { company = {}, compliance_score = {}, quick_stats = {}, lease = {}, pending_tasks = [], notices = [], service_summary = {} } = overview || {};
+  // Coerce top-level nulls to {} so destructuring defaults apply uniformly
+  // (defaults only kick in for `undefined`, not `null` — guards against the
+  // backend sending an explicit null for a sub-object).
+  const _ov = overview || {};
+  const { company = {}, compliance_score = {}, quick_stats = {}, lease = {}, pending_tasks = [], notices = [], service_summary = {} } = {
+    company: _ov.company || {},
+    compliance_score: _ov.compliance_score || {},
+    quick_stats: _ov.quick_stats || {},
+    lease: _ov.lease || {},
+    pending_tasks: _ov.pending_tasks || [],
+    notices: _ov.notices || [],
+    service_summary: _ov.service_summary || {}
+  };
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>

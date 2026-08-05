@@ -83,17 +83,20 @@ router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) =
                 GROUP BY p.district
                 ORDER BY investment_cr DESC
             `),
+            // Count pending service requests for the red-flags KPI. This table
+            // is added by a later migration, so guard against it being absent
+            // on a fresh/partial DB rather than failing the whole Command Center.
             db.query(`
-                SELECT COUNT(*) as count FROM service_requests 
+                SELECT COUNT(*) as count FROM service_requests
                 WHERE current_status NOT IN ('completed', 'approved', 'rejected')
-            `)
+            `).catch(() => ({ rows: [{ count: 0 }] }))
         ]);
 
         const kpiRows = kpiResult.rows;
         const parkRows = parkResult.rows;
         const locRows = locResult.rows;
-        const flagRows = flagResult.rows;
-        const redFlagsCount = parseInt(flagRows[0].count) || 0;
+        const flagRows = flagResult.rows || [{ count: 0 }];
+        const redFlagsCount = parseInt(flagRows[0] && flagRows[0].count) || 0;
 
         res.json({
             kpis: {
@@ -109,6 +112,97 @@ router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) =
 
     } catch (err) {
         console.error("Command Center Calculation Error:", err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// ============================================================
+// @route   GET /api/analytics/utility-breakdown?type=power|water
+// @desc    Per-industry utility usage drill-down for the real-time
+//          Electricity / Water panels in the Command Center.
+//          Returns each industry's latest usage, the per-unit tariff,
+//          the computed billed amount at the current rate, the
+//          sanctioned quota, and an over-draw flag (120% rule).
+//          Powers the click-to-drill-down dialog on the dashboard.
+// @access  Private (Admin, Govt)
+// ============================================================
+router.get('/utility-breakdown', requireRole(['admin', 'govt']), async (req, res) => {
+    try {
+        const type = (req.query.type || 'power').toLowerCase();
+        const isWater = type === 'water';
+
+        // Tariff defaults mirror the rates shown on the Command Center
+        // panels. Each industry MAY carry its own negotiated tariff
+        // (industry_profiles.tariff_per_unit for power); fall back to the
+        // statewide default otherwise.
+        const DEFAULT_POWER_RATE = 7.50;  // ₹ / kWh
+        const DEFAULT_WATER_RATE = 45.00; // ₹ / kL
+
+        const usageCol = isWater ? 'r.water_consumption' : 'r.power_usage';
+        const quotaCol = isWater ? 'ip.water_allocated_kl' : 'ip.sanctioned_load_kw';
+        // The power tariff column only applies to electricity.
+        const tariffCol = isWater ? `${DEFAULT_WATER_RATE}` : 'COALESCE(ip.tariff_per_unit, 7.50)';
+        const unit = isWater ? 'kL' : 'kWh';
+
+        const { rows } = await db.query(`
+            SELECT ip.id AS industry_id,
+                   ip.company_name,
+                   p.name AS park_name,
+                   COALESCE(${usageCol}, 0) AS usage,
+                   COALESCE(${quotaCol}, 0) AS quota,
+                   ${tariffCol}::numeric AS tariff
+              FROM industry_profiles ip
+              LEFT JOIN industrial_parks p ON p.id = ip.park_id
+              LEFT JOIN (SELECT DISTINCT ON (industry_id) id, industry_id
+                           FROM data_submissions
+                          ORDER BY industry_id, submitted_at DESC) latest_sub
+                ON latest_sub.industry_id = ip.id
+              LEFT JOIN resource_usage r ON r.submission_id = latest_sub.id
+             WHERE COALESCE(${usageCol}, 0) > 0
+             ORDER BY ${usageCol} DESC
+        `);
+
+        // Compute amounts + quota utilisation server-side so the frontend
+        // never has to recompute tariffs. Over-draw follows the existing
+        // ENV-WAT-OD / ENV-PWR-OD compliance rule (>120% of quota).
+        const breakdown = rows.map(r => {
+            const usage = Number(r.usage) || 0;
+            const quota = Number(r.quota) || 0;
+            const tariff = Number(r.tariff) || (isWater ? DEFAULT_WATER_RATE : DEFAULT_POWER_RATE);
+            const amount = usage * tariff;
+            const quotaPct = quota > 0 ? (usage / quota) * 100 : null;
+            const overdraw = quota > 0 && usage > quota * 1.2;
+            return {
+                industry_id: r.industry_id,
+                company_name: r.company_name,
+                park_name: r.park_name || '—',
+                usage,
+                unit,
+                quota,
+                quota_pct: quotaPct === null ? null : Math.round(quotaPct),
+                tariff,
+                amount,
+                amount_display: `₹ ${amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+                overdraw
+            };
+        });
+
+        const totalUsage = breakdown.reduce((s, r) => s + r.usage, 0);
+        const totalAmount = breakdown.reduce((s, r) => s + r.amount, 0);
+
+        res.json({
+            type: isWater ? 'water' : 'power',
+            unit,
+            rate: isWater ? DEFAULT_WATER_RATE : DEFAULT_POWER_RATE,
+            rate_display: `₹ ${isWater ? DEFAULT_WATER_RATE : DEFAULT_POWER_RATE} / ${unit}`,
+            industries: breakdown,
+            total_usage: totalUsage,
+            total_amount: totalAmount,
+            total_amount_display: `₹ ${totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+            overdraw_count: breakdown.filter(r => r.overdraw).length
+        });
+    } catch (err) {
+        console.error('Utility Breakdown Error:', err.message);
         res.status(500).send('Server Error');
     }
 });

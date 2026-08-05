@@ -112,6 +112,7 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/plots', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
         const parkId = parseInt(req.params.id);
+        if (isNaN(parkId)) return res.status(400).json({ error: 'Invalid park id.' });
         const { rows } = await db.query(
             `SELECT p.*, ip.company_name as allottee 
              FROM park_plots p 
@@ -132,6 +133,7 @@ router.get('/:id/plots', requireRole(['admin', 'govt', 'industry']), async (req,
 router.get('/:id/metrics', requireRole(['admin', 'govt']), async (req, res) => {
     try {
         const parkId = parseInt(req.params.id);
+        if (isNaN(parkId)) return res.status(400).json({ error: 'Invalid park id.' });
         const { rows } = await db.query(
             'SELECT * FROM park_infrastructure_metrics WHERE park_id = $1 ORDER BY recorded_date DESC LIMIT 12',
             [parkId]
