@@ -204,7 +204,9 @@ function AdminDashboard() {
 
   const [aiTasks, setAiTasks] = useState(() => {
     const saved = localStorage.getItem('aiTasks');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch { return []; }
+    }
     return [];
   });
 

@@ -96,7 +96,9 @@ export default function GovCommandCenter() {
 
   const [aiTasks, setAiTasks] = useState(() => {
     const saved = localStorage.getItem('aiTasks');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try { return JSON.parse(saved); } catch { return []; }
+    }
     return [];
   });
 
@@ -306,7 +308,7 @@ export default function GovCommandCenter() {
     try {
       const res = await analyticService.getUtilityBreakdown(type);
       setUtilityDialog({ open: true, type, loading: false, data: res.data, error: null });
-    } catch (err) {
+    } catch {
       setUtilityDialog({ open: true, type, loading: false, data: null, error: 'Failed to load breakdown.' });
     }
   };
@@ -743,7 +745,7 @@ export default function GovCommandCenter() {
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2, textAlign: 'center' }}>
                     <Typography variant="caption" color="text.secondary">Industries</Typography>
-                    <Typography variant="h6" fontWeight={700}>{utilityDialog.data.industries.length}</Typography>
+                    <Typography variant="h6" fontWeight={700}>{(utilityDialog.data.industries || []).length}</Typography>
                   </Box>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
@@ -778,7 +780,7 @@ export default function GovCommandCenter() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {utilityDialog.data.industries.map((row) => (
+                    {(utilityDialog.data.industries || []).map((row) => (
                       <TableRow key={row.industry_id} hover sx={row.overdraw ? { bgcolor: 'error.light' } : {}}>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600}>{row.company_name}</Typography>

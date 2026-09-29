@@ -191,7 +191,7 @@ export default function CsrDashboard() {
                       {val.count} project{val.count !== 1 ? 's' : ''}
                     </Typography>
                     <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                      · {val.beneficiaries.toLocaleString('en-IN')} beneficiaries
+                      · {Number(val.beneficiaries || 0).toLocaleString('en-IN')} beneficiaries
                     </Typography>
                   </Box>
                 </Box>
@@ -239,7 +239,7 @@ export default function CsrDashboard() {
           <Typography variant="h6" fontWeight={800} sx={{ fontFamily: '"Outfit",sans-serif', color: '#0f172a' }}>
             CSR Activity Records
           </Typography>
-          <Chip label={`${data.total_records || data.records.length} total`} size="small"
+          <Chip label={`${data.total_records || (data.records?.length ?? 0)} total`} size="small"
             sx={{ fontSize: '0.7rem', fontWeight: 600, bgcolor: '#f1f5f9', color: '#64748b' }} />
         </Box>
         <TableContainer sx={{ borderRadius: 2, border: '1px solid #f1f5f9' }}>
@@ -256,7 +256,7 @@ export default function CsrDashboard() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.records.slice(0, 20).map((r) => {
+              {(data.records || []).slice(0, 20).map((r) => {
                 const meta = PILLAR_META[r.pillar] || PILLAR_META.uncategorised;
                 return (
                   <TableRow key={r.id} hover sx={{ '&:hover': { bgcolor: '#f8fafc' } }}>

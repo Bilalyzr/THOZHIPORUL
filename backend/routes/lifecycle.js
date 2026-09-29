@@ -197,8 +197,11 @@ router.get('/queries', requireRole(['admin', 'govt', 'industry']), async (req, r
     try {
         if (!(await tableExists('submission_queries'))) return res.json([]);
         const scoped = req.user.role === 'industry';
+        // The base query already JOINs data_submissions as `ds`; the scoped
+        // variant must only add the WHERE filter (re-joining `ds` here would
+        // throw "table name ds specified more than once" → 500 for industry users).
         const join = scoped
-            ? 'JOIN data_submissions ds ON ds.id = q.submission_id WHERE ds.industry_id = $1'
+            ? 'WHERE ds.industry_id = $1'
             : '';
         const params = scoped ? [req.user.profile_id] : [];
         const { rows } = await db.query(`

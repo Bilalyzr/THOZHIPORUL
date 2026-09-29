@@ -66,6 +66,7 @@ export default function Settings() {
   };
 
   if (loading) return <Box display="flex" justifyContent="center" p={6}><CircularProgress /></Box>;
+  if (!settings) return <Alert severity="error" sx={{ m: 3 }}>Could not load settings.</Alert>;
 
   return (
     <Box sx={ds.page}>

@@ -106,7 +106,7 @@ router.get('/invoices', requireRole(['admin', 'govt', 'industry']), async (req, 
         let where = '', params = [];
         if (req.user.role === 'industry') {
             // Industry users resolve via their profile's user_id.
-            where = 'WHERE i.user_id = $1';
+            where = 'WHERE ip.user_id = $1';
             params = [req.user.id];
         }
         const { rows } = await db.query(`

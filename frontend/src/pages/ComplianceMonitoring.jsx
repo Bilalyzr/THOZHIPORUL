@@ -135,7 +135,7 @@ function ComplianceMonitoring() {
       );
     }
 
-    const { current, history, tips } = industryScore;
+    const { current = {}, history = [], tips = [] } = industryScore;
 
     const getScoreColor = (score) => {
       if (score >= 80) return '#2E7D32'; // Green
