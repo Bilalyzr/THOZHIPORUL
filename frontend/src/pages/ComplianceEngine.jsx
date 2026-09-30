@@ -415,7 +415,6 @@ export default function ComplianceEngine() {
                     <TableCell align="center">
                       {(() => {
                         const filedPeriod = ind.periods.find(p => p.submission_id);
-                        const missingIds = [];
                         return (
                           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                             {filedPeriod && (

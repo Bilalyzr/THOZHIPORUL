@@ -128,13 +128,11 @@ export default function GovCommandCenter() {
       // Approve + execute the matching pending recommendation.
       const listRes = await aiDecisionService.listRecommendations({ status: 'pending', limit: 100 });
       const recs = (listRes.data && listRes.data.recommendations) || [];
-      const matchTitle = (task.title || '').toLowerCase();
       const keyword = actionName.includes('Warning') ? 'warning'
         : actionName.includes('Inspection') ? 'inspection'
         : actionName.includes('Reminder') ? 'reminder' : '';
-      const rec = recs.find(r =>
-        (r.recommendation || '').toLowerCase().includes(keyword)) ||
-        recs.find(r => matchTitle.includes((r.recommendation || '').split(' ')[0].toLowerCase()));
+      const rec = (keyword && recs.find(r =>
+        (r.recommendation || '').toLowerCase().includes(keyword))) || recs[0];
       if (!rec) {
         setReportSnack({ open: true, severity: 'info',
           message: 'No pending recommendation matches this action — opening Compliance Engine.' });
@@ -181,8 +179,6 @@ export default function GovCommandCenter() {
       .catch(() => setCapacity(null));
   }, []);
 
-  const fmtKwh = (v) => v == null ? '—' : `${Number(v).toLocaleString('en-IN')} kWh`;
-  const fmtKl = (v) => v == null ? '—' : `${Number(v).toLocaleString('en-IN')} KL`;
   const forecastText = (fc) => {
     if (!fc) return 'Unavailable';
     if (fc.data_status !== 'OK') return 'INSUFFICIENT DATA';

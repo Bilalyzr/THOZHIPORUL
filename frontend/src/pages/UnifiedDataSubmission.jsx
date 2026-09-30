@@ -167,7 +167,7 @@ export default function UnifiedDataSubmission() {
       setHistory([draft, ...history]);
       setEditingId(draft.id);
     }
-    try { localStorage.setItem('tzp_submission_draft', JSON.stringify(formData)); } catch (_) {}
+    try { localStorage.setItem('tzp_submission_draft', JSON.stringify(formData)); } catch { /* localStorage unavailable — draft still lives in component state */ }
     setSnackbar({ open: true, message: `Draft for ${periodLabel} kept on this page (browser-local). Submit to persist.`, severity: 'info' });
   };
 
@@ -694,7 +694,7 @@ export default function UnifiedDataSubmission() {
                   { label: 'Recycled (%)', value: viewDialog.data?.wasteRecycledPct ?? '-' },
                   { label: 'CSR Spent', value: toCrDisplay(viewDialog.data?.csrSpent) },
                   { label: 'Beneficiaries', value: viewDialog.data?.csrBeneficiaries ?? '-' },
-                  ...((viewDialog.data?.productionItems || []).map((p, i) => ({ label: `Production: ${p.productName}`, value: `${p.quantity} ${p.unit} · ₹${(Number(p.productionValue) / CR).toFixed(2)} Cr` }))),
+                  ...((viewDialog.data?.productionItems || []).map((p) => ({ label: `Production: ${p.productName}`, value: `${p.quantity} ${p.unit} · ₹${(Number(p.productionValue) / CR).toFixed(2)} Cr` }))),
                 ].map((item, i) => (
                   <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.8, borderBottom: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="body2" color="text.secondary">{item.label}</Typography>
