@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const { recordAudit } = require('./audit');
 
 // ============================================================
 // Helpers
@@ -155,48 +156,34 @@ router.put('/violations/:id', requireRole(['admin']), async (req, res) => {
 // ============================================================
 router.get('/missing-submissions', requireRole(['admin', 'govt']), async (req, res) => {
     try {
-        // "Current cycle" starts at the beginning of the current calendar year.
-        // Any industry whose latest approved/submitted filing predates that (or
-        // who has never filed) is considered to have a missing submission.
-        const cycleStart = `${new Date().getFullYear()}-01-01`;
+        // PERIOD-BASED detection (replaces the old timestamp logic that
+        // compared MAX(submitted_at) to Jan-1 and couldn't see a single
+        // missed quarter). For every elapsed period of the current year,
+        // list industries expected to file that have not.
+        const { getFilingMatrix } = require('../services/missingSubmissionEngine');
+        const year = parseInt(req.query.year) || new Date().getUTCFullYear();
+        const quarter = req.query.quarter ? parseInt(req.query.quarter) : null;
+        const matrix = await getFilingMatrix({ year, quarter });
 
-        const { rows } = await db.query(`
-            SELECT
-                ip.id,
-                ip.company_name,
-                ip.location,
-                MAX(ds.submitted_at) AS last_submission
-            FROM industry_profiles ip
-            LEFT JOIN data_submissions ds
-                ON ds.industry_id = ip.id
-                AND lower(ds.status) IN ('approved', 'submitted')
-            GROUP BY ip.id, ip.company_name, ip.location
-            HAVING MAX(ds.submitted_at) IS NULL OR MAX(ds.submitted_at) < $1
-            ORDER BY last_submission ASC NULLS FIRST
-        `, [cycleStart]);
-
-        const now = Date.now();
-        const missing = rows.map(row => {
-            let periodsMissed;
-            if (!row.last_submission) {
-                periodsMissed = null; // never submitted
-            } else {
-                const months = (now - new Date(row.last_submission).getTime()) / (1000 * 60 * 60 * 24 * 30);
-                periodsMissed = Math.max(Math.floor(months / 3), 1); // quarters
-            }
-            return {
-                id: row.id,
-                company_name: row.company_name,
-                location: row.location,
-                last_submission: row.last_submission,
-                periods_missed: periodsMissed
-            };
-        });
+        const missing = matrix.industries
+            .filter(i => i.outstanding.length > 0)
+            .map(i => ({
+                id: i.industry_id,
+                company_name: i.company_name,
+                location: i.park_name,
+                periods_missed: i.outstanding.length,
+                outstanding_periods: i.outstanding.map(q => `${year}-Q${q}`),
+                worst_status: i.any_overdue ? 'OVERDUE' : 'MISSING',
+                reminders_sent: Math.max(0, ...i.periods.map(p => p.reminder_no), 0),
+                gov_notified: i.periods.some(p => p.gov_notified)
+            }));
 
         res.json({
             missing,
             total: missing.length,
-            cycle_start: cycleStart
+            cycle_start: `${year}-01-01`,
+            basis: 'reporting_periods × expected filers (operational status) — not submission timestamps',
+            summary: matrix.summary
         });
     } catch (err) {
         console.error('Missing Submissions Error:', err.message);
@@ -209,22 +196,61 @@ router.get('/missing-submissions', requireRole(['admin', 'govt']), async (req, r
 // @desc    Send bulk compliance reminders (records intent in audit_logs)
 // @access  Private (Admin)
 // ============================================================
-router.post('/send-reminders', requireRole(['admin']), async (req, res) => {
+router.post('/send-reminders', requireRole(['admin', 'govt']), async (req, res) => {
     try {
         const { industryIds } = req.body;
-        const count = Array.isArray(industryIds) ? industryIds.length : 0;
-
-        // Record the action so it shows up in the audit trail (best-effort).
-        try {
-            await db.query(
-                `INSERT INTO audit_logs (user_id, action) VALUES ($1, $2)`,
-                [req.user.id, `Sent compliance reminders to ${count} industries`]
-            );
-        } catch (auditErr) {
-            console.warn('Audit log insert skipped:', auditErr.message);
+        // REAL reminders (replaces the audit-only stub): every listed
+        // industry's owner receives an in-app notification (+ SSE), and
+        // email/SMS fan out per user preferences through the honest
+        // provider layer (recorded as SIMULATED until a real transport
+        // is configured). Reminder sends are ledgered in
+        // submission_reminders and the action is audit-chained.
+        const targets = Array.isArray(industryIds) ? industryIds.map(Number).filter(Boolean) : [];
+        if (!targets.length) {
+            return res.status(400).json({ error: 'industryIds array required (use GET /missing-submissions to obtain ids).' });
         }
 
-        res.json({ msg: `Reminders sent to ${count} industries`, count });
+        const { notify } = require('../services/notify');
+        const year = new Date().getUTCFullYear();
+        const quarter = Math.floor(new Date().getUTCMonth() / 3) + 1;
+        let sent = 0, failed = 0;
+
+        for (const industryId of targets) {
+            try {
+                const owner = await db.query(
+                    `SELECT u.id AS user_id, ip.company_name
+                       FROM industry_profiles ip JOIN users u ON u.id = ip.user_id
+                      WHERE ip.id = $1`, [industryId]);
+                if (!owner.rows.length) { failed++; continue; }
+
+                await db.query(`
+                    INSERT INTO submission_reminders (industry_id, period_year, period_quarter, reminder_no, stage)
+                    SELECT $1, $2, $3, COALESCE(MAX(reminder_no), 0) + 1, 'manual'
+                      FROM submission_reminders WHERE industry_id = $1 AND period_year = $2 AND period_quarter = $3`,
+                    [industryId, year, quarter]);
+
+                const n = await notify({
+                    userId: owner.rows[0].user_id,
+                    category: 'submission',
+                    severity: 'warning',
+                    title: `Reminder: ${year}-Q${quarter} data return outstanding`,
+                    message: `A SIPCOT officer has reminded you to file your ${year}-Q${quarter} industrial data return. Open Submit Data to file, or contact the officer if you believe this is in error.`,
+                    link: '/submit-data',
+                    metadata: { industryId, year, quarter, trigger: 'manual' }
+                });
+                if (n) sent++; else failed++;
+            } catch (_) { failed++; }
+        }
+
+        await recordAudit(req.user.id, 'COMPLIANCE_REMINDERS_SENT', req.ip, {
+            payload: { requested: targets.length, delivered_inapp: sent, failed, period: `${year}-Q${quarter}` }
+        });
+
+        res.json({
+            msg: `Reminders delivered to ${sent} of ${targets.length} industries (in-app). Email/SMS status follows the provider layer — see notification_deliveries for the honest per-channel outcome.`,
+            count: sent,
+            failed
+        });
     } catch (err) {
         console.error('Send Reminders Error:', err.message);
         res.status(500).send('Server Error');
@@ -296,8 +322,10 @@ router.get('/by-category', requireRole(['admin', 'govt']), async (req, res) => {
 // ============================================================
 router.get('/predictions', requireRole(['admin', 'govt']), async (req, res) => {
     try {
-        // Current figures are real (latest submission per industry). The 1-year
-        // projection applies a transparent growth assumption per metric.
+        // Current figures are real (latest submission per industry). The
+        // projection is a REAL quarter-over-quarter growth rate computed
+        // from the quarterly filing series — or an explicit
+        // INSUFFICIENT_DATA marker. No hardcoded 15/12/6% assumptions.
         const { rows } = await db.query(`
             WITH latest_sub AS (
                 SELECT DISTINCT ON (industry_id) id, industry_id
@@ -320,20 +348,40 @@ router.get('/predictions', requireRole(['admin', 'govt']), async (req, res) => {
         `);
 
         const r = rows[0];
-        // investment normalised per-row in SQL (rupees vs crores) -> already Cr here.
         const investmentCr = parseFloat(r.total_investment_cr) || 0;
         const employment = parseInt(r.total_employment) || 0;
         const complianceRate = parseFloat(r.avg_compliance) || 0;
         const activeIndustries = parseInt(r.active_industries) || 0;
 
-        const project = (val, growthPct) => Math.round(val * (1 + growthPct / 100));
-        const fmt = (n) => n.toLocaleString('en-IN');
+        // Real QoQ growth from filings (statewide quarterly series).
+        const { quarterlySeries } = require('../services/forecastService');
+        const growthFor = async (metric) => {
+            try {
+                const s = await quarterlySeries(metric, 'state', null);
+                if (s.length < 2) return { pct: null, basis: `INSUFFICIENT_DATA (${s.length} quarter(s) filed; growth needs ≥ 2)` };
+                const cur = s[s.length - 1].value, prev = s[s.length - 2].value;
+                if (prev <= 0) return { pct: null, basis: 'zero baseline quarter' };
+                return { pct: Math.round(((cur - prev) / prev) * 1000) / 10, basis: `${s[s.length - 2].year}-Q${s[s.length - 2].quarter} → ${s[s.length - 1].year}-Q${s[s.length - 1].quarter}` };
+            } catch (_) { return { pct: null, basis: 'series unavailable' }; }
+        };
+        const [invG, empG] = await Promise.all([growthFor('investment'), growthFor('employment')]);
+
+        const project = (val, g) => g.pct === null ? null : Math.round(val * (1 + g.pct / 100));
+        const fmt = (n) => n === null || n === undefined ? '—' : n.toLocaleString('en-IN');
 
         res.json([
-            { metric: 'Total Investment', current: `${fmt(Math.round(investmentCr))} Cr`, projected_1yr: `${fmt(project(investmentCr, 15))} Cr`, growth_pct: 15 },
-            { metric: 'Employment', current: fmt(employment), projected_1yr: fmt(project(employment, 12)), growth_pct: 12 },
-            { metric: 'Compliance Rate', current: `${complianceRate}%`, projected_1yr: `${Math.min(project(complianceRate, 6), 100)}%`, growth_pct: 6 },
-            { metric: 'Active Industries', current: fmt(activeIndustries), projected_1yr: fmt(project(activeIndustries, 15)), growth_pct: 15 }
+            { metric: 'Total Investment', current: `${fmt(Math.round(investmentCr))} Cr`,
+              projected_1yr: invG.pct === null ? 'INSUFFICIENT_DATA' : `${fmt(project(investmentCr, invG))} Cr`,
+              growth_pct: invG.pct, growth_basis: invG.basis, model: 'quarter-over-quarter from filed data' },
+            { metric: 'Employment', current: fmt(employment),
+              projected_1yr: empG.pct === null ? 'INSUFFICIENT_DATA' : fmt(project(employment, empG)),
+              growth_pct: empG.pct, growth_basis: empG.basis, model: 'quarter-over-quarter from filed data' },
+            { metric: 'Compliance Rate', current: `${complianceRate}%`,
+              projected_1yr: 'not projected', growth_pct: null,
+              growth_basis: 'compliance is a managed outcome, not a trend-extrapolated metric', model: 'none (deliberately)' },
+            { metric: 'Active Industries', current: fmt(activeIndustries),
+              projected_1yr: 'not projected', growth_pct: null,
+              growth_basis: 'registration-driven, not extrapolated', model: 'none (deliberately)' }
         ]);
     } catch (err) {
         console.error('Predictions Error:', err.message);

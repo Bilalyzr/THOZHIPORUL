@@ -51,7 +51,7 @@ router.get('/', requireRole(['admin', 'govt']), async (req, res) => {
         params.push(limit);
 
         const extraCols = enhanced
-            ? ', a.severity, a.entity_type, a.entity_id, a.entry_hash'
+            ? ', a.severity, a.entity_type, a.entity_id, a.entry_hash, a.payload'
             : '';
         const { rows } = await db.query(`
             SELECT a.id, a.action, a.ip_address, a.created_at${extraCols},
@@ -72,6 +72,7 @@ router.get('/', requireRole(['admin', 'govt']), async (req, res) => {
             severity: r.severity || 'info',
             entity: r.entity_type ? { type: r.entity_type, id: r.entity_id } : null,
             hash: r.entry_hash || null,
+            payload: r.payload || null,
             status: 'SUCCESS'
         }));
 
@@ -187,9 +188,10 @@ router.get('/anomalies', requireRole(['admin']), async (req, res) => {
 });
 
 // ============================================================
-// Best-effort hash-chained audit recorder (Module 15).
-// Other routes call audit.recordAudit(userId, action, ip, {entity...}).
-// Each entry's hash chains to the previous entry -> tamper-evident.
+// Best-effort hash-chained audit recorder (Module 15 + Phase 19).
+// Other routes call recordAudit(userId, action, ip, {entity..., payload}).
+// Each entry's hash chains to the previous entry -> tamper-evident,
+// and `payload` carries WHO/WHAT/WHEN/OLD/NEW/REASON change evidence.
 // ============================================================
 async function recordAudit(userId, action, ipAddress, meta = {}) {
     try {
@@ -199,11 +201,14 @@ async function recordAudit(userId, action, ipAddress, meta = {}) {
 
         // We need the created_at to compute the hash, so insert first with a
         // placeholder, then update the hash using the row's own created_at.
+        // payload = change evidence (old/new values, reasons, request ids).
         const ins = await db.query(
-            `INSERT INTO audit_logs (user_id, action, ip_address, prev_hash, entity_type, entity_id, severity)
-             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
+            `INSERT INTO audit_logs (user_id, action, ip_address, prev_hash, entity_type, entity_id, severity, payload, request_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9) RETURNING id, created_at`,
             [userId || null, action, ipAddress || null, prevHash,
-             meta.entityType || null, meta.entityId || null, meta.severity || 'info']
+             meta.entityType || null, meta.entityId || null, meta.severity || 'info',
+             meta.payload ? JSON.stringify(meta.payload) : null,
+             meta.requestId || null]
         );
         const row = ins.rows[0];
         const hash = crypto.createHash('sha256')

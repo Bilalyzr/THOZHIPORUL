@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { analyticService, commandService, researchService, lifecycleService, aiDecisionService } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { analyticService, commandService, researchService, lifecycleService, aiDecisionService, intelligenceService } from '../services/api';
 import { downloadGovernmentReport } from '../utils/reportGenerator';
 import { createDashboardStyles } from '../utils/dashboardStyles';
 
@@ -88,6 +89,7 @@ const KPICard = ({ title, value, unit, growth, icon, color }) => (
 );
 
 export default function GovCommandCenter() {
+  const navigate = useNavigate();
   const [trendMetric, setTrendMetric] = useState('investment');
   const [sortBy, setSortBy] = useState('infrastructure_score');
   const [autoActionsEnabled, setAutoActionsEnabled] = useState(() => {
@@ -108,46 +110,106 @@ export default function GovCommandCenter() {
     localStorage.setItem('autoActionsEnabled', isChecked);
   };
 
-  const handleAiAction = (taskId, actionName) => {
-    const newTasks = aiTasks.filter(t => t.id !== taskId);
-    setAiTasks(newTasks);
-    localStorage.setItem('aiTasks', JSON.stringify(newTasks));
-    alert(`AI Action Executed: ${actionName}`);
+  const handleAiAction = async (taskId, actionName) => {
+    // REAL actions (Phase 18): approval-type buttons resolve the matching
+    // persisted recommendation (approve → execute); Review navigates to the
+    // compliance engine where recommendations are managed; Defer dismisses.
+    try {
+      if (actionName === 'Review' || actionName === 'View Details') {
+        navigate('/compliance-engine');
+        return;
+      }
+      if (actionName === 'Defer') {
+        const newTasks = aiTasks.filter(t => t.id !== taskId);
+        setAiTasks(newTasks);
+        localStorage.setItem('aiTasks', JSON.stringify(newTasks));
+        return;
+      }
+      // Approve + execute the matching pending recommendation.
+      const listRes = await aiDecisionService.listRecommendations({ status: 'pending', limit: 100 });
+      const recs = (listRes.data && listRes.data.recommendations) || [];
+      const matchTitle = (task.title || '').toLowerCase();
+      const keyword = actionName.includes('Warning') ? 'warning'
+        : actionName.includes('Inspection') ? 'inspection'
+        : actionName.includes('Reminder') ? 'reminder' : '';
+      const rec = recs.find(r =>
+        (r.recommendation || '').toLowerCase().includes(keyword)) ||
+        recs.find(r => matchTitle.includes((r.recommendation || '').split(' ')[0].toLowerCase()));
+      if (!rec) {
+        setReportSnack({ open: true, severity: 'info',
+          message: 'No pending recommendation matches this action — opening Compliance Engine.' });
+        navigate('/compliance-engine');
+        return;
+      }
+      await aiDecisionService.reviewRecommendation(rec.id, 'approved', `Approved from Command Center (${actionName})`);
+      const exec = await aiDecisionService.executeRecommendation(rec.id);
+      setReportSnack({ open: true, severity: 'success',
+        message: `Recommendation "${rec.recommendation}" approved & executed (${exec.data.outcome || 'done'}). Audit-logged.` });
+      const newTasks = aiTasks.filter(t => t.id !== taskId);
+      setAiTasks(newTasks);
+      localStorage.setItem('aiTasks', JSON.stringify(newTasks));
+    } catch (err) {
+      setReportSnack({ open: true, severity: 'error',
+        message: `Action failed: ${(err.response && err.response.data && err.response.data.error) || err.message}` });
+    }
   };
 
-  // Real-time utility flow tick — drives the ±3% live fluctuation so the
-  // command-center meters feel active during demos. The actual flow VALUE
-  // calculations are below (after `kpis` is declared) since they derive
-  // from KPI data.
-  const [flowTick, setFlowTick] = useState(0);
+  // REAL quarterly resource demand (replaces the simulated sine-wave
+  // meters): latest quarter usage + QoQ growth from industry filings,
+  // plus the honest 4-quarter forecast (or an explicit INSUFFICIENT_DATA).
+  const [powerDemand, setPowerDemand] = useState(null);
+  const [waterDemand, setWaterDemand] = useState(null);
+  const [powerForecast, setPowerForecast] = useState(null);
+  const [waterForecast, setWaterForecast] = useState(null);
+  const [capacity, setCapacity] = useState(null);
+
   useEffect(() => {
-    const id = setInterval(() => setFlowTick(t => t + 1), 3000);
-    return () => clearInterval(id);
+    intelligenceService.getParkResources('power')
+      .then(res => setPowerDemand(res.data))
+      .catch(() => setPowerDemand(null));
+    intelligenceService.getParkResources('water')
+      .then(res => setWaterDemand(res.data))
+      .catch(() => setWaterDemand(null));
+    intelligenceService.getForecast('power', 'state', null, 4)
+      .then(res => setPowerForecast(res.data))
+      .catch(() => setPowerForecast(null));
+    intelligenceService.getForecast('water', 'state', null, 4)
+      .then(res => setWaterForecast(res.data))
+      .catch(() => setWaterForecast(null));
+    intelligenceService.getCapacity()
+      .then(res => setCapacity(res.data))
+      .catch(() => setCapacity(null));
   }, []);
 
+  const fmtKwh = (v) => v == null ? '—' : `${Number(v).toLocaleString('en-IN')} kWh`;
+  const fmtKl = (v) => v == null ? '—' : `${Number(v).toLocaleString('en-IN')} KL`;
+  const forecastText = (fc) => {
+    if (!fc) return 'Unavailable';
+    if (fc.data_status !== 'OK') return 'INSUFFICIENT DATA';
+    const mean = Math.round(fc.projection.reduce((s, p) => s + p.value, 0) / fc.projection.length);
+    return `${mean.toLocaleString('en-IN')} /qtr avg`;
+  };
+  const qoqChip = (series) => {
+    const last = series && series.length ? series[series.length - 1] : null;
+    if (!last || last.qoq_growth_pct === null || last.qoq_growth_pct === undefined) return null;
+    const up = last.qoq_growth_pct >= 0;
+    return <Chip size="small" color={up ? 'success' : 'error'} variant="outlined"
+      icon={up ? <TrendingUp /> : <TrendingDown />}
+      label={`${up ? '+' : ''}${last.qoq_growth_pct}% QoQ`} />;
+  };
+
   const [kpis, setKpis] = useState({
-    total_capex_cr: 0, capex_growth_pct: 0,
-    total_revenue_cr: 0, revenue_growth_pct: 0,
-    direct_employment: 0, direct_growth_pct: 0,
-    indirect_employment: 0, indirect_growth_pct: 0,
-    red_flags: 0, red_flags_change: 0,
+    total_capex_cr: 0, capex_growth_pct: null,
+    total_revenue_cr: 0, revenue_growth_pct: null,
+    direct_employment: 0, direct_growth_pct: null,
+    indirect_employment: 0, indirect_growth_pct: null,
+    red_flags: 0, red_flags_change: null,
   });
 
-  // Base values: derived from KPIs once loaded; otherwise a sensible default.
-  const basePowerMw = kpis?.total_power_mw || 480; // ~480 MW statewide baseline
-  const baseWaterMld = kpis?.total_water_mld || 1250; // ~1250 ML/day statewide
-  // ±3% live fluctuation so the meters tick realistically.
-  const electricityFlow = basePowerMw * (1 + (Math.sin(flowTick * 0.7) * 0.03));
-  const waterFlow = baseWaterMld * (1 + (Math.sin(flowTick * 0.5) * 0.03));
-
+  // Reference tariffs (used by the drill-down dialog; also mirrored in the
+  // backend utility-breakdown endpoint).
   const govElectricityRate = 7.50; // ₹ per kWh (unit)
-  const govWaterRate = 45.00; // ₹ per kL
-
-  // 1 MW = 1000 kW -> per hour it's 1000 kWh. Cost per hr = flow(MW) * 1000 * rate
-  const currentElectricityCostPerHour = electricityFlow * 1000 * govElectricityRate;
-
-  // 1 ML = 1000 kL. Cost per day = flow(ML) * 1000 * rate
-  const currentWaterCostPerDay = waterFlow * 1000 * govWaterRate;
+  const govWaterRate = 45.00;      // ₹ per kL
 
   const [rankings, setRankings] = useState([]);
   const [heatmapData, setHeatmapData] = useState([]);
@@ -165,17 +227,21 @@ export default function GovCommandCenter() {
       try {
         const response = await analyticService.getCommandCenterStats();
         if (response.data) {
+          // Growth chips come from the backend KPI endpoint (real QoQ from
+          // filings; null = insufficient history — displayed as '—').
+          const kres = await commandService.getKPIs().catch(() => null);
+          const kdata = (kres && kres.data) || {};
           setKpis({
             total_capex_cr: parseFloat(response.data.kpis.total_capex_cr) || 0,
-            capex_growth_pct: 0,
+            capex_growth_pct: kdata.capex_growth_pct ?? null,
             total_revenue_cr: parseFloat(response.data.kpis.total_revenue_cr) || 0,
-            revenue_growth_pct: 0,
+            revenue_growth_pct: kdata.revenue_growth_pct ?? null,
             direct_employment: parseInt(response.data.kpis.direct_employment) || 0,
-            direct_growth_pct: 0,
+            direct_growth_pct: kdata.direct_growth_pct ?? null,
             indirect_employment: parseInt(response.data.kpis.indirect_employment) || 0,
-            indirect_growth_pct: 0,
+            indirect_growth_pct: kdata.indirect_growth_pct ?? null,
             red_flags: response.data.kpis.red_flags || 0,
-            red_flags_change: 0
+            red_flags_change: kdata.red_flags_change ?? null
           });
           
           const fetchedRankings = (response.data.rankings || []).map((r, i) => ({
@@ -447,24 +513,40 @@ export default function GovCommandCenter() {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <ElectricBolt sx={{ mr: 1, color: '#F57C00' }} />
-                <Typography variant="h6" fontWeight={600}>Electricity - Real-Time Flow & Tariffs</Typography>
+                <Typography variant="h6" fontWeight={600}>Electricity — Quarterly Demand</Typography>
               </Box>
-              <Chip icon={<Bolt />} label="Tap for breakdown" size="small" color="warning" variant="outlined" sx={{ fontWeight: 600 }} />
+              {qoqChip(powerDemand && powerDemand.series)}
             </Box>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <Typography variant="body2" color="text.secondary">Gov Allotted Charge</Typography>
-                <Typography variant="h5" fontWeight={700} color="primary.main">₹ {govElectricityRate.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">/ unit (kWh)</Typography></Typography>
+                <Typography variant="h6" fontWeight={700} color="primary.main">₹ {govElectricityRate.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">/ unit (kWh)</Typography></Typography>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Typography variant="body2" color="text.secondary">Current Grid Flow</Typography>
-                <Typography variant="h5" fontWeight={700} color="warning.main">{electricityFlow.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">MW</Typography></Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Latest filed quarter{powerDemand && powerDemand.latest_quarter ? ` (${powerDemand.latest_quarter.period})` : ''}
+                </Typography>
+                <Typography variant="h6" fontWeight={700} color="warning.main">
+                  {powerDemand && powerDemand.latest_quarter ? powerDemand.latest_quarter.value.toLocaleString('en-IN') : '—'} <Typography component="span" variant="body2" color="text.secondary">kWh</Typography>
+                </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2" fontWeight={600}>Estimated Run Rate</Typography>
-                  <Typography variant="subtitle1" fontWeight={700} color="error.main">₹ {(currentElectricityCostPerHour / 100000).toFixed(2)} Lakhs / hr</Typography>
+                <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, mt: 1 }}>
+                  <Typography variant="body2" fontWeight={600}>Projected demand — next 4 quarters
+                    <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                      {powerForecast ? `model: ${powerForecast.model || '—'}` : ''}
+                    </Typography>
+                  </Typography>
+                  <Typography variant="subtitle1" fontWeight={700} color={powerForecast && powerForecast.data_status === 'OK' ? 'error.main' : 'text.secondary'}>
+                    {forecastText(powerForecast)}
+                  </Typography>
+                  {capacity && capacity.parks && (
+                    <Typography variant="caption" color="text.secondary">
+                      Aggregate configured capacity: {capacity.parks.reduce((s, p) => s + (p.resources.power.capacity || 0), 0).toLocaleString('en-IN')} kWh/qtr ·
+                      {' '}{capacity.parks.filter(p => p.resources.power.risk === 'HIGH').length} park(s) at HIGH risk
+                    </Typography>
+                  )}
                 </Box>
               </Grid>
             </Grid>
@@ -481,24 +563,40 @@ export default function GovCommandCenter() {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Opacity sx={{ mr: 1, color: '#0288d1' }} />
-                <Typography variant="h6" fontWeight={600}>Water - Real-Time Flow & Tariffs</Typography>
+                <Typography variant="h6" fontWeight={600}>Water — Quarterly Demand</Typography>
               </Box>
-              <Chip icon={<WaterDrop />} label="Tap for breakdown" size="small" color="info" variant="outlined" sx={{ fontWeight: 600 }} />
+              {qoqChip(waterDemand && waterDemand.series)}
             </Box>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <Typography variant="body2" color="text.secondary">Gov Allotted Charge</Typography>
-                <Typography variant="h5" fontWeight={700} color="primary.main">₹ {govWaterRate.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">/ kL</Typography></Typography>
+                <Typography variant="h6" fontWeight={700} color="primary.main">₹ {govWaterRate.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">/ kL</Typography></Typography>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Typography variant="body2" color="text.secondary">Current Water Flow</Typography>
-                <Typography variant="h5" fontWeight={700} color="info.main">{waterFlow.toFixed(2)} <Typography component="span" variant="body2" color="text.secondary">ML/d</Typography></Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Latest filed quarter{waterDemand && waterDemand.latest_quarter ? ` (${waterDemand.latest_quarter.period})` : ''}
+                </Typography>
+                <Typography variant="h6" fontWeight={700} color="info.main">
+                  {waterDemand && waterDemand.latest_quarter ? waterDemand.latest_quarter.value.toLocaleString('en-IN') : '—'} <Typography component="span" variant="body2" color="text.secondary">KL</Typography>
+                </Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2" fontWeight={600}>Estimated Run Rate</Typography>
-                  <Typography variant="subtitle1" fontWeight={700} color="error.main">₹ {(currentWaterCostPerDay / 100000).toFixed(2)} Lakhs / day</Typography>
+                <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, mt: 1 }}>
+                  <Typography variant="body2" fontWeight={600}>Projected demand — next 4 quarters
+                    <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                      {waterForecast ? `model: ${waterForecast.model || '—'}` : ''}
+                    </Typography>
+                  </Typography>
+                  <Typography variant="subtitle1" fontWeight={700} color={waterForecast && waterForecast.data_status === 'OK' ? 'error.main' : 'text.secondary'}>
+                    {forecastText(waterForecast)}
+                  </Typography>
+                  {capacity && capacity.parks && (
+                    <Typography variant="caption" color="text.secondary">
+                      Aggregate configured capacity: {capacity.parks.reduce((s, p) => s + (p.resources.water.capacity || 0), 0).toLocaleString('en-IN')} KL/qtr ·
+                      {' '}{capacity.parks.filter(p => p.resources.water.risk === 'HIGH').length} park(s) at HIGH risk
+                    </Typography>
+                  )}
                 </Box>
               </Grid>
             </Grid>
@@ -553,19 +651,24 @@ export default function GovCommandCenter() {
                <Typography variant="h6" fontWeight={600}>Workflow Automation Engine</Typography>
              </Box>
              <Typography variant="body2" color="text.secondary" paragraph>
-               Enable the rules-engine to automatically approve low-risk data submissions and escalate delayed requests.
+               Display preference for the task panel below. The actual automations run
+               server-side on fixed schedules (no client toggle can switch them off):
+               compliance-violation SLA escalation (30 min), service-request deemed
+               approval (30 min), document-expiry reminders (daily), reporting-calendar
+               maintenance + filing reminders/escalations (hourly/daily), compliance
+               scoring and anomaly re-detection (daily).
              </Typography>
-             
-             <FormControlLabel 
-                control={<Switch checked={autoActionsEnabled} onChange={handleToggleAutoActions} color="info" />} 
-                label={autoActionsEnabled ? "Automated Actions: ENABLED" : "Automated Actions: PAUSED"} 
+
+             <FormControlLabel
+                control={<Switch checked={autoActionsEnabled} onChange={handleToggleAutoActions} color="info" />}
+                label={autoActionsEnabled ? "Task panel: expanded" : "Task panel: compact"}
              />
-             
+
              {autoActionsEnabled && (
                 <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.light', color: 'info.contrastText', borderRadius: 1 }}>
                    <Typography variant="body2">
                       <CheckCircle fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-                      Auto-approving NOCs for industries with compliance score &gt; 90.
+                      Server automations active: SLA escalation, deemed approvals, deadline reminders, daily scoring &amp; anomaly scans. Consequential actions always require officer approval.
                    </Typography>
                 </Box>
              )}

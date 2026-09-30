@@ -1,17 +1,19 @@
 // ============================================================
-// ai-assistant.js — VazhiPorul AI v2: context-aware + actionable (Top 3-B)
+// ai-assistant.js — VazhiPorul Assistant v3: context-aware,
+// actionable, and now wired to the intelligence layer.
 //
-// Mounted at /api/assistant. Gives the existing chatbot REAL user
-// context (their compliance score, open violations, pending service
-// requests, upcoming deadlines) and lets it perform actions on the
-// user's behalf (file a service request, summarise their status).
+// Mounted at /api/assistant (consumed by the frontend chatbot).
+// Rule-based intent engine over LIVE, RBAC-scoped database data —
+// deliberately no external LLM (deterministic, auditable, cheap).
 //
-// The chatbot UI in AIChatbot.jsx keeps its static knowledge base —
-// this route ADDS live, per-user intelligence. Both coexist.
-//
-// Intent engine: rule-based (no external LLM dependency). Maps natural
-// language to { intent, entities } then resolves the response from the
-// database. Cheap, fast, deterministic — perfect for a gov portal.
+// Industry intents: score / dues / violations / services /
+// deadlines / summary / create_service / my forecast / my
+// amendments. Government intents (Phase 16): park investment,
+// non-filers for a period, high water consumers, employment
+// growth, projected power demand. Every data answer includes its
+// source, period, and limitations; when history is insufficient
+// the assistant says so instead of fabricating numbers. Every
+// query is logged to ai_query_log.
 // ============================================================
 
 const express = require('express');
@@ -19,11 +21,24 @@ const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
 const { notify } = require('../services/notify');
+const { forecast } = require('../services/forecastService');
+
+// ------------------------------------------------------------
+// Query audit trail (Phase 17 logging requirement).
+// ------------------------------------------------------------
+async function logQuery(req, query, intent, tables, ms, status) {
+    try {
+        await db.query(
+            `INSERT INTO ai_query_log (user_id, role, query, intent, tables_touched, execution_ms, result_status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [req.user.id, req.user.role, String(query).slice(0, 2000), intent,
+             tables, ms, status]
+        );
+    } catch (_) { /* logging is best-effort */ }
+}
 
 // ============================================================
-// CONTEXT BUILDER — assemble everything we know about this user.
-// The assistant uses this to answer "what's my score?", "any dues?",
-// "what should I do next?" without the user spelling it out.
+// CONTEXT BUILDER (unchanged behaviour for industry users).
 // ============================================================
 async function buildContext(req) {
     const ctx = { role: req.user.role, name: req.user.name, hasProfile: false };
@@ -58,10 +73,24 @@ async function buildContext(req) {
 }
 
 // ============================================================
-// INTENT DETECTION — maps free-text to a structured intent.
+// INTENT DETECTION — industry intents first, then government.
 // ============================================================
 function detectIntent(text) {
     const q = text.toLowerCase();
+    // ---- SPECIFIC intelligence intents first (before the generic
+    //      deadline/service patterns, which would otherwise swallow
+    //      e.g. "what is the projected power demand for the next…").
+    if (/projected (power|water)|forecast.*(power|water|demand)|(power|water) demand.*(next|four|4|forecast)/.test(q))
+        return { intent: 'forecast_demand' };
+    if (/employment growth|job growth|growth in employment/.test(q))
+        return { intent: 'employment_growth' };
+    if (/who (has|have) not (submitted|filed)|non.?filer|missing submission|not submitted.*(q[1-4]|quarter|data)/.test(q))
+        return { intent: 'non_submitters' };
+    if (/unusually high water|high water consumption|water.*(anomal|outlier)|anomal/.test(q))
+        return { intent: 'water_anomalies' };
+    if (/total investment.*park|investment.*park|park.*investment/.test(q))
+        return { intent: 'park_investment' };
+
     // score
     if (/(my |current )?(compliance|) ?score|how am i doing|my rating|good standing/.test(q))
         return { intent: 'get_score' };
@@ -88,7 +117,7 @@ function detectIntent(text) {
 }
 
 // ============================================================
-// RESPONSE GENERATORS — turn an intent + context into a reply.
+// RESPONSE GENERATORS (industry — unchanged).
 // ============================================================
 function scoreReply(ctx) {
     if (!ctx.score) return { text: "You don't have a compliance score on record yet. Scores are generated after your first quarterly submission.", suggestions: ['How do I submit data?', 'What is compliance score?'] };
@@ -96,8 +125,8 @@ function scoreReply(ctx) {
     const band = s.overall_score >= 90 ? 'Compliant 🟢' : s.overall_score >= 70 ? 'Warning 🟡' : 'Non-Compliant 🔴';
     return {
         text: `📊 **Your Compliance Score: ${s.overall_score}/100** — ${band}\n\n` +
-              `Breakdown:\n• Submission: ${s.submission_score ?? '—'}\n• Environmental: ${s.environmental_score ?? '—'}\n` +
-              `• Financial: ${s.financial_score ?? '—'}\n• Safety: ${s.safety_score ?? '—'}`,
+              `Breakdown (as of ${new Date(s.score_date).toLocaleDateString('en-IN')}):\n• Submission: ${s.submission_score ?? '—'}\n• Environmental: ${s.environmental_score ?? '—'}\n` +
+              `• Financial: ${s.financial_score ?? '—'}\n• Safety: ${s.safety_score ?? '—'}\n\n_Source: compliance_scores, computed from your filings, violations and reminders._`,
         suggestions: ['Why is my score low?', 'Any open violations?', 'How to improve?']
     };
 }
@@ -125,8 +154,8 @@ function servicesReply(ctx) {
 
 function deadlinesReply(ctx) {
     const items = [];
-    ctx.expiringDocs.forEach(d => items.push(`• 📄 **${d.file_name}** (${String(d.category).replace(/_/g,' ')}) expires ${new Date(d.expiry_date).toLocaleDateString('en-IN')}`));
-    ctx.pendingServices.forEach(s => s.sla_deadline && items.push(`• 🔧 **${s.reference_number}** SLA due ${new Date(s.sla_deadline).toLocaleDateString('en-IN')}`));
+    (ctx.expiringDocs || []).forEach(d => items.push(`• 📄 **${d.file_name}** (${String(d.category).replace(/_/g,' ')}) expires ${new Date(d.expiry_date).toLocaleDateString('en-IN')}`));
+    (ctx.pendingServices || []).forEach(s => s.sla_deadline && items.push(`• 🔧 **${s.reference_number}** SLA due ${new Date(s.sla_deadline).toLocaleDateString('en-IN')}`));
     if (!items.length) return { text: "✅ Nothing urgent. You have no expiring documents or breached SLAs in the next 60 days.", suggestions: ['Give me a summary', 'Any violations?'] };
     return {
         text: `📌 **Upcoming deadlines / action items:**\n\n${items.slice(0, 8).join('\n')}`,
@@ -135,7 +164,6 @@ function deadlinesReply(ctx) {
 }
 
 async function duesReply(ctx) {
-    // Lease dues come from the plot lease; check if a lease is active.
     if (!ctx.profile || !ctx.profile.plot_id) return { text: "You don't have an active plot lease on record, so no lease dues. Other dues (utility bills, service fees) appear on your workspace once invoiced.", suggestions: ['My pending requests', 'What is my score?'] };
     const lease = await db.query('SELECT monthly_lease_amount, lease_end_date FROM park_plots WHERE id = $1', [ctx.profile.plot_id]);
     if (!lease.rows.length || !lease.rows[0].monthly_lease_amount) return { text: "No lease billing details found for your plot. Contact SIPCOT accounts for a statement.", suggestions: ['Contact support'] };
@@ -164,9 +192,6 @@ function summaryReply(ctx) {
     };
 }
 
-// ============================================================
-// ACTION: create_service — file a service request from chat.
-// ============================================================
 async function createService(ctx, text) {
     if (!ctx.hasProfile) return { text: "Only industry users can file service requests. Please log in to an industry account.", suggestions: [] };
     const q = text.toLowerCase();
@@ -191,22 +216,118 @@ async function createService(ctx, text) {
     const ins = await db.query(
         `INSERT INTO service_requests (industry_id, service_type, reference_number, remarks)
          VALUES ($1,$2,$3,$4) RETURNING id, reference_number`,
-        [ctx.industryId, serviceType, ref, `Filed via VazhiPorul AI: "${text.slice(0, 120)}"`]
+        [ctx.industryId, serviceType, ref, `Filed via VazhiPorul Assistant: "${text.slice(0, 120)}"`]
     );
     return {
-        text: `✅ **Request filed!**\n\nReference: **${ins.rows[0].reference_number}**\nType: ${serviceType.replace(/_/g,' ')}\n\nTrack it in the Services Tracker. I'll also notify you on status changes.`,
+        text: `✅ **Request filed!**\n\nReference: **${ins.rows[0].reference_number}**\nType: ${serviceType.replace(/_/g,' ')}\n\nTrack it in the Services Tracker.`,
         suggestions: ['Track this request', 'What is my score?'],
         action: { type: 'service_created', id: ins.rows[0].id, reference: ins.rows[0].reference_number }
     };
 }
 
 // ============================================================
+// GOVERNMENT / INTELLIGENCE RESPONSE GENERATORS (Phase 16).
+// Each answer carries source + period + limitations, and defers
+// to RBAC (only admin/govt reach these handlers).
+// ============================================================
+
+async function parkInvestmentReply() {
+    const { rows } = await db.query(`
+        WITH latest AS (
+            SELECT DISTINCT ON (ds.industry_id) ds.id, ds.industry_id
+              FROM data_submissions ds
+          ORDER BY ds.industry_id, ds.period_year DESC, ds.period_quarter DESC NULLS LAST)
+        SELECT p.name,
+               COUNT(ip.id) AS industries,
+               COALESCE(SUM(f.investment_amount), 0) AS investment_inr
+          FROM industrial_parks p
+     LEFT JOIN industry_profiles ip ON ip.park_id = p.id
+     LEFT JOIN latest l ON l.industry_id = ip.id
+     LEFT JOIN financial_data f ON f.submission_id = l.id
+      GROUP BY p.name ORDER BY investment_inr DESC`);
+    if (!rows.length) return { text: 'No park investment data available yet.' };
+    const lines = rows.slice(0, 6).map(r =>
+        `• **${r.name}** — ₹${(Number(r.investment_inr) / 1e7).toLocaleString('en-IN', { maximumFractionDigits: 1 })} Cr (${r.industries} industries)`);
+    return {
+        text: `🏭 **Investment by park** (latest filing per industry):\n\n${lines.join('\n')}\n\n_Source: data_submissions → financial_data, latest revision. Values in ₹ Crores._`,
+        suggestions: ['Who has not submitted Q data?', 'Projected power demand?']
+    };
+}
+
+async function nonSubmittersReply() {
+    const { getFilingMatrix } = require('../services/missingSubmissionEngine');
+    const matrix = await getFilingMatrix({ year: new Date().getUTCFullYear() });
+    const outstanding = matrix.industries.filter(i => i.outstanding.length > 0);
+    if (!outstanding.length) {
+        return { text: `✅ Every expected filer is current for ${matrix.year} (periods Q1–Q${matrix.periods.length ? matrix.periods[matrix.periods.length - 1].period_quarter : 0}).` };
+    }
+    const lines = outstanding.slice(0, 8).map(i =>
+        `• **${i.company_name}** (${i.park_name}) — missing ${i.outstanding.map(q => `Q${q}`).join(', ')}`);
+    return {
+        text: `📋 **${outstanding.length} industries have outstanding ${matrix.year} filings**:\n\n${lines.join('\n')}${outstanding.length > 8 ? `\n…and ${outstanding.length - 8} more` : ''}\n\n_Source: reporting calendar × data_submissions. CLOSED units are not expected to file._`,
+        suggestions: ['Unusually high water consumption?', 'Employment growth?']
+    };
+}
+
+async function waterAnomaliesReply() {
+    const { rows } = await db.query(`
+        SELECT f.rule_id, f.metric, f.observed_value, f.expected_value, f.change_pct,
+               f.severity, f.reason, ip.company_name
+          FROM data_findings f
+          JOIN industry_profiles ip ON ip.id = f.industry_id
+         WHERE f.status = 'open' AND f.finding_type IN ('anomaly','consistency')
+           AND (f.metric ILIKE '%water%' OR f.rule_id = 'C-WAT-QUOTA')
+      ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END, f.detected_at DESC
+         LIMIT 6`);
+    if (!rows.length) {
+        return { text: 'No open water-related findings. (Detection runs at filing time and daily; industries with fewer than the configured historical minimum are skipped rather than guessed at.)' };
+    }
+    const lines = rows.map(r =>
+        `• **${r.company_name}** — ${r.reason}${r.change_pct !== null ? ` (${r.change_pct > 0 ? '+' : ''}${r.change_pct}%)` : ''}`);
+    return {
+        text: `💧 **Open water findings:**\n\n${lines.join('\n')}\n\n_Source: data_findings (anomaly + consistency engines), open items only._`,
+        suggestions: ['Who has not submitted Q data?', 'Projected power demand?']
+    };
+}
+
+async function employmentGrowthReply() {
+    const { quarterlySeries } = require('../services/forecastService');
+    const series = await quarterlySeries('employment', 'state', null);
+    if (series.length < 2) {
+        return { text: `_Insufficient history_: employment growth needs at least 2 quarters of filed data; ${series.length} available. No growth figure is produced rather than an unreliable one.` };
+    }
+    const last = series[series.length - 1], prev = series[series.length - 2];
+    const pct = prev.value > 0 ? Math.round(((last.value - prev.value) / prev.value) * 1000) / 10 : null;
+    return {
+        text: `📈 **Statewide employment** (latest revision per industry per quarter):\n\n${prev.year}-Q${prev.quarter}: ${prev.value.toLocaleString('en-IN')}\n${last.year}-Q${last.quarter}: ${last.value.toLocaleString('en-IN')}\nChange: **${pct === null ? 'n/a (zero baseline)' : (pct > 0 ? '+' : '') + pct + '%'}**\n\n_Source: employment_data via quarterly series. Park-level growth is on the Command Center → Growth panel._`,
+        suggestions: ['Projected power demand?', 'Total investment by park?']
+    };
+}
+
+async function forecastDemandReply(message) {
+    const q = message.toLowerCase();
+    const metric = /water/.test(q) ? 'water' : 'power';
+    const unit = metric === 'water' ? 'KL' : 'kWh';
+    const result = await forecast(metric, 'state', null, 4, { persist: false });
+    if (result.data_status === 'INSUFFICIENT_DATA') {
+        return {
+            text: `🔮 **Projected ${metric} demand — not available.**\n\nOnly ${result.available_points} quarter(s) of filed ${metric} data exist for the statewide scope; the forecasting engine requires ${result.minimum_required}. No projection is produced rather than an unreliable one.\n\nAs filings accumulate, this answer switches to a real forecast automatically.`
+        };
+    }
+    const lines = result.projection.map((p, i) =>
+        `• ${p.period}: **${p.value.toLocaleString('en-IN')} ${unit}** (range ${result.band[i].low.toLocaleString('en-IN')}–${result.band[i].high.toLocaleString('en-IN')})`);
+    return {
+        text: `🔮 **Projected statewide ${metric} demand, next ${result.projection.length} quarters** (model: ${result.model}, trained on ${result.training_periods} quarters):\n\n${lines.join('\n')}\n\n_Limitations: ${result.caveat || 'bounds are ±1 residual deviation; treat as planning input, not a guarantee.'}_`,
+        suggestions: ['Who has not submitted Q data?', 'Employment growth?']
+    };
+}
+
+// ============================================================
 // @route   POST /api/assistant/chat
-// @desc    Context-aware assistant turn. Returns a reply + optional
-//          action payload the UI can act on (e.g. navigate).
-// @access  Private (all roles — context adapts)
+// @access  Private (all roles — context + RBAC adapt)
 // ============================================================
 router.post('/chat', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+    const started = Date.now();
     try {
         const { message } = req.body;
         if (!message || !message.trim()) return res.status(400).json({ error: 'message required' });
@@ -214,37 +335,49 @@ router.post('/chat', requireRole(['admin', 'govt', 'industry']), async (req, res
         const ctx = await buildContext(req);
         const { intent } = detectIntent(message);
         let reply;
+        let tables = [];
+        let status = 'ok';
 
-        switch (intent) {
-            case 'get_score':      reply = scoreReply(ctx); break;
-            case 'get_violations': reply = violationsReply(ctx); break;
-            case 'get_services':   reply = servicesReply(ctx); break;
-            case 'get_deadlines':  reply = deadlinesReply(ctx); break;
-            case 'get_dues':       reply = await duesReply(ctx); break;
-            case 'get_summary':    reply = summaryReply(ctx); break;
-            case 'create_service': reply = await createService(ctx, message); break;
-            default:
-                reply = {
-                    text: ctx.hasProfile
-                        ? `Hi ${ctx.name || ''}! I'm VazhiPorul AI with live access to your account now. Try: *"what's my score?"*, *"any violations?"*, *"file a fire NOC"*, or *"what should I do next?"*.`
-                        : `Hi ${ctx.name || ''}! I'm VazhiPorul AI. Ask me about parks, services, compliance, or schemes. (Live account insights unlock for industry users.)`,
-                    suggestions: ctx.hasProfile
-                        ? ['What is my score?', 'Any deadlines?', 'File a request']
-                        : ['Show industrial parks', 'What services are available?', 'How to register?']
-                };
+        const govOnly = ['park_investment', 'non_submitters', 'water_anomalies', 'employment_growth', 'forecast_demand'];
+        if (govOnly.includes(intent) && !['admin', 'govt'].includes(ctx.role)) {
+            status = 'denied';
+            reply = { text: 'That question uses government-wide analytics. Ask from an admin or government account — industry accounts only see their own data.' };
+        } else {
+            switch (intent) {
+                case 'get_score':      reply = scoreReply(ctx); tables = ['compliance_scores']; break;
+                case 'get_violations': reply = violationsReply(ctx); tables = ['compliance_violations']; break;
+                case 'get_services':   reply = servicesReply(ctx); tables = ['service_requests']; break;
+                case 'get_deadlines':  reply = deadlinesReply(ctx); tables = ['documents', 'service_requests']; break;
+                case 'get_dues':       reply = await duesReply(ctx); tables = ['park_plots']; break;
+                case 'get_summary':    reply = summaryReply(ctx); tables = ['compliance_scores','compliance_violations','service_requests','documents']; break;
+                case 'create_service': reply = await createService(ctx, message); tables = ['service_requests']; break;
+                case 'park_investment':    reply = await parkInvestmentReply(); tables = ['data_submissions','financial_data','industrial_parks']; break;
+                case 'non_submitters':     reply = await nonSubmittersReply(); tables = ['reporting_periods','data_submissions']; break;
+                case 'water_anomalies':    reply = await waterAnomaliesReply(); tables = ['data_findings']; break;
+                case 'employment_growth':  reply = await employmentGrowthReply(); tables = ['employment_data','data_submissions']; break;
+                case 'forecast_demand':    reply = await forecastDemandReply(message); tables = ['resource_usage','data_submissions']; break;
+                default:
+                    reply = {
+                        text: ctx.hasProfile
+                            ? `Hi ${ctx.name || ''}! I'm VazhiPorul Assistant with live access to your data. Try: *"what's my score?"*, *"any violations?"*, *"file a fire NOC"*, or *"what should I do next?"*.`
+                            : `Hi ${ctx.name || ''}! I'm VazhiPorul Assistant. Government accounts can ask: *"total investment by park"*, *"who has not submitted Q3 data"*, *"unusually high water consumption"*, *"employment growth"*, or *"projected power demand for the next four quarters"*.`
+                    };
+            }
         }
+
+        if (reply && reply.text && /not available|insufficient/i.test(reply.text) && intent === 'forecast_demand') status = 'insufficient_data';
+
+        await logQuery(req, message, intent, tables, Date.now() - started, status);
         res.json({ reply, intent, contextRole: ctx.role });
     } catch (err) {
         console.error('Assistant Chat Error:', err.message);
+        await logQuery(req, req.body && req.body.message, 'error', [], Date.now() - started, 'error').catch(() => {});
         res.status(500).send('Server Error');
     }
 });
 
 // ============================================================
 // @route   GET /api/assistant/context
-// @desc    Return just the live context (for the chatbot sidebar /
-//          proactive nudges without a chat turn).
-// @access  Private
 // ============================================================
 router.get('/context', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
@@ -253,6 +386,22 @@ router.get('/context', requireRole(['admin', 'govt', 'industry']), async (req, r
         console.error('Assistant Context Error:', err.message);
         res.status(500).send('Server Error');
     }
+});
+
+// ============================================================
+// @route   GET /api/assistant/provider-status
+// @desc    Honest capability statement for the UI (no fake AI).
+// ============================================================
+router.get('/capabilities', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+    res.json({
+        engine: 'rule-based intent engine over live SQL (deterministic; no LLM is called)',
+        data_scoped_to: req.user.role === 'industry' ? 'your industry only' : 'all parks (admin/govt)',
+        honest_limits: [
+            'Forecasts return INSUFFICIENT_DATA rather than numbers when history is below the minimum.',
+            'Answers include source tables and period.'
+        ],
+        query_log: 'every query is recorded in ai_query_log'
+    });
 });
 
 module.exports = router;

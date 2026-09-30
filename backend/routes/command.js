@@ -19,7 +19,9 @@ const SERVICE_TYPE_LABELS = {
 const labelForServiceType = (t) => SERVICE_TYPE_LABELS[t] || 'Service Request';
 
 // @route   GET /api/command/kpis
-// @desc    Aggregated KPI cards for Command Center
+// @desc    Aggregated KPI cards for Command Center. Growth chips are
+//          REAL quarter-over-quarter changes from the quarterly filing
+//          series (no hardcoded zeros) — null when history is missing.
 // @access  Private (Admin, Govt)
 router.get('/kpis', requireRole(['admin', 'govt']), async (req, res) => {
     try {
@@ -40,30 +42,50 @@ router.get('/kpis', requireRole(['admin', 'govt']), async (req, res) => {
             LEFT JOIN employment_data e ON e.submission_id = latest_sub.id
         `);
 
-        // Red flags = open compliance violations + pending service requests.
+        // Red flags = open compliance violations + pending service requests
+        // + open high/critical data findings.
         const { rows: flagRows } = await db.query(`
             SELECT
                 (SELECT COUNT(*) FROM compliance_violations
                     WHERE status NOT IN ('resolved')) AS open_violations,
                 (SELECT COUNT(*) FROM service_requests
-                    WHERE current_status NOT IN ('completed', 'approved', 'rejected')) AS pending_srs
-        `);
+                    WHERE current_status NOT IN ('completed', 'approved', 'rejected')) AS pending_srs,
+                (SELECT COUNT(*) FROM data_findings
+                    WHERE status = 'open' AND severity IN ('high','critical')) AS severe_findings
+        `).catch(() => ({ rows: [{ open_violations: 0, pending_srs: 0, severe_findings: 0 }] }));
+
+        // Real QoQ growth from the quarterly series (latest vs previous
+        // filed quarter). Falls back to null — never a fabricated 0/15%.
+        const { quarterlySeries } = require('../services/forecastService');
+        const growth = async (metric) => {
+            try {
+                const s = await quarterlySeries(metric, 'state', null);
+                if (s.length < 2) return null;
+                const cur = s[s.length - 1].value, prev = s[s.length - 2].value;
+                return prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null;
+            } catch (_) { return null; }
+        };
+        const [capexG, revenueG, directG, indirectG] = await Promise.all([
+            growth('investment'), growth('turnover'), growth('employment'), growth('employment')
+        ]);
 
         const k = kpiRows[0];
         const openViolations = parseInt(flagRows[0].open_violations) || 0;
         const pendingSRs = parseInt(flagRows[0].pending_srs) || 0;
+        const severeFindings = parseInt(flagRows[0].severe_findings) || 0;
 
         res.json({
             total_capex_cr: Math.round(parseFloat(k.total_capex_cr) || 0),
-            capex_growth_pct: 0,
+            capex_growth_pct: capexG,
             total_revenue_cr: Math.round(parseFloat(k.total_revenue_cr) || 0),
-            revenue_growth_pct: 0,
+            revenue_growth_pct: revenueG,
             direct_employment: parseInt(k.direct_employment) || 0,
-            direct_growth_pct: 0,
+            direct_growth_pct: directG,
             indirect_employment: parseInt(k.indirect_employment) || 0,
-            indirect_growth_pct: 0,
-            red_flags: openViolations + pendingSRs,
-            red_flags_change: 0
+            indirect_growth_pct: indirectG,
+            red_flags: openViolations + pendingSRs + severeFindings,
+            red_flags_change: null,
+            growth_basis: 'quarter-over-quarter from filed quarterly data; null = insufficient history (never fabricated)'
         });
     } catch (err) {
         console.error('Command KPIs Error:', err.message);
@@ -252,6 +274,40 @@ router.get('/alerts', requireRole(['admin', 'govt']), async (req, res) => {
                 action_url: '/services'
             });
         }
+
+        // Open high/critical data-quality findings (anomalies + inconsistencies).
+        const { rows: findingRows } = await db.query(`
+            SELECT COUNT(*) AS count FROM data_findings
+             WHERE status = 'open' AND severity IN ('high','critical')
+        `).catch(() => ({ rows: [{ count: 0 }] }));
+        const findingCount = parseInt(findingRows[0].count) || 0;
+        if (findingCount > 0) {
+            alertsList.push({
+                id: 'data-findings',
+                severity: 'high',
+                category: 'data_quality',
+                message: `${findingCount} high/critical data finding${findingCount > 1 ? 's' : ''} (anomalies or quota breaches) need review`,
+                count: findingCount,
+                action_url: '/compliance-engine'
+            });
+        }
+
+        // Overdue/missing filings for elapsed periods (period-based engine).
+        try {
+            const { getCurrentPeriodOverview } = require('../services/missingSubmissionEngine');
+            const overview = await getCurrentPeriodOverview();
+            const overdue = overview.summary.overdue + overview.summary.missing;
+            if (overdue > 0) {
+                alertsList.push({
+                    id: 'filings-overdue',
+                    severity: 'high',
+                    category: 'submissions',
+                    message: `${overdue} expected filing(s) overdue or missing for ${overview.year}-Q${overview.quarter}`,
+                    count: overdue,
+                    action_url: '/compliance-engine'
+                });
+            }
+        } catch (_) { /* calendar engine unavailable pre-migration */ }
 
         res.json(alertsList);
     } catch (err) {

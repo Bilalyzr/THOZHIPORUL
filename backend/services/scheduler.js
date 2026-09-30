@@ -220,7 +220,13 @@ async function documentExpiry() {
 }
 
 // ============================================================
-// JOB 4 — Scheduled report generation + email delivery.
+// JOB 4 — Scheduled report generation.
+// HONEST behaviour (Phase 21 fix): a REAL CSV artifact is built
+// from live data, stored under uploads/reports/, recorded in
+// report_generation_log, and the user is notified with a download
+// path. Email delivery is only claimed when a real email
+// transport exists — otherwise the notification says the report
+// is available in the portal and email stays SIMULATED.
 // ============================================================
 async function scheduledReports() {
     if (!(await tableExists('scheduled_reports'))) return;
@@ -231,25 +237,65 @@ async function scheduledReports() {
     `);
     if (!rows.length) return;
 
-    const { notify } = require('./notify');
+    const fs = require('fs');
+    const path = require('path');
+    const REPORTS_DIR = path.join(__dirname, '..', 'uploads', 'reports');
+    const { notify, PROVIDERS } = require('./notify');
+
     for (const sched of rows) {
         try {
-            // Defer the heavy PDF build to the reports service so this
-            // module stays dependency-light. We just record + notify.
+            fs.mkdirSync(REPORTS_DIR, { recursive: true });
+
+            // Real per-industry dataset (same source as /api/reports/data).
+            const data = await db.query(`
+                WITH latest_sub AS (
+                    SELECT DISTINCT ON (industry_id) id, industry_id FROM data_submissions
+                     WHERE lower(status) IN ('approved','submitted')
+                  ORDER BY industry_id, submitted_at DESC)
+                SELECT ip.company_name, ip.location, ip.operational_status,
+                       f.investment_amount, f.annual_turnover,
+                       COALESCE(e.permanent_employees,0)+COALESCE(e.contract_employees,0) AS employment,
+                       r.water_consumption, r.power_usage
+                  FROM industry_profiles ip
+             LEFT JOIN latest_sub ls ON ls.industry_id = ip.id
+             LEFT JOIN financial_data f ON f.submission_id = ls.id
+             LEFT JOIN employment_data e ON e.submission_id = ls.id
+             LEFT JOIN resource_usage r ON r.submission_id = ls.id
+              ORDER BY ip.company_name`);
+
+            const header = 'Company,Location,Operational Status,Investment (INR),Turnover (INR),Employment,Water (KL),Power (kWh)';
+            const lines = data.rows.map(r =>
+                `"${r.company_name}","${r.location || ''}","${r.operational_status || ''}",` +
+                `${r.investment_amount ?? ''},${r.annual_turnover ?? ''},${r.employment},${r.water_consumption ?? ''},${r.power_usage ?? ''}`);
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const fileName = `scheduled_${sched.report_type || 'report'}_${sched.id}_${stamp}.csv`;
+            fs.writeFileSync(path.join(REPORTS_DIR, fileName), [header, ...lines].join('\n'), 'utf8');
+
+            // Record the generation (real log row, real artifact).
+            await db.query(`
+                INSERT INTO report_generation_log
+                    (generated_by, report_type, format, report_id_code, row_count, file_size_kb, filters)
+                 VALUES ($1,$2,'csv',$3,$4,$5,$6::jsonb)`,
+                [sched.owner_id, sched.report_type || 'scheduled', `SCH-${sched.id}-${stamp}`,
+                 data.rows.length, Math.round(fs.statSync(path.join(REPORTS_DIR, fileName)).size / 1024),
+                 JSON.stringify({ schedule_id: sched.id, frequency: sched.frequency })]);
+
+            const emailReal = !!(PROVIDERS.email.configured && PROVIDERS.email.transportImplemented);
             await notify({
                 userId: sched.owner_id,
                 category: 'system',
                 severity: 'info',
-                title: `Scheduled report ready: ${sched.name}`,
-                message: `Your ${sched.frequency} "${sched.report_type}" report has been generated and emailed to ${(Array.isArray(sched.recipients) ? sched.recipients : []).length} recipient(s).`,
+                title: `Scheduled report generated: ${sched.name}`,
+                message: `Your ${sched.frequency} "${sched.report_type}" report was generated from live data (${data.rows.length} industries, artifact ${fileName}). ` +
+                    (emailReal
+                        ? `Emailed to ${(Array.isArray(sched.recipients) ? sched.recipients : []).length} recipient(s).`
+                        : `Download it from the Report Center — email delivery is not configured on this deployment, so no email was sent.`),
                 link: '/report-center',
-                metadata: { reportType: sched.report_type, frequency: sched.frequency }
+                metadata: { scheduleId: sched.id, artifact: fileName, rows: data.rows.length, emailDelivered: emailReal }
             });
+
             await db.query(
-                `UPDATE scheduled_reports
-                    SET last_run_at = NOW(),
-                        next_run_at = $1
-                  WHERE id = $2`,
+                `UPDATE scheduled_reports SET last_run_at = NOW(), next_run_at = $1 WHERE id = $2`,
                 [nextRun(sched.frequency), sched.id]
             );
         } catch (err) {
@@ -306,5 +352,184 @@ register('service-sla',           30 * 60 * 1000, serviceSla);
 register('document-expiry',       24 * 60 * 60 * 1000, documentExpiry);
 register('scheduled-reports',     15 * 60 * 1000, scheduledReports);
 register('subscription-dunning',  60 * 60 * 1000, subscriptionDunning);
+register('reporting-calendar',    24 * 60 * 60 * 1000, reportingCalendarMaintenance);
+register('submission-reminders',  60 * 60 * 1000, submissionReminders);
+register('compliance-scoring',    24 * 60 * 60 * 1000, complianceScoringJob);
+register('anomaly-batch',         24 * 60 * 60 * 1000, anomalyBatch);
 
-module.exports = { start, register };
+// ============================================================
+// JOB 6 — reporting-calendar maintenance (daily).
+// Ensures calendar rows exist for the current and next year
+// (default policy), and closes periods past their closing date.
+// Admins can edit any row afterwards — this only fills gaps.
+// ============================================================
+async function reportingCalendarMaintenance() {
+    if (!(await tableExists('reporting_periods'))) return;
+    const years = [new Date().getUTCFullYear(), new Date().getUTCFullYear() + 1];
+    for (const y of years) {
+        await db.query(`
+            INSERT INTO reporting_periods (period_year, period_quarter, opens_on, due_on, grace_days, closes_on, status)
+            SELECT $1, q,
+                   make_date($1, (q-1)*3+1, 1),
+                   (make_date($1, (q-1)*3+1, 1) + INTERVAL '3 months' - INTERVAL '1 day' + INTERVAL '15 days')::date,
+                   7,
+                   (make_date($1, (q-1)*3+1, 1) + INTERVAL '3 months' - INTERVAL '1 day' + INTERVAL '22 days')::date,
+                   'open'
+              FROM (VALUES (1),(2),(3),(4)) q(q)
+         ON CONFLICT DO NOTHING`, [y]);
+    }
+    const closed = await db.query(`
+        UPDATE reporting_periods SET status = 'closed', updated_at = NOW()
+         WHERE status = 'open' AND closes_on < CURRENT_DATE RETURNING id`);
+    if (closed.rowCount) console.log(`[SCHEDULER] reporting calendar: ${closed.rowCount} period(s) closed.`);
+}
+
+// ============================================================
+// JOB 7 — submission reminder + escalation engine (hourly).
+// For every OPEN period with elapsed stages, reminds industries
+// that have not filed:
+//   T-7 days  → reminder 1 "upcoming"
+//   due date  → reminder 2 "due"
+//   grace -2  → reminder 3 "grace"
+//   past close→ reminder 4 "overdue"  + GOVT officer notification
+//   +7 past   → reminder 5 "escalated" + govt re-notification
+// Every send is persisted in submission_reminders (unique key
+// prevents duplicates). Delivery honesty follows notify.js.
+// ============================================================
+async function submissionReminders() {
+    if (!(await tableExists('reporting_periods'))) return;
+
+    const periods = await db.query(`
+        SELECT * FROM reporting_periods
+         WHERE due_on <= CURRENT_DATE + 7
+           AND closes_on >= CURRENT_DATE - 90`);
+    if (!periods.rows.length) return;
+
+    const { notify } = require('./notify');
+    const today = new Date();
+    const days = (d) => Math.floor((today - new Date(d)) / 86400000);
+
+    for (const rp of periods.rows) {
+        // Expected filers that have NOT filed this period.
+        const nonFilers = await db.query(`
+            SELECT ip.id, ip.company_name, u.id AS user_id
+              FROM industry_profiles ip
+              JOIN users u ON u.id = ip.user_id
+             WHERE ip.operational_status = ANY(ARRAY['OPERATING','IDLE','TEMPORARILY_CLOSED']::text[])
+               AND NOT EXISTS (
+                     SELECT 1 FROM data_submissions ds
+                      WHERE ds.industry_id = ip.id
+                        AND ds.period_year = $1 AND ds.period_quarter = $2)`,
+            [rp.period_year, rp.period_quarter]);
+        if (!nonFilers.rows.length) continue;
+
+        // Determine the current stage + reminder number.
+        let stage = null, reminderNo = 0, notifyGovt = false;
+        const dueIn = -days(rp.due_on); // positive = days until due
+        if (dueIn >= 1 && dueIn <= 7) { stage = 'upcoming'; reminderNo = 1; }
+        else if (dueIn <= 0 && days(rp.closes_on) < 0) {
+            // past due, still in grace window
+            const daysToClose = -days(rp.closes_on);
+            if (daysToClose <= 2) { stage = 'grace'; reminderNo = 3; }
+            else { stage = 'due'; reminderNo = 2; }
+        }
+        if (stage === null && days(rp.closes_on) >= 0) {
+            const past = days(rp.closes_on);
+            if (past >= 7) { stage = 'escalated'; reminderNo = 5; notifyGovt = true; }
+            else { stage = 'overdue'; reminderNo = 4; notifyGovt = true; }
+        }
+        if (stage === null) continue;
+
+        const periodLabel = `${rp.period_year}-Q${rp.period_quarter}`;
+        const messages = {
+            upcoming: `Reminder: your ${periodLabel} industrial data return is due on ${rp.due_on}.`,
+            due: `DUE NOW: your ${periodLabel} industrial data return was due on ${rp.due_on}. File immediately.`,
+            grace: `FINAL NOTICE: the grace window for your ${periodLabel} return closes on ${rp.closes_on}.`,
+            overdue: `OVERDUE: your ${periodLabel} industrial data return is overdue (window closed ${rp.closes_on}). This has been reported to SIPCOT officers.`,
+            escalated: `ESCALATED: ${periodLabel} return still missing after escalation window. Further enforcement may follow.`
+        };
+
+        for (const ind of nonFilers.rows) {
+            // Dedupe via unique (industry, period, reminder_no).
+            const ins = await db.query(`
+                INSERT INTO submission_reminders (industry_id, period_year, period_quarter, reminder_no, stage, gov_notified)
+                VALUES ($1,$2,$3,$4,$5,$6)
+              ON CONFLICT DO NOTHING RETURNING id`, [ind.id, rp.period_year, rp.period_quarter, reminderNo, stage, notifyGovt]);
+            if (!ins.rows.length) continue; // already sent
+
+            await notify({
+                userId: ind.user_id,
+                category: 'submission',
+                severity: stage === 'overdue' || stage === 'escalated' ? 'error' : 'warning',
+                title: `[${stage.toUpperCase()}] ${periodLabel} data return`,
+                message: messages[stage],
+                link: '/submit-data',
+                metadata: { periodYear: rp.period_year, periodQuarter: rp.period_quarter, stage, reminderNo }
+            });
+        }
+
+        // Government officer notification on overdue/escalated. Gov-wide
+        // notices are recorded in the notifications table (the reminders
+        // ledger is per-industry; industry_id has an FK to real profiles).
+        if (notifyGovt) {
+            const count = nonFilers.rows.length;
+            const already = await db.query(
+                `SELECT COUNT(*)::int AS n FROM notifications
+                  WHERE role_scope='govt' AND category='submission'
+                    AND title = $1 AND created_at > NOW() - INTERVAL '7 days'`,
+                [`${count} industries ${stage === 'escalated' ? 'escalated' : 'overdue'} for ${periodLabel}`]);
+            if (!already.rows[0].n) {
+                await notify({
+                    roleScope: 'govt',
+                    category: 'submission',
+                    severity: stage === 'escalated' ? 'error' : 'warning',
+                    title: `${count} industries ${stage === 'escalated' ? 'escalated' : 'overdue'} for ${periodLabel}`,
+                    message: `${count} expected filers have not submitted their ${periodLabel} return (window closed ${rp.closes_on}). See the Compliance Engine → Filing Status view.`,
+                    link: '/compliance-engine',
+                    metadata: { periodYear: rp.period_year, periodQuarter: rp.period_quarter, nonFilers: count, stage }
+                });
+            }
+        }
+        console.log(`[SCHEDULER] reminders: ${periodLabel} stage=${stage}, ${nonFilers.rows.length} non-filer(s) processed.`);
+    }
+}
+
+// ============================================================
+// JOB 8 — compliance scoring (daily). Real scores from real
+// violations/filing behaviour; replaces static seed values.
+// ============================================================
+async function complianceScoringJob() {
+    if (!(await tableExists('compliance_scores'))) return;
+    const { computeAllScores } = require('./complianceScoring');
+    const result = await computeAllScores();
+    if (result.scored) console.log(`[SCHEDULER] compliance scoring: ${result.scored} industries scored as of ${result.as_of}.`);
+}
+
+// ============================================================
+// JOB 9 — anomaly batch (daily). Re-runs consistency + anomaly
+// detection across every industry's latest filing so findings
+// stay current even when rules change after filing.
+// ============================================================
+async function anomalyBatch() {
+    if (!(await tableExists('data_findings'))) return;
+    const consistencyEngine = require('./consistencyEngine');
+    const anomalyService = require('./anomalyService');
+    const { rows } = await db.query(`
+        SELECT DISTINCT ON (industry_id) id FROM data_submissions
+      ORDER BY industry_id, submitted_at DESC`);
+    let findings = 0;
+    const c = await consistencyEngine.evaluateAll('scheduler');
+    findings += c.findings;
+    for (const r of rows) {
+        const res = await anomalyService.evaluateSubmission(r.id, 'scheduler');
+        findings += res.findings;
+    }
+    if (findings) console.log(`[SCHEDULER] anomaly batch: ${findings} finding(s) across ${rows.length} latest filings.`);
+}
+
+
+// Exposed for the admin on-demand sweep endpoint (same logic the
+// hourly job runs — single source of truth).
+module.exports.runSubmissionReminders = submissionReminders;
+module.exports.start = start;
+module.exports.register = register;

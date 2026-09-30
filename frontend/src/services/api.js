@@ -62,7 +62,60 @@ export const submissionService = {
   submit: (data) => api.post('/submissions', data),
   getMySubmissions: () => api.get('/submissions/me'),
   getCompliance: () => api.get('/submissions/compliance'),
-  updateStatus: (id, status) => api.put(`/submissions/${id}/status`, { status }),
+  updateStatus: (id, status, reviewComments) =>
+    api.put(`/submissions/${id}/status`, { status, reviewComments }),
+  getVersions: (id) => api.get(`/submissions/${id}/versions`),
+  getLatestDiff: (id) => api.get(`/submissions/${id}/diff`),
+  getPrefill: () => api.get('/submissions/prefill'),
+};
+
+// ============================================================
+// v7 Intelligence & Data Reliability services (2026-09-30 upgrade)
+// ============================================================
+
+// Reporting calendar + period-based filing matrix (Phase 6-7)
+export const reportingPeriodService = {
+  getCalendar: () => api.get('/reporting-periods'),
+  updatePeriod: (id, data) => api.put(`/reporting-periods/${id}`, data),
+  generateYear: (year) => api.post('/reporting-periods/generate', { year }),
+  getFilingMatrix: (params) => api.get('/reporting-periods/filing-matrix', { params }),
+  getCurrentPeriod: () => api.get('/reporting-periods/current'),
+  getMyCalendar: () => api.get('/reporting-periods/my-calendar'),
+};
+
+// Data-quality findings + configurable rules (Phases 9-10)
+export const findingsService = {
+  list: (params) => api.get('/findings', { params }),
+  openSummary: () => api.get('/findings/open-summary'),
+  setStatus: (id, status, note) => api.put(`/findings/${id}/status`, { status, note }),
+  runDetection: () => api.post('/findings/run-detection'),
+  getRules: () => api.get('/findings/rules'),
+  updateRule: (ruleId, data) => api.put(`/findings/rules/${ruleId}`, data),
+};
+
+// Park/growth/forecast/capacity intelligence (Phases 11-15)
+export const intelligenceService = {
+  getParkResources: (metric, parkId) =>
+    api.get('/intelligence/park-resources', { params: { metric, parkId } }),
+  getGrowth: (metric, scope, id) =>
+    api.get('/intelligence/growth', { params: { metric, scope, parkId: id, industryId: id } }),
+  getForecast: (metric, scope, id, horizon) =>
+    api.get('/intelligence/forecast', { params: { metric, scope, parkId: id, industryId: id, horizon } }),
+  getParkOverview: () => api.get('/intelligence/park-overview'),
+  getCapacity: (parkId) => api.get('/intelligence/capacity', { params: { parkId } }),
+  getProduction: (params) => api.get('/intelligence/production', { params }),
+};
+
+// Real DB-backed assistant (Phase 16)
+export const assistantService = {
+  chat: (message) => api.post('/assistant/chat', { message }),
+  getContext: () => api.get('/assistant/context'),
+};
+
+// v7 report exports (9 types, real XLSX/CSV/PDF/JSON)
+export const reportExportService = {
+  export: (type, format, params) =>
+    api.get('/reports/export', { params: { type, format, ...params }, responseType: format === 'json' ? 'json' : 'blob' }),
 };
 
 export const analyticService = {
@@ -138,6 +191,16 @@ export const aiDecisionService = {
   getRecommendations: (industryId) => api.get(`/ai-decisions/recommendations/${industryId}`),
   getBatchRecommendations: (params) => api.get('/ai-decisions/batch', { params }),
   getDashboardSummary: () => api.get('/ai-decisions/dashboard-summary'),
+  // Phase 18 — persisted recommendations + human review workflow
+  listRecommendations: (params) => api.get('/ai-decisions/list', { params }),
+  reviewRecommendation: (id, decision, note) => api.put(`/ai-decisions/${id}/review`, { decision, note }),
+  executeRecommendation: (id) => api.post(`/ai-decisions/${id}/execute`),
+};
+
+// Admin API-key management for industries (Phase 22)
+export const industryAdminService = {
+  issueApiKey: (id) => api.post(`/industries/${id}/api-key`),
+  revokeApiKey: (id) => api.delete(`/industries/${id}/api-key`),
 };
 
 export const workflowService = {

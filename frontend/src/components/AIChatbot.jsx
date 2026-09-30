@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { assistantService } from '../services/api';
 import {
   Box, Typography, IconButton, TextField, Paper, Fab, Fade, Chip,
   Avatar, InputAdornment, Divider, Slide, Tooltip
@@ -1008,29 +1009,53 @@ export default function AIChatbot() {
     if (open) inputRef.current?.focus();
   }, [open]);
 
-  const handleSend = (text) => {
+  // PRIMARY: the REAL DB-backed assistant (RBAC-scoped live data — scores,
+  // violations, non-filers, anomalies, forecasts). The static knowledge base
+  // below is only a labelled fallback for general-info questions when the
+  // API is unreachable or the user isn't signed in.
+  const handleSend = async (text) => {
     const userMsg = text || input.trim();
     if (!userMsg) return;
     setInput('');
-    const now = new Date();
-
-    setMessages(prev => [...prev, { role: 'user', text: userMsg, ts: now }]);
+    setMessages(prev => [...prev, { role: 'user', text: userMsg, ts: new Date() }]);
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = findBestResponse(
-        userMsg,
-        !!localStorage.getItem('token'),
-        location.pathname,
-        localStorage.getItem('userName')
-      );
-      setMessages(prev => [...prev, { role: 'ai', ts: new Date(), ...response }]);
-      setIsTyping(false);
-
-      if (response.autoNavigate && response.path) {
-        setTimeout(() => navigate(response.path), 800);
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const res = await assistantService.chat(userMsg);
+        const reply = res.data && res.data.reply;
+        if (reply && reply.text) {
+          setMessages(prev => [...prev, {
+            role: 'ai', ts: new Date(),
+            text: reply.text + '\n\n_VazhiPorul Assistant · live data, scoped to your role_',
+            suggestions: reply.suggestions || []
+          }]);
+          setIsTyping(false);
+          return;
+        }
+      } catch {
+        // fall through to static KB with an honest label
+        setMessages(prev => [...prev, {
+          role: 'ai', ts: new Date(),
+          text: '_Live assistant unavailable (offline?) — answering from the general knowledge base only._',
+        }]);
       }
-    }, 600 + (userMsg.length % 5) * 80);
+    }
+
+    // Fallback: static knowledge base (general info; NOT live data).
+    const response = findBestResponse(
+      userMsg,
+      !!token,
+      location.pathname,
+      localStorage.getItem('userName')
+    );
+    setMessages(prev => [...prev, { role: 'ai', ts: new Date(), source: 'knowledge-base', ...response }]);
+    setIsTyping(false);
+
+    if (response.autoNavigate && response.path) {
+      setTimeout(() => navigate(response.path), 800);
+    }
   };
 
   const handleNavigate = (path) => {

@@ -185,7 +185,7 @@ router.post('/:id/version', requireRole(['industry']), async (req, res) => {
         if (guard.error) return res.status(guard.status).json({ error: guard.error });
         const parent = { rows: [guard.doc] };
 
-        const { fileName, expiryDate } = req.body;
+        const { fileName, expiryDate, fileBase64 } = req.body;
         if (!fileName) return res.status(400).json({ error: 'fileName required' });
 
         // Sanitize the stored file name the same way the multer upload path
@@ -193,11 +193,37 @@ router.post('/:id/version', requireRole(['industry']), async (req, res) => {
         // client-supplied name before it becomes part of file_path.
         const safeFileName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
 
-        // Tamper-evident content hash: in production this is computed from
-        // the uploaded file bytes; here we hash identifying metadata so the
-        // chain is provably tied to this exact version.
-        const hashInput = `${parent.rows[0].id}|${safeFileName}|${Date.now()}|${req.user.id}`;
-        const contentHash = crypto.createHash('sha256').update(hashInput).digest('hex');
+        // Content hash: computed from the ACTUAL FILE BYTES when the client
+        // supplies them (base64). Without bytes, the version is recorded as
+        // metadata-only with an honestly-labelled metadata hash — never
+        // presented as file-level integrity.
+        let contentHash, hashMethod = 'metadata', fileBytes = null, sizeKb = null;
+        if (fileBase64) {
+            try {
+                fileBytes = Buffer.from(String(fileBase64), 'base64');
+                if (!fileBytes.length) throw new Error('empty');
+            } catch (_) {
+                return res.status(400).json({ error: 'fileBase64 is not valid base64 data.' });
+            }
+            contentHash = crypto.createHash('sha256').update(fileBytes).digest('hex');
+            hashMethod = 'file_bytes';
+            sizeKb = Math.max(1, Math.round(fileBytes.length / 1024));
+        } else {
+            const hashInput = `${parent.rows[0].id}|${safeFileName}|${Date.now()}|${req.user.id}`;
+            contentHash = crypto.createHash('sha256').update(hashInput).digest('hex');
+            sizeKb = 1;
+        }
+
+        // Persist the actual file when bytes were supplied (metadata-only
+        // versions are allowed but clearly flagged below).
+        let storedPath = `/uploads/${safeFileName}`;
+        if (fileBytes) {
+            const fs = require('fs');
+            const path = require('path');
+            const diskName = `v_${Date.now()}_${safeFileName}`;
+            fs.writeFileSync(path.join(__dirname, '..', 'uploads', diskName), fileBytes);
+            storedPath = `/uploads/${diskName}`;
+        }
 
         const ins = await db.query(
             `INSERT INTO documents
@@ -209,7 +235,7 @@ router.post('/:id/version', requireRole(['industry']), async (req, res) => {
              RETURNING id, version, content_hash`,
             [
                 parent.rows[0].industry_id, req.user.id, parent.rows[0].category,
-                safeFileName, `/uploads/${safeFileName}`, Math.floor(Math.random()*800)+100,
+                safeFileName, storedPath, sizeKb,
                 'application/pdf', expiryDate || parent.rows[0].expiry_date,
                 contentHash, parent.rows[0].id
             ]
@@ -218,7 +244,14 @@ router.post('/:id/version', requireRole(['industry']), async (req, res) => {
         // New version resets the verified flag on the parent too.
         await db.query('UPDATE documents SET verified = FALSE WHERE id = $1', [req.params.id]);
 
-        res.status(201).json({ msg: 'New version uploaded', version: ins.rows[0] });
+        res.status(201).json({
+            msg: 'New version uploaded',
+            version: ins.rows[0],
+            hash_method: hashMethod,
+            note: hashMethod === 'metadata'
+                ? 'No file bytes were supplied — this version records metadata only (hash is a metadata hash, not file-level integrity). Supply fileBase64 for a true content hash.'
+                : 'Content hash computed from the uploaded file bytes; file stored.'
+        });
     } catch (err) {
         console.error('Vault Version Error:', err.message);
         res.status(500).send('Server Error');

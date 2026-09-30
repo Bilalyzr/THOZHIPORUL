@@ -184,27 +184,38 @@ router.get('/mfa/status', requireRole(['admin', 'govt', 'industry']), async (req
 //          secret already exists for the user, return the SAME secret so the
 //          QR they scanned stays valid. Only generate a fresh secret when no
 //          row exists yet. Returns 400 if already enabled (disable first).
+//          Secrets are stored AES-256-GCM ENCRYPTED (enc:v1:) — a DB read
+//          no longer yields a usable authenticator secret.
 router.post('/mfa/setup', mfaFlexibleAuth, async (req, res) => {
     try {
+        const { encryptString, isEncrypted } = require('../services/cryptoUtil');
         const existing = await db.query('SELECT secret_encrypted, enabled FROM user_mfa WHERE user_id = $1', [req.user.id]);
         if (existing.rows.length && existing.rows[0].enabled) {
             return res.status(400).json({ error: '2FA is already enabled. Disable it first to re-enroll.' });
         }
 
-        // The stored secret is a Base32 string (RFC 4648) — the format all
-        // authenticator apps require. We persist it directly; no extra
-        // encoding layer (the column is text and Base32 is safe text).
         let secret;
-        if (existing.rows.length && /^[A-Z2-7]+$/i.test(existing.rows[0].secret_encrypted)) {
-            // Reuse the pending Base32 secret so the already-scanned QR stays valid.
-            secret = existing.rows[0].secret_encrypted;
-        } else {
-            // First-time setup (or legacy non-Base32 secret) — generate a fresh one.
+        if (existing.rows.length) {
+            const stored = existing.rows[0].secret_encrypted;
+            const plain = isEncrypted(stored)
+                ? require('../services/cryptoUtil').decryptString(stored)
+                : (/^[A-Z2-7]+$/i.test(stored) ? stored : null); // legacy plaintext
+            if (plain && /^[A-Z2-7]+$/i.test(plain)) {
+                // Reuse the pending secret (already-scanned QR stays valid);
+                // re-encrypt if it was stored as legacy plaintext.
+                secret = plain;
+                if (!isEncrypted(stored)) {
+                    await db.query('UPDATE user_mfa SET secret_encrypted=$1 WHERE user_id=$2',
+                        [encryptString(secret), req.user.id]);
+                }
+            }
+        }
+        if (!secret) {
             secret = totp.generateSecret();
             await db.query(
                 `INSERT INTO user_mfa (user_id, secret_encrypted, enabled) VALUES ($1,$2,FALSE)
                  ON CONFLICT (user_id) DO UPDATE SET secret_encrypted = EXCLUDED.secret_encrypted, enabled = FALSE`,
-                [req.user.id, secret]);
+                [req.user.id, encryptString(secret)]);
         }
 
         const accountLabel = req.user.email || req.user.name || 'user';
@@ -233,9 +244,12 @@ router.post('/mfa/verify', mfaFlexibleAuth, async (req, res) => {
         const row = await db.query('SELECT secret_encrypted FROM user_mfa WHERE user_id=$1', [req.user.id]);
         if (!row.rows.length) return res.status(400).json({ error: 'Run MFA setup first.' });
 
-        // Stored secret is already a Base32 string (RFC 4648) — pass it
-        // directly to verifyTotp, which decodes Base32 internally.
-        const secret = row.rows[0].secret_encrypted;
+        // Decrypt (enc:v1:) — legacy plaintext values still verify and are
+        // transparently upgraded once enabled below.
+        const { decryptString, isEncrypted, encryptString } = require('../services/cryptoUtil');
+        const stored = row.rows[0].secret_encrypted;
+        const secret = isEncrypted(stored) ? decryptString(stored) : stored;
+        if (!secret) return res.status(500).json({ error: 'Stored MFA secret could not be decrypted (ENCRYPTION_KEY changed?). Re-enroll 2FA.' });
         const valid = totp.verifyTotp(secret, code);
         if (!valid) return res.status(401).json({ error: 'Invalid verification code. Check your device clock and try again.' });
 
@@ -243,8 +257,8 @@ router.post('/mfa/verify', mfaFlexibleAuth, async (req, res) => {
         _mfaAttempts.delete(req.user.id);
         const backups = totp.generateBackupCodes();
         await db.query(
-            'UPDATE user_mfa SET enabled=TRUE, enabled_at=NOW(), backup_codes=$1 WHERE user_id=$2',
-            [backups, req.user.id]);
+            'UPDATE user_mfa SET enabled=TRUE, enabled_at=NOW(), backup_codes=$1, secret_encrypted=$2 WHERE user_id=$3',
+            [backups, encryptString(secret), req.user.id]);
         await recordAudit(req.user.id, 'Enabled MFA', req.ip, { entityType: 'security', severity: 'warning' });
 
         // If this came from a challenge token (forced setup on first login),
@@ -299,8 +313,10 @@ router.delete('/mfa', requireRole(['admin', 'govt', 'industry']), async (req, re
         }
         let authorized = false;
         if (code) {
-            const secret = row.rows[0].secret_encrypted; // Base32, decoded inside verifyTotp
-            authorized = totp.verifyTotp(secret, code);
+            const { decryptString, isEncrypted } = require('../services/cryptoUtil');
+            const storedSecret = row.rows[0].secret_encrypted;
+            const secret = isEncrypted(storedSecret) ? decryptString(storedSecret) : storedSecret;
+            authorized = !!(secret && totp.verifyTotp(secret, code));
         }
         if (!authorized && backupCode) {
             const stored = row.rows[0].backup_codes || [];

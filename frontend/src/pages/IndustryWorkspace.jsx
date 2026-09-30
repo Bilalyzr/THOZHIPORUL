@@ -429,7 +429,7 @@ export default function IndustryWorkspace() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setLeaseDialogOpen(false)}>Close</Button>
-          <Button variant="contained" onClick={() => { alert('Lease agreement PDF downloaded!'); setLeaseDialogOpen(false); }}>Download PDF</Button>
+          <Button variant="contained" onClick={() => setLeaseDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 

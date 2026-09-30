@@ -4,144 +4,72 @@ const crypto = require('crypto');
 const db = require('../db');
 const { requireRole } = require('./auth');
 const { requireFeature, TIER_FEATURES } = require('../middleware/subscriptionGuard');
+const { fileSubmission, getSubmissionPayload } = require('../services/submissionService');
+const { recordAudit } = require('./audit');
 
-// @route   POST /api/submissions
-// @desc    Submit periodic industrial data (The Multi-step Form)
-// @access  Private (Industry only)
+// ============================================================
+// POST /api/submissions — file quarterly industrial data.
+// All validation, versioning, production, operational-status and
+// findings logic lives in services/submissionService (shared by
+// the web form, bulk import and API paths).
+// Canonical units: INR / count / KL / kWh / MT / percent.
+// Invalid input → 400 { success:false, code:'VALIDATION_ERROR', errors:[{field,message}] }
+// ============================================================
 router.post('/', requireRole(['industry']), async (req, res) => {
-    const { 
-        periodYear, 
-        periodQuarter, 
-        investmentAmount, 
-        annualTurnover, 
-        exportRevenue,
-        rdExpenditure,
-        permanentEmployees, 
-        contractEmployees, 
-        scStEmployees,
-        womenEmployees,
-        waterConsumption, 
-        powerUsage, 
-        wasteGenerated,
-        wasteRecycledPct,
-        csrActivities, 
-        csrSpent,
-        csrBeneficiaries
-    } = req.body;
-
-    // Never fall back to a hardcoded industry id — a token without a linked
-    // profile must fail loudly instead of writing/reading another company's
-    // statutory filings (previously defaulted to industry 101).
     if (!req.user.profile_id) {
         return res.status(400).json({ error: 'No industry profile linked to this account. Contact support.' });
     }
-    const industry_id = req.user.profile_id;
-
-    // Use a single pooled client so BEGIN/INSERT/COMMIT form a real
-    // transaction (db.query() checks out a NEW client each call, which
-    // would break the transaction boundary and leave partial rows).
-    const client = await db.pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        // 1. Create Submission Master Record
-        const subRes = await client.query(
-            `INSERT INTO data_submissions (industry_id, period_year, period_quarter, status, submitted_at)
-             VALUES ($1, $2, $3, $4, NOW())
-             ON CONFLICT (industry_id, period_year, period_quarter)
-             DO UPDATE SET status = EXCLUDED.status, submitted_at = NOW()
-             RETURNING id`,
-            [industry_id, periodYear, periodQuarter, 'Submitted']
-        );
-        if (!subRes.rows.length) throw new Error('Submission upsert returned no row.');
-        const subId = subRes.rows[0].id;
-
-        // 2. Insert/Update Sub-tables
-        await client.query(
-            `INSERT INTO financial_data (submission_id, investment_amount, annual_turnover, export_revenue, rd_expenditure)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (submission_id) DO UPDATE SET
-             investment_amount = EXCLUDED.investment_amount, annual_turnover = EXCLUDED.annual_turnover,
-             export_revenue = EXCLUDED.export_revenue, rd_expenditure = EXCLUDED.rd_expenditure`,
-            [subId, investmentAmount || 0, annualTurnover || 0, exportRevenue || 0, rdExpenditure || 0]
-        );
-
-        await client.query(
-            `INSERT INTO employment_data (submission_id, permanent_employees, contract_employees, sc_st_employees, women_employees)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (submission_id) DO UPDATE SET
-             permanent_employees = EXCLUDED.permanent_employees, contract_employees = EXCLUDED.contract_employees,
-             sc_st_employees = EXCLUDED.sc_st_employees, women_employees = EXCLUDED.women_employees`,
-            [subId, permanentEmployees || 0, contractEmployees || 0, scStEmployees || 0, womenEmployees || 0]
-        );
-
-        await client.query(
-            `INSERT INTO resource_usage (submission_id, water_consumption, power_usage, waste_generated, waste_recycled_pct)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (submission_id) DO UPDATE SET
-             water_consumption = EXCLUDED.water_consumption, power_usage = EXCLUDED.power_usage,
-             waste_generated = EXCLUDED.waste_generated, waste_recycled_pct = EXCLUDED.waste_recycled_pct`,
-            [subId, waterConsumption || 0, powerUsage || 0, wasteGenerated || 0, wasteRecycledPct || 0]
-        );
-
-        if (csrActivities || csrSpent) {
-            await client.query(
-                `INSERT INTO csr_activities (submission_id, description, amount_spent, beneficiary_count)
-                 VALUES ($1, $2, $3, $4)
-                 ON CONFLICT (submission_id) DO UPDATE SET
-                 description = EXCLUDED.description, amount_spent = EXCLUDED.amount_spent, beneficiary_count = EXCLUDED.beneficiary_count`,
-                [subId, csrActivities || '', csrSpent || 0, csrBeneficiaries || 0]
-            );
-        }
-
-        await client.query('COMMIT');
-
-        console.log(`[DB] Industry ID ${industry_id} submitted Data for ${periodYear} Q${periodQuarter}`);
-        res.status(201).json({ msg: 'Industrial Data Successfully Submitted and Validated!' });
-    } catch (err) {
-        try { await client.query('ROLLBACK'); } catch (_) { /* already rolled back or client lost */ }
-        console.error("Data Submission Database Transaction Error:", err);
-        res.status(500).send('Server Error during Submission Transaction.');
-    } finally {
-        client.release();
-    }
+    const result = await fileSubmission({
+        industryId: req.user.profile_id,
+        userId: req.user.id,
+        payload: req.body,
+        source: 'web',
+        ip: req.ip
+    });
+    res.status(result.status).json(result.body);
 });
 
-// @route   GET /api/submissions/me
-// @desc    Get the current Industry's own submissions
-// @access  Private (Industry only)
+// ============================================================
+// GET /api/submissions/me — own filings incl. versions + production
+// ============================================================
 router.get('/me', requireRole(['industry']), async (req, res) => {
     if (!req.user.profile_id) {
         return res.status(400).json({ error: 'No industry profile linked to this account. Contact support.' });
     }
     const industry_id = req.user.profile_id;
     try {
-        const query = `
-            SELECT 
-                ds.id, ds.period_year, ds.period_quarter, ds.status, ds.submitted_at, 
+        const result = await db.query(`
+            SELECT
+                ds.id, ds.period_year, ds.period_quarter, ds.status, ds.submitted_at,
+                ds.is_late, ds.created_at, ds.updated_at,
                 ds.approved_by, u.email as approver_email,
+                (SELECT MAX(version_no) FROM submission_versions sv WHERE sv.submission_id = ds.id) AS version_count,
                 f.investment_amount, f.annual_turnover, f.export_revenue, f.rd_expenditure,
                 e.permanent_employees, e.contract_employees, e.sc_st_employees, e.women_employees,
                 r.water_consumption, r.power_usage, r.waste_generated, r.waste_recycled_pct,
-                c.description as csr_activities, c.amount_spent as csr_spent, c.beneficiary_count as csr_beneficiaries
+                c.description as csr_activities, c.amount_spent as csr_spent, c.beneficiary_count as csr_beneficiaries,
+                (SELECT json_agg(json_build_object(
+                    'productName', pd.product_name, 'quantity', pd.quantity, 'unit', pd.unit,
+                    'productionValue', pd.production_value, 'remarks', pd.remarks) ORDER BY pd.id)
+                 FROM production_data pd WHERE pd.submission_id = ds.id) AS production_items
             FROM data_submissions ds
-            LEFT JOIN financial_data f ON ds.id = f.submission_id
-            LEFT JOIN employment_data e ON ds.id = e.submission_id
-            LEFT JOIN resource_usage r ON ds.id = r.submission_id
-            LEFT JOIN csr_activities c ON ds.id = c.submission_id
+            LEFT JOIN financial_data f ON f.submission_id = ds.id
+            LEFT JOIN employment_data e ON e.submission_id = ds.id
+            LEFT JOIN resource_usage r ON r.submission_id = ds.id
+            LEFT JOIN csr_activities c ON c.submission_id = ds.id
             LEFT JOIN users u ON ds.approved_by = u.id
             WHERE ds.industry_id = $1
-            ORDER BY ds.period_year DESC, ds.period_quarter DESC
-        `;
-        const result = await db.query(query, [industry_id]);
-        
-        // Map to frontend expected format
+            ORDER BY ds.period_year DESC, ds.period_quarter DESC NULLS LAST
+        `, [industry_id]);
+
         const mappedSubmissions = result.rows.map(row => ({
             id: row.id,
             period: row.period_quarter ? `Q${row.period_quarter} ${row.period_year}` : `FY ${row.period_year}`,
             periodYear: row.period_year,
             periodQuarter: row.period_quarter,
             status: row.status,
+            isLate: row.is_late,
+            versionCount: row.version_count || 1,
             submitted: row.submitted_at ? new Date(row.submitted_at).toISOString().split('T')[0] : '-',
             approved_by: row.approver_email || 'Pending',
             data: {
@@ -159,49 +87,105 @@ router.get('/me', requireRole(['industry']), async (req, res) => {
                 wasteRecycledPct: row.waste_recycled_pct,
                 csrActivities: row.csr_activities,
                 csrSpent: row.csr_spent,
-                csrBeneficiaries: row.csr_beneficiaries
+                csrBeneficiaries: row.csr_beneficiaries,
+                productionItems: row.production_items || []
             }
         }));
 
         res.json(mappedSubmissions);
     } catch (err) {
-        console.error("Error fetching submissions:", err);
+        console.error("Error fetching submissions:", err.message);
         res.status(500).send('Server Error');
     }
 });
 
-// @route   GET /api/submissions/compliance
-// @desc    Get compliance overview (all industries tracking missing vs submitted)
-// @access  Private (Admin & Govt)
+// ============================================================
+// GET /api/submissions/:id/versions — append-only history + diffs
+// Industry sees its own; admin/govt see any.
+// ============================================================
+router.get('/:id/versions', requireRole(['industry', 'admin', 'govt']), async (req, res) => {
+    try {
+        const sub = await db.query(
+            'SELECT id, industry_id FROM data_submissions WHERE id = $1', [req.params.id]);
+        if (!sub.rows.length) return res.status(404).json({ error: 'Submission not found' });
+        if (req.user.role === 'industry' && sub.rows[0].industry_id !== req.user.profile_id) {
+            return res.status(403).json({ error: 'Not your submission.' });
+        }
+        const { rows } = await db.query(`
+            SELECT sv.id, sv.version_no, sv.change_kind, sv.amendment_reason, sv.diff,
+                   sv.payload, sv.previous_payload, sv.filed_at, sv.submission_status, sv.source,
+                   u.email AS filed_by_email
+              FROM submission_versions sv
+         LEFT JOIN users u ON u.id = sv.filed_by
+             WHERE sv.submission_id = $1
+          ORDER BY sv.version_no DESC`, [req.params.id]);
+        res.json({ submissionId: parseInt(req.params.id), versions: rows });
+    } catch (err) {
+        console.error('Versions Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// ============================================================
+// GET /api/submissions/:id/diff — latest change, machine-readable
+// FIELD | OLD | NEW | CHANGE % | CHANGED BY | CHANGED AT | REASON
+// ============================================================
+router.get('/:id/diff', requireRole(['industry', 'admin', 'govt']), async (req, res) => {
+    try {
+        const sub = await db.query('SELECT industry_id FROM data_submissions WHERE id = $1', [req.params.id]);
+        if (!sub.rows.length) return res.status(404).json({ error: 'Submission not found' });
+        if (req.user.role === 'industry' && sub.rows[0].industry_id !== req.user.profile_id) {
+            return res.status(403).json({ error: 'Not your submission.' });
+        }
+        const { rows } = await db.query(`
+            SELECT diff, amendment_reason, change_kind, filed_at, version_no, u.email AS changed_by
+              FROM submission_versions sv
+         LEFT JOIN users u ON u.id = sv.filed_by
+             WHERE sv.submission_id = $1
+          ORDER BY version_no DESC LIMIT 1`, [req.params.id]);
+        if (!rows.length) return res.json({ note: 'NO_VERSION_RECORD', message: 'This submission predates version tracking; no diff available.' });
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Diff Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// ============================================================
+// GET /api/submissions/compliance — govt/admin overview
+// (kept for UI compatibility; richer matrix lives in
+//  /api/reporting-periods/filing-matrix)
+// ============================================================
 router.get('/compliance', requireRole(['admin', 'govt']), async (req, res) => {
     try {
-        // Find latest submission for each industry
         const query = `
-            SELECT 
-                i.id as industry_id, i.company_name as name, i.location,
-                ds.period_year, ds.period_quarter, ds.status as submission_status, ds.submitted_at,
+            SELECT
+                i.id as industry_id, i.company_name as name, i.location, i.operational_status,
+                ds.period_year, ds.period_quarter, ds.status as submission_status, ds.submitted_at, ds.is_late,
                 ds.id as submission_id,
                 f.investment_amount, f.annual_turnover,
                 r.water_consumption, r.power_usage,
                 e.permanent_employees, e.contract_employees
             FROM industry_profiles i
             LEFT JOIN LATERAL (
-                SELECT * FROM data_submissions 
-                WHERE industry_id = i.id 
-                ORDER BY period_year DESC, period_quarter DESC LIMIT 1
+                SELECT * FROM data_submissions
+                WHERE industry_id = i.id
+                ORDER BY period_year DESC, period_quarter DESC NULLS LAST LIMIT 1
             ) ds ON true
             LEFT JOIN financial_data f ON ds.id = f.submission_id
             LEFT JOIN resource_usage r ON ds.id = r.submission_id
             LEFT JOIN employment_data e ON ds.id = e.submission_id
         `;
         const result = await db.query(query);
-        
+
         const mappedCompliance = result.rows.map(row => ({
             id: row.industry_id,
             name: row.name,
             location: row.location,
+            operationalStatus: row.operational_status,
             lastSubmission: row.submitted_at ? new Date(row.submitted_at).toLocaleDateString() : 'Missing',
             status: row.submission_status === 'Approved' ? 'Compliant' : row.submission_status === 'Submitted' ? 'Pending Review' : row.submission_status || 'Alert',
+            isLate: row.is_late,
             period: row.period_quarter ? `Q${row.period_quarter} ${row.period_year}` : '-',
             investmentAmount: row.investment_amount,
             annualTurnover: row.annual_turnover,
@@ -213,16 +197,18 @@ router.get('/compliance', requireRole(['admin', 'govt']), async (req, res) => {
 
         res.json(mappedCompliance);
     } catch (err) {
-        console.error("Error fetching compliance:", err);
+        console.error("Error fetching compliance:", err.message);
         res.status(500).send('Server Error');
     }
 });
 
-// @route   PUT /api/submissions/:id/status
-// @desc    Approve or Reject an industrial compliance submission
-// @access  Private (Admin, Govt)
+// ============================================================
+// PUT /api/submissions/:id/status — govt/admin approve / reject
+// (workflow preserved from the audited implementation, now with
+//  chained audit + payload and notification to the industry)
+// ============================================================
 router.put('/:id/status', requireRole(['admin', 'govt']), async (req, res) => {
-    const { status } = req.body;
+    const { status, reviewComments } = req.body;
     const submissionId = req.params.id;
     const userId = req.user.id;
 
@@ -248,105 +234,56 @@ router.put('/:id/status', requireRole(['admin', 'govt']), async (req, res) => {
             } catch (_) { /* submission_queries table may be absent pre-v5 — allow */ }
         }
 
-        const updateQuery = `
-            UPDATE data_submissions
-            SET status = $1, approved_by = $2
-            WHERE id = $3
-            RETURNING id, status
-        `;
-        const result = await db.query(updateQuery, [status, userId, submissionId]);
+        const sub = await db.query(
+            `SELECT ds.industry_id, ds.period_year, ds.period_quarter, ip.company_name
+               FROM data_submissions ds JOIN industry_profiles ip ON ip.id = ds.industry_id
+              WHERE ds.id = $1`, [submissionId]);
+        if (!sub.rows.length) return res.status(404).json({ error: 'Submission not found' });
+        const info = sub.rows[0];
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
+        const result = await db.query(
+            `UPDATE data_submissions
+             SET status = $1, approved_by = $2, updated_at = NOW()
+             WHERE id = $3
+             RETURNING id, status`,
+            [status, userId, submissionId]
+        );
+
+        // Chained audit with the decision payload.
+        await recordAudit(userId, `SUBMISSION_${String(status).toUpperCase()}`, req.ip, {
+            entityType: 'submission', entityId: submissionId,
+            severity: status === 'Rejected' ? 'warning' : 'info',
+            payload: { industry_id: info.industry_id, period: `${info.period_year}-Q${info.period_quarter ?? 'FY'}`, review_comments: reviewComments || null }
+        });
+
+        // Notify the industry owner.
+        try {
+            const owner = await db.query(
+                'SELECT u.id FROM users u JOIN industry_profiles ip ON ip.user_id = u.id WHERE ip.id = $1',
+                [info.industry_id]);
+            if (owner.rows.length) {
+                const { notify } = require('../services/notify');
+                await notify({
+                    userId: owner.rows[0].id,
+                    category: 'submission',
+                    severity: status === 'Approved' ? 'success' : status === 'Rejected' ? 'error' : 'info',
+                    title: `Your ${info.period_year}-Q${info.period_quarter ?? 'FY'} filing was ${String(status).toLowerCase()}`,
+                    message: reviewComments ? `Officer note: ${reviewComments}` : `Submission status is now ${status}.`,
+                    link: '/workspace',
+                    metadata: { submissionId: parseInt(submissionId), status }
+                });
+            }
+        } catch (_) { /* notification is best-effort */ }
 
         res.json({ msg: `Submission status successfully updated to ${status}!`, submission: result.rows[0] });
     } catch (err) {
-        console.error("Error updating submission status:", err);
+        console.error("Error updating submission status:", err.message);
         res.status(500).send('Server Error');
     }
 });
 
 // ============================================================
-// === MODULE 9 ENHANCEMENTS — bulk import + prefill + API =======
-// ============================================================
-// Additive. The POST / above (single submission) and /me /:id/status
-// are untouched. These add:
-//   • Prefill from the last period (fewer errors, faster filing)
-//   • Bulk import — many periods at once (big units, Excel upload)
-//   • API-based submission (programmatic, API-key gated)
-// ============================================================
-
-// ------------------------------------------------------------
-// Core writer used by both single, bulk, and API submission paths.
-// Takes an industryId + a normalised payload + status.
-// ------------------------------------------------------------
-async function writeSubmission(client, industryId, p, status) {
-    const subRes = await client.query(
-        `INSERT INTO data_submissions (industry_id, period_year, period_quarter, status, submitted_at)
-         VALUES ($1,$2,$3,$4,NOW())
-         ON CONFLICT (industry_id, period_year, period_quarter)
-         DO UPDATE SET status = EXCLUDED.status, submitted_at = NOW()
-         RETURNING id`,
-        [industryId, p.periodYear, p.periodQuarter, status]
-    );
-    if (!subRes.rows.length) throw new Error('Submission upsert returned no row.');
-    const subId = subRes.rows[0].id;
-
-    await client.query(
-        `INSERT INTO financial_data (submission_id, investment_amount, annual_turnover, export_revenue, rd_expenditure)
-         VALUES ($1,$2,$3,$4,$5)
-         ON CONFLICT (submission_id) DO UPDATE SET
-           investment_amount=EXCLUDED.investment_amount, annual_turnover=EXCLUDED.annual_turnover,
-           export_revenue=EXCLUDED.export_revenue, rd_expenditure=EXCLUDED.rd_expenditure`,
-        [subId, p.investmentAmount || 0, p.annualTurnover || 0, p.exportRevenue || 0, p.rdExpenditure || 0]
-    );
-    await client.query(
-        `INSERT INTO employment_data (submission_id, permanent_employees, contract_employees, sc_st_employees, women_employees)
-         VALUES ($1,$2,$3,$4,$5)
-         ON CONFLICT (submission_id) DO UPDATE SET
-           permanent_employees=EXCLUDED.permanent_employees, contract_employees=EXCLUDED.contract_employees,
-           sc_st_employees=EXCLUDED.sc_st_employees, women_employees=EXCLUDED.women_employees`,
-        [subId, p.permanentEmployees || 0, p.contractEmployees || 0, p.scStEmployees || 0, p.womenEmployees || 0]
-    );
-    await client.query(
-        `INSERT INTO resource_usage (submission_id, water_consumption, power_usage, waste_generated, waste_recycled_pct)
-         VALUES ($1,$2,$3,$4,$5)
-         ON CONFLICT (submission_id) DO UPDATE SET
-           water_consumption=EXCLUDED.water_consumption, power_usage=EXCLUDED.power_usage,
-           waste_generated=EXCLUDED.waste_generated, waste_recycled_pct=EXCLUDED.waste_recycled_pct`,
-        [subId, p.waterConsumption || 0, p.powerUsage || 0, p.wasteGenerated || 0, p.wasteRecycledPct || 0]
-    );
-    if (p.csrActivities || p.csrSpent) {
-        await client.query(
-            `INSERT INTO csr_activities (submission_id, description, amount_spent, beneficiary_count)
-             VALUES ($1,$2,$3,$4)
-             ON CONFLICT (submission_id) DO UPDATE SET
-               description=EXCLUDED.description, amount_spent=EXCLUDED.amount_spent, beneficiary_count=EXCLUDED.beneficiary_count`,
-            [subId, p.csrActivities || '', p.csrSpent || 0, p.csrBeneficiaries || 0]
-        );
-    }
-    return subId;
-}
-
-// Smart validation: returns { ok, errors[] }. Non-fatal missing fields
-// are tolerated; hard errors (bad types, missing period) are surfaced.
-function validate(p) {
-    const errors = [];
-    if (!p.periodYear || !p.periodQuarter) errors.push('periodYear & periodQuarter required');
-    if (p.periodYear && (p.periodYear < 2000 || p.periodYear > 2100)) errors.push('periodYear out of range');
-    if (p.periodQuarter && ![1,2,3,4].includes(Number(p.periodQuarter))) errors.push('periodQuarter must be 1-4');
-    for (const k of ['investmentAmount','annualTurnover','permanentEmployees']) {
-        if (p[k] != null && Number.isNaN(Number(p[k]))) errors.push(`${k} must be numeric`);
-    }
-    return { ok: errors.length === 0, errors };
-}
-
-// ============================================================
-// @route   GET /api/submissions/prefill
-// @desc    Prefill from the industry's last approved/submitted period.
-//          Frontend uses this to seed the form so re-filing is fast.
-// @access  Private (Industry)
+// GET /api/submissions/prefill — seed the form from the last filing
 // ============================================================
 router.get('/prefill', requireRole(['industry']), async (req, res) => {
     try {
@@ -354,12 +291,13 @@ router.get('/prefill', requireRole(['industry']), async (req, res) => {
         if (!industryId) return res.status(400).json({ error: 'No industry profile' });
 
         const last = await db.query(`
-            SELECT ds.id, ds.period_year, ds.period_quarter,
+            SELECT ds.id, ds.period_year, ds.period_quarter, ip.operational_status,
                    f.investment_amount, f.annual_turnover, f.export_revenue, f.rd_expenditure,
                    e.permanent_employees, e.contract_employees, e.sc_st_employees, e.women_employees,
                    r.water_consumption, r.power_usage, r.waste_generated, r.waste_recycled_pct,
                    c.description AS csr_activities, c.amount_spent AS csr_spent, c.beneficiary_count AS csr_beneficiaries
               FROM data_submissions ds
+              JOIN industry_profiles ip ON ip.id = ds.industry_id
          LEFT JOIN financial_data f ON f.submission_id = ds.id
          LEFT JOIN employment_data e ON e.submission_id = ds.id
          LEFT JOIN resource_usage r ON r.submission_id = ds.id
@@ -367,7 +305,10 @@ router.get('/prefill', requireRole(['industry']), async (req, res) => {
              WHERE ds.industry_id = $1 AND lower(ds.status) IN ('approved','submitted')
           ORDER BY ds.submitted_at DESC LIMIT 1`, [industryId]);
         if (!last.rows.length) return res.json({ prefill: null, msg: 'No prior submission to prefill from.' });
-        res.json({ prefill: last.rows[0] });
+        const prod = await db.query(
+            'SELECT product_name, quantity, unit, production_value, remarks FROM production_data WHERE submission_id = $1 ORDER BY id',
+            [last.rows[0].id]);
+        res.json({ prefill: { ...last.rows[0], production_items: prod.rows } });
     } catch (err) {
         console.error('Prefill Error:', err.message);
         res.status(500).send('Server Error');
@@ -375,10 +316,8 @@ router.get('/prefill', requireRole(['industry']), async (req, res) => {
 });
 
 // ============================================================
-// @route   POST /api/submissions/bulk
-// @desc    Bulk import — many periods at once. Each item runs its own
-//          validation; valid rows commit, invalid rows are itemised.
-// @access  Private (Industry)
+// POST /api/submissions/bulk — many periods, each fully validated
+// and versioned (invalid rows are itemised, never half-written)
 // ============================================================
 router.post('/bulk', requireRole(['industry']), requireFeature(TIER_FEATURES.EXCEL_UPLOAD), async (req, res) => {
     const industryId = req.user.profile_id;
@@ -386,71 +325,69 @@ router.post('/bulk', requireRole(['industry']), requireFeature(TIER_FEATURES.EXC
     const periods = Array.isArray(req.body.periods) ? req.body.periods : [];
     if (!periods.length) return res.status(400).json({ error: 'periods array required' });
 
-    const client = await db.pool.connect();
     const succeeded = [], failed = [];
-    try {
-        for (let i = 0; i < periods.length; i++) {
-            const p = periods[i];
-            const v = validate(p);
-            if (!v.ok) { failed.push({ row: i, errors: v.errors }); continue; }
-            try {
-                await client.query('BEGIN');
-                const id = await writeSubmission(client, industryId, p, 'Submitted');
-                await client.query('COMMIT');
-                succeeded.push({ row: i, submissionId: id, period: `${p.periodYear}-Q${p.periodQuarter}` });
-            } catch (e) {
-                await client.query('ROLLBACK');
-                failed.push({ row: i, errors: [e.message] });
-            }
+    for (let i = 0; i < periods.length; i++) {
+        const result = await fileSubmission({
+            industryId, userId: req.user.id, payload: periods[i], source: 'bulk', ip: req.ip
+        });
+        if (result.status === 201) {
+            succeeded.push({ row: i, submissionId: result.body.submissionId, version: result.body.version, period: `${periods[i].periodYear}-Q${periods[i].periodQuarter}` });
+        } else {
+            failed.push({ row: i, code: result.body.code, errors: result.body.errors || [{ field: 'payload', message: result.body.message || 'Rejected' }] });
         }
-        res.json({ total: periods.length, succeeded: succeeded.length, failed: failed.length, succeeded_rows: succeeded, failed_rows: failed });
-    } catch (err) {
-        console.error('Bulk Submission Error:', err.message);
-        res.status(500).send('Server Error');
-    } finally {
-        client.release();
     }
+    res.json({ total: periods.length, succeeded: succeeded.length, failed: failed.length, succeeded_rows: succeeded, failed_rows: failed });
 });
 
 // ============================================================
-// @route   POST /api/submissions/api-submit
-// @desc    Programmatic submission via API key (for big industries /
-//          ERP integrations). Header: x-api-key. The key maps to an
-//          industry profile. In production keys live in a dedicated
-//          table; here we accept the env-configured master key OR
-//          resolve by profile id passed in the body.
-// @access  API-key gated (no JWT)
+// POST /api/submissions/api-submit — programmatic filing.
+// SECURITY (upgraded): submissions are authenticated with a
+// SCOPED PER-INDUSTRY API key (sha256-hashed at rest, shown once
+// at issuance by an admin). The legacy shared master key is only
+// honoured when ALLOW_MASTER_SUBMISSION_KEY=true AND is audited
+// loudly — per-industry keys are the supported mechanism.
 // ============================================================
 router.post('/api-submit', async (req, res) => {
     try {
         const apiKey = req.header('x-api-key');
-        // Timing-safe comparison — a plain === leaks an early-exit signal
-        // that can help recover the master key byte-by-byte.
-        const masterKey = process.env.SUBMISSION_API_KEY;
-        let validKey = false;
-        if (masterKey && apiKey) {
-            const a = Buffer.from(String(apiKey));
-            const b = Buffer.from(String(masterKey));
-            validKey = a.length === b.length && crypto.timingSafeEqual(a, b);
-        }
-        if (!validKey) return res.status(401).json({ error: 'Invalid or missing API key (x-api-key header).' });
+        if (!apiKey) return res.status(401).json({ error: 'Missing x-api-key header.' });
 
-        const { industryId, periodYear, periodQuarter, ...rest } = req.body;
-        if (!industryId || !periodYear || !periodQuarter) {
-            return res.status(400).json({ error: 'industryId, periodYear, periodQuarter required' });
-        }
-        const v = validate({ periodYear, periodQuarter, ...rest });
-        if (!v.ok) return res.status(400).json({ error: 'validation failed', errors: v.errors });
+        const { industryId, ...payload } = req.body;
+        if (!industryId) return res.status(400).json({ error: 'industryId required in body.' });
 
-        const client = await db.pool.connect();
-        try {
-            await client.query('BEGIN');
-            const id = await writeSubmission(client, industryId, { periodYear, periodQuarter, ...rest }, 'Submitted');
-            await client.query('COMMIT');
-            res.status(201).json({ msg: 'submitted', submissionId: id });
-        } catch (e) {
-            await client.query('ROLLBACK'); throw e;
-        } finally { client.release(); }
+        // 1. Scoped per-industry key.
+        const keyRow = await db.query(
+            'SELECT api_key_hash FROM industry_profiles WHERE id = $1', [industryId]);
+        let authenticated = false, authMode = null;
+        if (keyRow.rows.length && keyRow.rows[0].api_key_hash) {
+            const hash = crypto.createHash('sha256').update(String(apiKey)).digest('hex');
+            const a = Buffer.from(hash), b = Buffer.from(keyRow.rows[0].api_key_hash);
+            authenticated = a.length === b.length && crypto.timingSafeEqual(a, b);
+            if (authenticated) authMode = 'industry_key';
+        }
+        // 2. Legacy master key — explicit opt-in only, always audited.
+        if (!authenticated && process.env.ALLOW_MASTER_SUBMISSION_KEY === 'true' && process.env.SUBMISSION_API_KEY) {
+            const a = Buffer.from(String(apiKey)), b = Buffer.from(String(process.env.SUBMISSION_API_KEY));
+            if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+                authenticated = true; authMode = 'master_key (legacy, audited)';
+            }
+        }
+        if (!authenticated) {
+            await recordAudit(null, 'API_SUBMIT_DENIED', req.ip, {
+                severity: 'warning', payload: { industryId, reason: 'invalid API key' }
+            });
+            return res.status(401).json({ error: 'Invalid API key for this industry. Contact a SIPCOT administrator for a scoped key.' });
+        }
+
+        const result = await fileSubmission({
+            industryId, userId: null, payload, source: 'api', ip: req.ip
+        });
+        if (authMode !== 'industry_key') {
+            await recordAudit(null, 'API_SUBMIT_MASTER_KEY_USED', req.ip, {
+                severity: 'warning', payload: { industryId, submissionId: result.body && result.body.submissionId }
+            });
+        }
+        res.status(result.status).json(result.body);
     } catch (err) {
         console.error('API Submit Error:', err.message);
         res.status(500).send('Server Error');

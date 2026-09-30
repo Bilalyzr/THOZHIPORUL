@@ -40,16 +40,20 @@ function ReportsDashboard() {
     'Q1 2026', 'Q4 2025', '2025 (Annual)', '2024 (Annual)'
   ];
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerated(false);
-    
-    // Simulate complex report generation
-    setTimeout(() => {
-      setIsGenerating(false);
+    // REAL data fetch (no simulated timer): pulling the live dataset is the
+    // generation step — the download buttons produce the actual files.
+    try {
+      await reportService.getData();
       setGenerated(true);
-      setSnackbar({ open: true, message: 'Report generated successfully!' });
-    }, 2000);
+      setSnackbar({ open: true, message: 'Report data loaded from the live database — choose a download format.' });
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to load report data. Sign in as admin/govt.' });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleDownload = async (format) => {

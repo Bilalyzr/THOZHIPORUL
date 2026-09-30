@@ -14,9 +14,11 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { complianceService, researchService, lifecycleService } from '../services/api';
+import { complianceService, researchService, lifecycleService, reportingPeriodService, findingsService } from '../services/api';
 
-const SEVERITY_COLORS = { low: '#2196f3', medium: '#fbc02d', high: '#f57c00', critical: '#d32f2f' };
+const SEVERITY_COLORS = { low: '#2196f3', medium: '#fbc02d', high: '#F57C00', critical: '#d32f2f', info: '#90a4ae', warning: '#fbc02d' };
+const FINDING_STATUS_COLORS = { open: '#d32f2f', reviewed: '#f57c00', dismissed: '#9e9e9e', resolved: '#4caf50' };
+const FILING_STATUS_COLORS = { APPROVED: '#4caf50', UNDER_REVIEW: '#1F4E79', REJECTED: '#d32f2f', LATE: '#f57c00', OVERDUE: '#d32f2f', MISSING: '#7b1fa2', NOT_DUE: '#9e9e9e' };
 const CATEGORY_LABELS = { environmental: 'Environmental', safety: 'Safety', financial: 'Financial', submission: 'Submission', operational: 'Operational', other: 'Other' };
 
 const formatMonth = (ym) => {
@@ -61,6 +63,10 @@ export default function ComplianceEngine() {
   const [categoryData, setCategoryData] = useState([]);
   const [predictions, setPredictions] = useState([]);
   const [missingInfo, setMissingInfo] = useState({ total: 0, missing: [], cycle_start: null });
+  // v7 — filing matrix + data-quality findings
+  const [matrix, setMatrix] = useState(null);
+  const [matrixYear, setMatrixYear] = useState(new Date().getFullYear());
+  const [findings, setFindings] = useState([]);
   // T1.4 — GST reconciliation data + T2.2 — officer query state
   const [gstData, setGstData] = useState([]);
   const [queries, setQueries] = useState([]);
@@ -109,7 +115,10 @@ export default function ComplianceEngine() {
         setOverview(mapOverview(ov.data));
         setTrendData((tr.data || []).map(t => ({ month: formatMonth(t.month), score: t.avg_score })));
         setCategoryData((cat.data || []).map(c => ({ name: CATEGORY_LABELS[c.category] || c.category, value: c.count })));
-        setPredictions((pred.data || []).map(p => ({ metric: p.metric, current: p.current, projected: p.projected_1yr, growth: p.growth_pct })));
+        setPredictions((pred.data || []).map(p => ({
+          metric: p.metric, current: p.current, projected: p.projected_1yr,
+          growth: p.growth_pct, basis: p.growth_basis, model: p.model
+        })));
         setMissingInfo(miss.data || { total: 0, missing: [], cycle_start: null });
         await fetchViolations();
       } catch (err) {
@@ -120,8 +129,38 @@ export default function ComplianceEngine() {
     // T1.4 — load GST reconciliation + T2.2 — load filing queries (officer view)
     researchService.getGstReconciliation().then(r => setGstData(r.data || [])).catch(() => {});
     lifecycleService.getQueries().then(r => setQueries(r.data || [])).catch(() => {});
+    // v7 — filing matrix + data-quality findings
+    reportingPeriodService.getFilingMatrix({ year: new Date().getFullYear() })
+      .then(r => setMatrix(r.data)).catch(() => {});
+    findingsService.list({ limit: 100 })
+      .then(r => setFindings((r.data && r.data.findings) || [])).catch(() => {});
     return () => { active = false; };
   }, []);
+
+  const refreshMatrix = async (year) => {
+    try {
+      const r = await reportingPeriodService.getFilingMatrix({ year });
+      setMatrix(r.data);
+    } catch { /* keep old */ }
+  };
+
+  const refreshFindings = async () => {
+    try {
+      const r = await findingsService.list({ limit: 100 });
+      setFindings((r.data && r.data.findings) || []);
+    } catch { /* keep old */ }
+  };
+
+  // v7 — resolve/dismiss a data finding
+  const handleFindingStatus = async (id, status) => {
+    try {
+      await findingsService.setStatus(id, status);
+      setSnackbar({ open: true, message: `Finding marked ${status}.`, severity: 'success' });
+      refreshFindings();
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to update finding.', severity: 'error' });
+    }
+  };
 
   const handleUpdateStatus = async (v, newStatus, message, severity) => {
     try {
@@ -179,9 +218,9 @@ export default function ComplianceEngine() {
   };
 
   const handleExportMissing = () => {
-    const header = 'Company,Location,Last Submission,Periods Missed';
+    const header = 'Company,Park,Outstanding Periods,Reminders Sent,Govt Notified';
     const lines = (missingInfo.missing || []).map(m =>
-      `${m.company_name},${m.location || ''},${m.last_submission ? new Date(m.last_submission).toISOString().split('T')[0] : 'Never'},${m.periods_missed ?? 'N/A'}`);
+      `${m.company_name},${m.location || ''},"${(m.outstanding_periods || []).join(' ')}",${m.reminders_sent || 0},${m.gov_notified ? 'yes' : 'no'}`);
     const csv = [header, ...lines].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -221,8 +260,10 @@ export default function ComplianceEngine() {
         </Grid>
       </Grid>
 
-      <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }}>
+      <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" allowScrollButtonsMobile>
         <Tab label="Violations" />
+        <Tab label="Filing Status" />
+        <Tab label="Data Findings" />
         <Tab label="Trends & Analytics" />
         <Tab label="Predictions" />
       </Tabs>
@@ -331,15 +372,171 @@ export default function ComplianceEngine() {
         </Grid>
       )}
 
-      {/* Tab 1: Trends */}
-      {tab === 1 && (
+      {/* Tab 1: Filing Status — period-based matrix (who filed / who's late / who's missing) */}
+      {tab === 1 && matrix && (
         <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography variant="h6" fontWeight={600} gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Compliance Score Trend (9 Months)</Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Filing Status — {matrix.year} (period-based)</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Expected: {matrix.summary.expected_industries} industries × {matrix.summary.periods_evaluated} elapsed quarters.
+                Filed {matrix.summary.filed} · Not yet due {matrix.summary.not_due} · <span style={{ color: '#d32f2f' }}>Overdue {matrix.summary.overdue}</span> · <span style={{ color: '#7b1fa2' }}>Missing {matrix.summary.missing}</span> · Late {matrix.summary.late} · Reminders {matrix.summary.reminders_sent}
+              </Typography>
+            </Box>
+            <FormControl size="small" sx={{ minWidth: 110 }}>
+              <InputLabel>Year</InputLabel>
+              <Select value={matrixYear} label="Year" onChange={(e) => { setMatrixYear(e.target.value); refreshMatrix(e.target.value); }}>
+                {[2027, 2026, 2025].map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Box>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Industry</TableCell>
+                  <TableCell>Park</TableCell>
+                  {matrix.periods.map(p => <TableCell key={p.period_quarter} align="center">Q{p.period_quarter}<br /><Typography variant="caption" color="text.secondary">due {formatDate(p.due_on)}</Typography></TableCell>)}
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {matrix.industries.map(ind => (
+                  <TableRow key={ind.industry_id} hover>
+                    <TableCell><Typography variant="body2" fontWeight={600}>{ind.company_name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{ind.operational_status?.replace(/_/g, ' ')}</Typography></TableCell>
+                    <TableCell>{ind.park_name}</TableCell>
+                    {ind.periods.map(p => (
+                      <TableCell key={p.quarter} align="center">
+                        <Chip label={p.status.replace(/_/g, ' ')} size="small"
+                          sx={{ bgcolor: FILING_STATUS_COLORS[p.status] || '#9e9e9e', color: 'white', fontSize: '0.65rem' }} />
+                      </TableCell>
+                    ))}
+                    <TableCell align="center">
+                      {(() => {
+                        const filedPeriod = ind.periods.find(p => p.submission_id);
+                        const missingIds = [];
+                        return (
+                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                            {filedPeriod && (
+                              <Button size="small" variant="outlined" color="primary"
+                                onClick={() => setQueryDialog({ submissionId: filedPeriod.submission_id, company: ind.company_name, queryText: '' })}>
+                                Raise Query
+                              </Button>
+                            )}
+                            {ind.outstanding.length > 0 && (
+                              <Button size="small" variant="outlined" color="warning"
+                                onClick={async () => {
+                                  try {
+                                    const res = await complianceService.sendReminders({ industryIds: [ind.industry_id] });
+                                    setSnackbar({ open: true, severity: 'success', message: res.data?.msg || 'Reminder delivered.' });
+                                    refreshMatrix(matrixYear);
+                                  } catch {
+                                    setSnackbar({ open: true, severity: 'error', message: 'Reminder failed.' });
+                                  }
+                                }}>
+                                Remind
+                              </Button>
+                            )}
+                          </Box>
+                        );
+                      })()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Statuses are computed from the <strong>reporting calendar × expected filers × actual filings</strong> (not submission timestamps).
+            The scheduler sends escalating reminders (upcoming → due → grace → overdue → escalated, with officer notification) every hour.
+          </Alert>
+        </Paper>
+      )}
+
+      {/* Tab 2: Data Findings — anomalies + consistency evidence */}
+      {tab === 2 && (
+        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              Data Quality Findings — anomalies &amp; inconsistencies ({findings.filter(f => f.status === 'open').length} open)
+            </Typography>
+            <Button size="small" variant="outlined" onClick={async () => {
+              try {
+                const r = await findingsService.runDetection();
+                setSnackbar({ open: true, severity: 'success', message: `Batch detection: ${r.data.submissions_evaluated} filings → ${r.data.new_consistency_findings} consistency, ${r.data.anomalies_detected} anomaly finding(s).` });
+                refreshFindings();
+              } catch { setSnackbar({ open: true, severity: 'error', message: 'Detection failed.' }); }
+            }}>Run Batch Detection</Button>
+          </Box>
+          {findings.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+              No findings recorded. Detectors run at filing time and daily; metrics with insufficient history are skipped (never guessed).
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Severity</TableCell>
+                    <TableCell>Type / Rule</TableCell>
+                    <TableCell>Industry</TableCell>
+                    <TableCell>Period</TableCell>
+                    <TableCell>Metric</TableCell>
+                    <TableCell align="right">Observed</TableCell>
+                    <TableCell align="right">Expected</TableCell>
+                    <TableCell align="right">Change %</TableCell>
+                    <TableCell>Reason / Evidence</TableCell>
+                    <TableCell>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {findings.slice(0, 60).map(f => (
+                    <TableRow key={f.id} hover>
+                      <TableCell><Chip label={f.severity} size="small" sx={{ bgcolor: SEVERITY_COLORS[f.severity] || '#90a4ae', color: 'white' }} /></TableCell>
+                      <TableCell>{f.finding_type}<br /><Typography variant="caption" color="text.secondary">{f.rule_id}</Typography></TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{f.company_name}</TableCell>
+                      <TableCell>{f.period_year}-Q{f.period_quarter ?? 'FY'}</TableCell>
+                      <TableCell>{f.metric || '—'}</TableCell>
+                      <TableCell align="right">{f.observed_value != null ? Number(f.observed_value).toLocaleString('en-IN') : '—'}</TableCell>
+                      <TableCell align="right">{f.expected_value != null ? Number(f.expected_value).toLocaleString('en-IN') : '—'}</TableCell>
+                      <TableCell align="right">{f.change_pct != null ? `${f.change_pct > 0 ? '+' : ''}${f.change_pct}%` : '—'}</TableCell>
+                      <TableCell sx={{ maxWidth: 320 }}>
+                        <Typography variant="caption">{f.reason}</Typography>
+                        {f.evidence && typeof f.evidence === 'object' && (
+                          <Typography variant="caption" color="text.secondary" component="div" sx={{ fontFamily: 'monospace', mt: 0.5 }}>
+                            {Object.entries(f.evidence).slice(0, 4).map(([k, v]) => `${k}=${String(v)}`).join(' · ')}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={f.status} size="small" variant="outlined" sx={{ color: FINDING_STATUS_COLORS[f.status] }} />
+                        {f.status === 'open' && (
+                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                            <Button size="small" onClick={() => handleFindingStatus(f.id, 'reviewed')}>Reviewed</Button>
+                            <Button size="small" color="success" onClick={() => handleFindingStatus(f.id, 'resolved')}>Resolve</Button>
+                            <Button size="small" color="inherit" onClick={() => handleFindingStatus(f.id, 'dismissed')}>Dismiss</Button>
+                          </Box>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+      )}
+
+      {/* Tab 3: Trends */}
+      {tab === 3 && (
+        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography variant="h6" fontWeight={600} gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Compliance Score Trend</Typography>
           <ResponsiveContainer width="100%" height={350}>
             <LineChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis domain={[65, 85]} />
+              <YAxis domain={['auto', 'auto']} />
               <Tooltip formatter={(value) => [`${value}%`, 'Avg Score']} />
               <Legend />
               <Line type="monotone" dataKey="score" stroke="#1F4E79" strokeWidth={3} name="Avg Compliance Score" dot={{ r: 5 }} />
@@ -348,11 +545,14 @@ export default function ComplianceEngine() {
         </Paper>
       )}
 
-      {/* Tab 2: Predictions */}
-      {tab === 2 && (
+      {/* Tab 4: Predictions */}
+      {tab === 4 && (
         <Paper sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="h6" fontWeight={600} gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Predictive Growth Modeling</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Based on historical trends and current trajectory</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Projections are real quarter-over-quarter growth from filed data. Metrics without enough history show
+            INSUFFICIENT_DATA instead of a fabricated number.
+          </Typography>
           <TableContainer>
             <Table>
               <TableHead>
@@ -360,7 +560,8 @@ export default function ComplianceEngine() {
                   <TableCell>Metric</TableCell>
                   <TableCell align="right">Current</TableCell>
                   <TableCell align="right">Projected (1 Year)</TableCell>
-                  <TableCell align="right">Growth</TableCell>
+                  <TableCell align="right">Growth (QoQ)</TableCell>
+                  <TableCell>Basis</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -368,17 +569,20 @@ export default function ComplianceEngine() {
                   <TableRow key={i}>
                     <TableCell><Typography fontWeight={600}>{p.metric}</Typography></TableCell>
                     <TableCell align="right">{p.current}</TableCell>
-                    <TableCell align="right" sx={{ color: '#2E7D32', fontWeight: 600 }}>{p.projected}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>{p.projected}</TableCell>
                     <TableCell align="right">
-                      <Chip icon={<TrendingUp />} label={`+${p.growth}%`} color="success" variant="outlined" size="small" />
+                      {p.growth === null || p.growth === undefined
+                        ? <Chip label="n/a" size="small" variant="outlined" />
+                        : <Chip icon={<TrendingUp />} label={`${p.growth > 0 ? '+' : ''}${p.growth}%`} color={p.growth >= 0 ? 'success' : 'error'} variant="outlined" size="small" />}
                     </TableCell>
+                    <TableCell><Typography variant="caption" color="text.secondary">{p.basis || '—'}</Typography></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
           <Box sx={{ textAlign: 'center', mt: 3 }}>
-            <Button variant="contained" startIcon={<Download />} onClick={() => { const reportData = predictions.map(p => `${p.metric},${p.current},${p.projected},${p.growth}%`).join('\n'); const csv = 'Metric,Current,Projected 1yr,Growth\n' + reportData; const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'compliance_report.csv'; a.click(); URL.revokeObjectURL(url); setSnackbar({ open: true, message: 'Compliance report downloaded successfully!', severity: 'success' }); }}>Download Full Compliance Report</Button>
+            <Button variant="contained" startIcon={<Download />} onClick={() => { const reportData = predictions.map(p => `${p.metric},${p.current},${p.projected},${p.growth ?? 'n/a'}% (${p.basis || ''})`).join('\n'); const csv = 'Metric,Current,Projected 1yr,Growth\n' + reportData; const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'compliance_report.csv'; a.click(); URL.revokeObjectURL(url); setSnackbar({ open: true, message: 'Compliance report downloaded successfully!', severity: 'success' }); }}>Download Full Compliance Report</Button>
           </Box>
         </Paper>
       )}

@@ -72,16 +72,82 @@ router.get('/:id', requireRole(['admin', 'govt']), async (req, res) => {
             SELECT ip.id, ip.user_id, ip.company_name, ip.industry_type, ip.location,
                    ip.contact_person, ip.phone_number, ip.gstin, ip.plot_id,
                    ip.compliance_score, ip.subscription_tier, ip.subscription_status,
+                   ip.operational_status, ip.api_key_prefix,
                    u.email, u.status, u.created_at
               FROM industry_profiles ip
-              JOIN users u ON ip.user_id = u.id
+              JOIN users u ON u.id = ip.user_id
              WHERE ip.id = $1 OR u.id = $1
              LIMIT 1
         `, [req.params.id]);
         if (!rows.length) return res.status(404).json({ error: 'Industry not found' });
         res.json(rows[0]);
     } catch (err) {
-        console.error("Fetch Industry Error:", err.message);
+        console.error('Fetch Industry Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// ============================================================
+// @route   POST /api/industries/:id/api-key
+// @desc    Issue a SCOPED per-industry API key for programmatic
+//          submissions (replaces the shared master key). The key
+//          is shown ONCE; only its sha256 hash + display prefix
+//          are stored. Regenerating revokes the previous key.
+// @access  Private (Admin)
+// ============================================================
+router.post('/:id/api-key', requireRole(['admin']), async (req, res) => {
+    try {
+        const crypto = require('crypto');
+        const { recordAudit } = require('./audit');
+        const industryId = parseInt(req.params.id);
+        const exists = await db.query('SELECT id, company_name FROM industry_profiles WHERE id = $1', [industryId]);
+        if (!exists.rows.length) return res.status(404).json({ error: 'Industry not found' });
+
+        const key = 'tzp_' + crypto.randomBytes(24).toString('hex');
+        const hash = crypto.createHash('sha256').update(key).digest('hex');
+        const prefix = key.slice(0, 11) + '…';
+        await db.query(
+            'UPDATE industry_profiles SET api_key_hash = $1, api_key_prefix = $2 WHERE id = $3',
+            [hash, prefix, industryId]);
+
+        await recordAudit(req.user.id, 'INDUSTRY_API_KEY_ISSUED', req.ip, {
+            entityType: 'industry', entityId: industryId, severity: 'warning',
+            payload: { company: exists.rows[0].company_name, prefix, note: 'previous key (if any) revoked' }
+        });
+
+        res.status(201).json({
+            msg: 'API key issued. Store it now — it is shown only once and cannot be recovered.',
+            industry_id: industryId,
+            company_name: exists.rows[0].company_name,
+            api_key: key,
+            prefix,
+            usage: 'POST /api/submissions/api-submit with headers { x-api-key: <key> } and body { industryId, periodYear, periodQuarter, ... }'
+        });
+    } catch (err) {
+        console.error('API Key Issue Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// ============================================================
+// @route   DELETE /api/industries/:id/api-key
+// @desc    Revoke an industry's API key.
+// @access  Private (Admin)
+// ============================================================
+router.delete('/:id/api-key', requireRole(['admin']), async (req, res) => {
+    try {
+        const { recordAudit } = require('./audit');
+        const industryId = parseInt(req.params.id);
+        const upd = await db.query(
+            'UPDATE industry_profiles SET api_key_hash = NULL, api_key_prefix = NULL WHERE id = $1 RETURNING id',
+            [industryId]);
+        if (!upd.rows.length) return res.status(404).json({ error: 'Industry not found' });
+        await recordAudit(req.user.id, 'INDUSTRY_API_KEY_REVOKED', req.ip, {
+            entityType: 'industry', entityId: industryId, severity: 'warning', payload: {}
+        });
+        res.json({ msg: 'API key revoked.' });
+    } catch (err) {
+        console.error('API Key Revoke Error:', err.message);
         res.status(500).send('Server Error');
     }
 });

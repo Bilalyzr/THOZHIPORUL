@@ -1,40 +1,83 @@
 // ============================================================
-// notify.js — Centralized multi-channel notification dispatcher.
+// notify.js — centralized multi-channel notification dispatcher
+// with an HONEST provider abstraction (Phase 8).
 //
-// Responsibilities:
-//   1. Persist a notification row (always — the in-app/portal channel).
-//   2. Honour per-user notification_preferences (email/sms/portal).
-//   3. Attempt email + SMS delivery through pluggable providers,
-//      falling back gracefully (console log) when a provider is not
-//      configured. NEVER throw — notification failure must not break
-//      the calling business flow (compliance, vault, etc.).
-//   4. Emit to live SSE subscribers (real-time push) if any are listening.
+// Provider registry:
+//   InAppProvider   — always real: DB row + SSE push.  → SENT
+//   EmailProvider   — real only when a transport is actually
+//                     available. Without one, deliveries are
+//                     recorded as SIMULATED (clearly labelled),
+//                     NEVER as "sent".
+//   SmsProvider     — same policy.
 //
-// This module is ADDITIVE: it is imported only by the new enhancement
-// routes. The legacy notifications.js route keeps deriving its alerts
-// on the fly and is untouched.
+// Delivery statuses: QUEUED | SENT | SIMULATED | FAILED | SKIPPED.
+// notify() never throws — a notification failure must not break a
+// business flow — but it never lies about what happened either.
 // ============================================================
 
 const db = require('../db');
 const { EventEmitter } = require('events');
 
 // Single in-process bus for Server-Sent Events push.
-// (See routes/notifications.js /api/notifications/stream — added later.)
 const liveBus = new EventEmitter();
-liveBus.setMaxListeners(0); // many concurrent SSE clients allowed
-
-// Provider config — read once. In production set these env vars to real keys.
-const EMAIL_PROVIDER = {
-    enabled: !!(process.env.SMTP_HOST && process.env.SMTP_USER),
-    from: process.env.SMTP_FROM || 'no-reply@thozhirporul.tn.gov.in'
-};
-const SMS_PROVIDER = {
-    enabled: !!process.env.SMS_PROVIDER_KEY
-};
+liveBus.setMaxListeners(0);
 
 // ------------------------------------------------------------
-// Resolve a user's channel preferences (defensive — always falls
-// back to portal:true if the column / row is missing).
+// Providers. Each exposes { name, configured, deliver(to, subject, body) }
+// resolving to one of: 'SENT' | 'SIMULATED' | 'FAILED' | 'SKIPPED'.
+// ------------------------------------------------------------
+
+// --- In-app (portal) — the one genuinely working channel ------
+const InAppProvider = {
+    name: 'portal',
+    configured: true,
+    async deliver() { return 'SENT'; } // persistence IS the delivery
+};
+
+// --- Email -----------------------------------------------------
+// A real provider requires BOTH credentials (SMTP_*) AND a
+// transport implementation. This build ships a development
+// provider: it logs the message and reports SIMULATED. To plug in
+// a real transport, implement deliver() with nodemailer etc. and
+// set the SMTP_* env vars — the status flips to SENT only then.
+const EmailProvider = {
+    name: 'email',
+    get configured() {
+        return !!(process.env.SMTP_HOST && process.env.SMTP_USER);
+    },
+    transportImplemented: false, // flip to true when a real sender is wired in
+    async deliver(to, subject, body) {
+        if (!to) return 'SKIPPED';
+        if (!this.configured || !this.transportImplemented) {
+            console.log(`[NOTIFY:email][SIMULATED] to=${to} subj="${subject}" :: ${String(body).slice(0, 80)}...`);
+            return 'SIMULATED';
+        }
+        // Real transport path (unreachable until implemented):
+        return 'FAILED';
+    }
+};
+
+// --- SMS / WhatsApp --------------------------------------------
+const SmsProvider = {
+    name: 'sms',
+    get configured() {
+        return !!process.env.SMS_PROVIDER_KEY;
+    },
+    transportImplemented: false,
+    async deliver(to, body) {
+        if (!to) return 'SKIPPED';
+        if (!this.configured || !this.transportImplemented) {
+            console.log(`[NOTIFY:sms][SIMULATED] to=${to} :: ${String(body).slice(0, 60)}...`);
+            return 'SIMULATED';
+        }
+        return 'FAILED';
+    }
+};
+
+const PROVIDERS = { portal: InAppProvider, email: EmailProvider, sms: SmsProvider };
+
+// ------------------------------------------------------------
+// Per-user channel preferences (defensive fallback).
 // ------------------------------------------------------------
 async function getPreferences(userId) {
     if (!userId) return { email: false, sms: false, portal: true };
@@ -55,13 +98,9 @@ async function getPreferences(userId) {
     return { email: true, sms: false, portal: true };
 }
 
-// ------------------------------------------------------------
-// resolveUserEmail: fetch email if we need it for delivery.
-// ------------------------------------------------------------
 async function getUserContact(userId) {
     if (!userId) return {};
     const { rows } = await db.query(
-        // phone_number lives on industry_profiles, NOT users.
         'SELECT u.email, ip.phone_number FROM users u LEFT JOIN industry_profiles ip ON ip.user_id = u.id WHERE u.id = $1',
         [userId]
     );
@@ -69,32 +108,9 @@ async function getUserContact(userId) {
 }
 
 // ------------------------------------------------------------
-// sendEmail / sendSms: provider stubs. In dev they log; in prod a
-// real provider (nodemailer/Twilio) plugs in here. They return a
-// status string so delivery attempts are recorded.
-// ------------------------------------------------------------
-async function sendEmail(to, subject, body) {
-    if (!EMAIL_PROVIDER.enabled || !to) return 'skipped';
-    // TODO(prod): nodemailer.createTransport({...}).sendMail(...)
-    // Until a provider is configured we log so devs see the message.
-    console.log(`[NOTIFY:email] to=${to} subj="${subject}"`);
-    return 'sent';
-}
-
-async function sendSms(to, body) {
-    if (!SMS_PROVIDER.enabled || !to) return 'skipped';
-    // TODO(prod): axios.post(smsProviderUrl, {...})
-    console.log(`[NOTIFY:sms] to=${to} msg="${body.slice(0, 60)}..."`);
-    return 'sent';
-}
-
-// ------------------------------------------------------------
 // notify(): the one entry point the rest of the codebase calls.
-//
-// opts = {
-//   userId?, roleScope?, category, severity, title, message,
-//   link?, metadata?, channels?: ['portal','email','sms']
-// }
+// opts = { userId?, roleScope?, category, severity, title, message,
+//          link?, metadata?, channels? }
 // ------------------------------------------------------------
 async function notify(opts) {
     const {
@@ -106,7 +122,7 @@ async function notify(opts) {
         message,
         link = null,
         metadata = {},
-        channels = null         // explicit override; else derived from prefs
+        channels = null
     } = opts;
 
     let chosen = channels;
@@ -117,7 +133,7 @@ async function notify(opts) {
         if (prefs.sms) chosen.push('sms');
     }
 
-    // 1. Always persist (portal channel = the canonical record).
+    // 1. Persist (portal channel = the canonical in-app record).
     let inserted = null;
     try {
         const { rows } = await db.query(
@@ -129,23 +145,27 @@ async function notify(opts) {
         );
         inserted = rows[0];
     } catch (err) {
-        // If the notifications table doesn't exist yet (migration not run),
-        // we still deliver via push/email — never block the business flow.
         console.warn('[NOTIFY] persist failed:', err.message);
     }
 
-    // 2. Email + SMS attempts (best-effort, logged in notification_deliveries).
     if (inserted) {
-        const contact = await getUserContact(userId);
-        if (chosen.includes('email')) {
-            const status = await sendEmail(contact.email, title, message);
-            logDelivery(inserted.id, 'email', status);
+        // 2. Portal delivery: the DB row IS the delivery → SENT.
+        logDelivery(inserted.id, 'portal', 'SENT');
+
+        // 3. Out-of-band channels: honest per-provider outcomes.
+        if (chosen.includes('email') || chosen.includes('sms')) {
+            const contact = await getUserContact(userId);
+            if (chosen.includes('email')) {
+                const status = await EmailProvider.deliver(contact.email, title, message);
+                logDelivery(inserted.id, 'email', status);
+            }
+            if (chosen.includes('sms')) {
+                const status = await SmsProvider.deliver(contact.phone_number, message);
+                logDelivery(inserted.id, 'sms', status);
+            }
         }
-        if (chosen.includes('sms')) {
-            const status = await sendSms(contact.phone_number, message);
-            logDelivery(inserted.id, 'sms', status);
-        }
-        // 3. Real-time push to any SSE listeners on this user (or role).
+
+        // 4. Real-time SSE push.
         liveBus.emit(`user:${userId}`, inserted);
         if (roleScope) liveBus.emit(`role:${roleScope}`, inserted);
     }
@@ -153,18 +173,24 @@ async function notify(opts) {
     return inserted;
 }
 
-// Best-effort delivery log — wrapped in try/catch so a missing table
-// never propagates into the caller.
+// Best-effort delivery log; statuses are always the honest outcome.
 function logDelivery(notificationId, channel, status) {
     db.query(
-        `INSERT INTO notification_deliveries (notification_id, channel, status)
-         VALUES ($1, $2::notification_channel, $3)`,
-        [notificationId, channel, status]
+        `INSERT INTO notification_deliveries (notification_id, channel, status, error)
+         VALUES ($1, $2::notification_channel, $3, $4)`,
+        [notificationId, channel, status,
+         status === 'SIMULATED' ? 'Development provider — no real transport configured' : null]
     ).catch(() => { /* ignore */ });
 }
 
 module.exports = {
     notify,
     liveBus,
-    getPreferences
+    getPreferences,
+    PROVIDERS,
+    providerStatus: () => ({
+        portal: 'SENT (real — in-app persistence + SSE)',
+        email: EmailProvider.configured && EmailProvider.transportImplemented ? 'SENT' : 'SIMULATED (no real transport configured)',
+        sms: SmsProvider.configured && SmsProvider.transportImplemented ? 'SENT' : 'SIMULATED (no real transport configured)'
+    })
 };

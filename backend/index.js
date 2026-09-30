@@ -254,13 +254,14 @@ async function applyMigration(label, filename) {
     }
 }
 
-// Convenience wrappers for each migration (order matters: v3 -> v4 -> v5).
+// Convenience wrappers for each migration (order matters: v3 -> v4 -> v5 -> v6 -> v7).
 const applyGrievancesMigration = () => applyMigration('grievances', 'migrations_grievances.sql');
 const applyV3Migration = () => applyMigration('v3 enhancements', 'schema_v3_enhancements.sql');
 const applyV4Migration = () => applyMigration('v4 research (Tier 1)', 'schema_v4_research.sql');
 const applyV4bMigration = () => applyMigration('v4b real tenants', 'schema_v4b_realtenants.sql');
 const applyV5Migration = () => applyMigration('v5 Tier 2 (allottee lifecycle)', 'schema_v5_tier2.sql');
 const applyV6Migration = () => applyMigration('v6 Tier 3 (strategic)', 'schema_v6_tier3.sql');
+const applyV7Migration = () => applyMigration('v7 intelligence & data reliability', 'schema_v7_intelligence.sql');
 
 // Auth Routes
 const auth = require('./routes/auth');
@@ -313,10 +314,19 @@ app.use('/api/billing', require('./routes/billing'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/security', require('./routes/security'));
 
+// v7 Intelligence & Data Reliability layer (2026-09-30 upgrade):
+// reporting calendar + filing matrix, data-quality findings +
+// configurable rules, park/growth/forecast/capacity intelligence.
+app.use('/api/reporting-periods', require('./routes/reporting-periods'));
+app.use('/api/findings', require('./routes/findings'));
+app.use('/api/intelligence', require('./routes/intelligence'));
+
 // Background scheduler — starts SLA escalation, doc-expiry reminders,
-// scheduled-report generation, and subscription dunning jobs. Safe to
-// start at any time: each job no-ops until its backing table exists.
-require('./services/scheduler').start();
+// scheduled-report generation, subscription dunning, reporting-calendar
+// maintenance, filing reminders/escalations, compliance scoring and
+// anomaly re-detection. Started AFTER boot migrations (below) so the
+// v7 intelligence tables exist before the first immediate tick.
+const scheduler = require('./services/scheduler');
 
 // Protected Test Route Ensure RBAC System is functional
 app.get('/api/admin-test', auth.requireRole(['admin']), (req, res) => {
@@ -353,8 +363,17 @@ app.listen(PORT, () => {
         // 4. v6 Tier 3 (strategic): gov integration framework, circulars,
         //    directory contacts, Inaippagam cache, tier feature access.
         await applyV6Migration();
-        // 5. After all migrations, backfill seed-doc files + users.name.
+        // 5. v7 Intelligence & data reliability (2026-09-30 upgrade):
+        //    versioned submissions, production, operational status,
+        //    reporting calendar, findings, AI persistence, forecasts,
+        //    scoring/lockout/API-key columns. Takes frozen backups of
+        //    altered tables first — see the file header.
+        await applyV7Migration();
+        // 6. After all migrations, backfill seed-doc files + users.name.
         ensureSeedDocuments();
         ensureUsersNameColumn();
+        // 7. NOW the schema is guaranteed — start background jobs (their
+        //    first tick runs immediately, so backing tables must exist).
+        scheduler.start();
     }).catch(err => console.warn('[BOOT] Migration chain error:', err.message));
 });

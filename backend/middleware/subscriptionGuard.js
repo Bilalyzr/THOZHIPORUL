@@ -126,11 +126,15 @@ function requireFeature(featureKey) {
                 [featureKey]
             );
 
-            // Unknown feature key — fail open (don't block on a misconfigured
-            // gate; log it so an admin notices).
+            // Unknown feature key — FAIL CLOSED (Phase 22): a misconfigured
+            // gate must deny, not silently grant paid features. Loud log so
+            // an admin notices and fixes the key.
             if (!feat.rows.length) {
-                console.warn(`[subscriptionGuard] Unknown feature key: ${featureKey} — allowing.`);
-                return next();
+                console.error(`[subscriptionGuard] Unknown feature key: ${featureKey} — DENYING (fail closed).`);
+                return res.status(500).json({
+                    code: 'FEATURE_GATE_MISCONFIGURED',
+                    message: `Feature gate "${featureKey}" is not configured. Access denied (fail-closed).`
+                });
             }
 
             const f = feat.rows[0];
@@ -164,9 +168,14 @@ function requireFeature(featureKey) {
             });
         } catch (err) {
             console.error('[subscriptionGuard] Error:', err.message);
-            // Fail open on infrastructure errors — never block statutory work
-            // because the gating query failed. Log loudly so it's noticed.
-            return next();
+            // FAIL CLOSED on infrastructure errors (Phase 22): value-added
+            // features are denied when the gate cannot evaluate. Statutory
+            // filing routes never use this middleware, so regulatory work
+            // is unaffected.
+            return res.status(503).json({
+                code: 'FEATURE_GATE_UNAVAILABLE',
+                message: 'Subscription check is temporarily unavailable. Value-added features are denied (fail-closed); statutory filing is unaffected.'
+            });
         }
     };
 }

@@ -160,6 +160,16 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials. No account found with this email.' });
         }
 
+        // ---- Account lockout (Phase 22) ------------------------
+        // 5 consecutive failures lock the account for 15 minutes.
+        // Successful login resets the counter. Audited.
+        if (user.locked_until && new Date(user.locked_until) > new Date()) {
+            const mins = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+            return res.status(423).json({
+                error: `Account temporarily locked after repeated failed logins. Try again in ${mins} minute(s).`
+            });
+        }
+
         // Password check. The '$demo$' placeholder hash only bypasses verification
         // when demo login is explicitly enabled — otherwise it can never authenticate.
         let isMatch = false;
@@ -171,7 +181,25 @@ router.post('/login', async (req, res) => {
 
         if (!isMatch) {
             console.warn(`[AUTH] Password mismatch for: ${email}`);
+            try {
+                const fails = (user.failed_login_count || 0) + 1;
+                if (fails >= 5) {
+                    await db.query(
+                        'UPDATE users SET failed_login_count = $1, locked_until = NOW() + INTERVAL \'15 minutes\' WHERE id = $2',
+                        [0, user.id]);
+                    await db.query(
+                        'INSERT INTO audit_logs (user_id, action, severity, entity_type, entity_id) VALUES ($1,$2,$3,$4,$5)',
+                        [user.id, 'ACCOUNT_LOCKED (5 failed logins)', 'warning', 'user', user.id]);
+                } else {
+                    await db.query('UPDATE users SET failed_login_count = $1 WHERE id = $2', [fails, user.id]);
+                }
+            } catch (_) { /* lockout bookkeeping must not mask the 401 */ }
             return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
+        }
+
+        // Success — clear failure state.
+        if (user.failed_login_count || user.locked_until) {
+            await db.query('UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = $1', [user.id]).catch(() => {});
         }
 
         // Enforce the account lifecycle managed in /api/users — a Suspended
@@ -255,11 +283,14 @@ router.post('/login', async (req, res) => {
 
         console.log(`[AUDIT] Login Success: ${user.email} | Role: ${user.role} | Name: ${name}`);
 
-        // Persist the login event to the audit trail (best-effort, non-blocking).
-        db.query(
-            'INSERT INTO audit_logs (user_id, action, ip_address) VALUES ($1, $2, $3)',
-            [user.id, `USER_LOGIN — ${user.role} portal`, req.ip]
-        ).catch(err => console.warn('[AUDIT] login log failed:', err.message));
+        // Persist the login event to the tamper-evident chain (best-effort).
+        try {
+            const { recordAudit } = require('./audit');
+            await recordAudit(user.id, `USER_LOGIN — ${user.role} portal`, req.ip, {
+                entityType: 'user', entityId: user.id, severity: 'info',
+                payload: { role: user.role, email: user.email }
+            });
+        } catch (_) { /* audit must not block login */ }
 
         res.json({
             token,
@@ -314,15 +345,18 @@ router.post('/verify-mfa', async (req, res) => {
 
         const userId = decoded.user_id;
 
-        // Fetch the MFA secret.
+        // Fetch the MFA secret (encrypted at rest — enc:v1:; legacy
+        // plaintext values still verify until re-enrolled).
         const mfaRow = await db.query('SELECT secret_encrypted, enabled FROM user_mfa WHERE user_id = $1', [userId]);
         if (!mfaRow.rows.length || !mfaRow.rows[0].enabled) {
             return res.status(400).json({ error: 'MFA not enabled for this account.' });
         }
-
-        // Stored secret is already a Base32 string (RFC 4648) — pass it
-        // directly to verifyTotp, which decodes Base32 internally.
-        const secret = mfaRow.rows[0].secret_encrypted;
+        const { decryptString, isEncrypted } = require('../services/cryptoUtil');
+        const storedSecret = mfaRow.rows[0].secret_encrypted;
+        const secret = isEncrypted(storedSecret) ? decryptString(storedSecret) : storedSecret;
+        if (!secret) {
+            return res.status(500).json({ error: 'Stored MFA secret could not be decrypted (ENCRYPTION_KEY changed?). Ask an admin to reset 2FA.' });
+        }
 
         // Verify using the shared TOTP module (single source of truth).
         const valid = verifyTotp(secret, String(code));

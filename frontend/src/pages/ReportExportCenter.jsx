@@ -12,7 +12,7 @@ import {
   PictureAsPdf, TableChart, DataObject, Download,
   Visibility, History, Save
 } from '@mui/icons-material';
-import { submissionService } from '../services/api';
+import { submissionService, scheduledReportService } from '../services/api';
 import { downloadRoleReport } from '../utils/reportGenerator';
 import * as XLSX from 'xlsx';
 
@@ -49,18 +49,18 @@ export default function ReportExportCenter() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // REAL fields from the live compliance dataset — investment/employment
+        // are actual latest-filing values in ₹ Crore; no fabricated scores.
         const response = await submissionService.getCompliance();
-        // Map the backend compliance data to the report center format
-        const mappedData = (Array.isArray(response.data) ? response.data : []).map(row => {
-          const s = String(row.status || '').toLowerCase();
-          return {
-            company: row.name,
-            park: row.location,
-            investment: row.investmentAmount ? `${row.investmentAmount} Cr` : '-',
-            employment: '-', // Currently employment total isn't returned by getCompliance, could be added later
-            compliance: s === 'compliant' ? 100 : s === 'alert' ? 20 : 60
-          };
-        });
+        const mappedData = (Array.isArray(response.data) ? response.data : []).map(row => ({
+          company: row.name,
+          park: row.location,
+          investment: row.investmentAmount != null
+            ? `${(Number(row.investmentAmount) / 1e7).toLocaleString('en-IN', { maximumFractionDigits: 1 })} Cr`
+            : '-',
+          employment: row.totalEmployees ?? '-',
+          compliance: row.status || '—'
+        }));
         setPreviewData(mappedData);
       } catch (err) {
         console.error("Failed to load report data", err);
@@ -69,12 +69,24 @@ export default function ReportExportCenter() {
     fetchData();
   }, []);
 
-  const recentReports = [
-    { id: 1, name: 'Investment_Q1_2026', type: 'PDF', generated: '2026-04-10', size: '120 KB' },
-    { id: 2, name: 'Compliance_Annual_2025', type: 'Excel', generated: '2026-03-28', size: '340 KB' },
-    { id: 3, name: 'Employment_Oragadam', type: 'CSV', generated: '2026-03-15', size: '56 KB' },
-    { id: 4, name: 'Park_Performance_Q4', type: 'PDF', generated: '2026-01-20', size: '180 KB' },
-  ];
+  // Report history comes from the server-side generation log (real rows
+  // only — client-side downloads POST to /reports/log so this list fills
+  // as reports are actually generated).
+  const [recentReports, setRecentReports] = useState([]);
+  useEffect(() => {
+    scheduledReportService.history()
+      .then(res => {
+        const rows = (res.data && (res.data.history || res.data)) || [];
+        setRecentReports((Array.isArray(rows) ? rows : []).slice(0, 6).map(r => ({
+          id: r.id,
+          name: r.report_id_code || `${r.report_type || 'report'}_${r.format || ''}`,
+          type: (r.format || 'file').toUpperCase(),
+          generated: r.generated_at ? new Date(r.generated_at).toISOString().split('T')[0] : '—',
+          size: r.file_size_kb ? `${r.file_size_kb} KB` : '—'
+        })));
+      })
+      .catch(() => setRecentReports([]));
+  }, []);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -90,7 +102,7 @@ export default function ReportExportCenter() {
           Location: row.park,
           Investment: row.investment,
           Employment: row.employment,
-          'Compliance (%)': row.compliance
+          'Compliance (status)': row.compliance
         }));
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
         const workbook = XLSX.utils.book_new();
@@ -99,7 +111,7 @@ export default function ReportExportCenter() {
         setSnackbar({ open: true, message: 'Report generated and downloaded as Excel!', severity: 'success' });
       } else {
         const csvData = previewData.map(r => `"${r.company}","${r.park}","${r.investment}","${r.employment}",${r.compliance}`).join('\n');
-        const csvContent = 'Company,Park,Investment,Employment,Compliance (%)\n' + csvData;
+        const csvContent = 'Company,Park,Investment,Employment,Compliance (status)\n' + csvData;
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -126,7 +138,7 @@ export default function ReportExportCenter() {
         setSnackbar({ open: true, message: `Report ${id} downloaded.`, severity: 'success' });
       } else if (report.type === 'Excel') {
         const worksheet = XLSX.utils.json_to_sheet(previewData.map(r => ({
-          Company: r.company, Location: r.park, Investment: r.investment, Employment: r.employment, 'Compliance (%)': r.compliance
+          Company: r.company, Location: r.park, Investment: r.investment, Employment: r.employment, 'Compliance (status)': r.compliance
         })));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
@@ -134,7 +146,7 @@ export default function ReportExportCenter() {
         setSnackbar({ open: true, message: `${report.name} downloaded.`, severity: 'success' });
       } else {
         const csvData = previewData.map(r => `"${r.company}","${r.park}","${r.investment}","${r.employment}",${r.compliance}`).join('\n');
-        const csvContent = 'Company,Park,Investment,Employment,Compliance (%)\n' + csvData;
+        const csvContent = 'Company,Park,Investment,Employment,Compliance (status)\n' + csvData;
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -281,7 +293,7 @@ export default function ReportExportCenter() {
         <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, md: 3 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Typography variant="h6" fontWeight={600} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Data Preview</Typography>
-            <Typography variant="body2" color="text.secondary">Total records: 234 | Estimated size: 45 KB</Typography>
+            <Typography variant="body2" color="text.secondary">Total records: {previewData.length} (live dataset)</Typography>
           </Box>
           <TableContainer>
             <Table size="small">

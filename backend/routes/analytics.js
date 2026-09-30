@@ -54,19 +54,19 @@ router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) =
                 LEFT JOIN employment_data e ON e.submission_id = latest_sub.id
             `),
             db.query(`
-                SELECT 
+                SELECT
                     p.id,
                     p.name,
                     COUNT(i.id) as total_industries,
                     COALESCE(SUM(CASE WHEN f.investment_amount >= 100000 THEN f.investment_amount / 1e7 ELSE f.investment_amount END), 0) as total_investment_cr,
                     COALESCE(SUM(e.permanent_employees + e.contract_employees), 0) as total_employment,
-                    85 as infrastructure_score
+                    p.infrastructure_score
                 FROM industrial_parks p
                 LEFT JOIN industry_profiles i ON i.park_id = p.id
                 LEFT JOIN (SELECT DISTINCT ON (industry_id) id, industry_id FROM data_submissions ORDER BY industry_id, submitted_at DESC) latest_sub ON latest_sub.industry_id = i.id
                 LEFT JOIN financial_data f ON f.submission_id = latest_sub.id
                 LEFT JOIN employment_data e ON e.submission_id = latest_sub.id
-                GROUP BY p.id, p.name
+                GROUP BY p.id, p.name, p.infrastructure_score
                 ORDER BY total_investment_cr DESC
                 LIMIT 5
             `),
