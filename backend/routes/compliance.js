@@ -438,6 +438,12 @@ async function evaluateRule(rule) {
     const allowed = ['resource_usage', 'financial_data', 'employment_data', 'documents'];
     if (!allowed.includes(table)) return hits;
 
+    // The column half is interpolated into SQL text below, so it must be a
+    // bare identifier: letters/digits/underscore only. Anything else (spaces,
+    // quotes, semicolons, comment markers) is rejected outright. This closes
+    // second-order injection through an admin-configured target_metric.
+    if (!/^[a-z_][a-z0-9_]{0,62}$/i.test(col)) return hits;
+
     let rows;
     if (table === 'documents') {
         // Special case: missing/expired certificates (e.g. fire_noc, pollution_clearance).

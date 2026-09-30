@@ -1038,9 +1038,20 @@ export default function AIChatbot() {
     setMessages(prev => [...prev, { role: 'ai', text: `✅ Navigated to **${path}** successfully!` }]);
   };
 
+  // Escape HTML entities BEFORE the markdown transforms run. Message text
+  // can include user-controlled content (e.g. the account/company name in
+  // the greeting, or self-typed chat input), and without this step the
+  // dangerouslySetInnerHTML sink below would execute injected HTML/JS.
+  const escapeHtml = (s) => String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
   const renderMarkdown = (text) => {
     return String(text || '').split('\n').map((line, i) => {
-      let html = line
+      let html = escapeHtml(line)
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/`(.*?)`/g, '<code style="background:rgba(16,185,129,0.15);color:#34D399;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:0.85em">$1</code>');

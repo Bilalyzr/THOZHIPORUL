@@ -56,9 +56,15 @@ router.post('/', requireRole(['admin']), async (req, res) => {
             return res.status(400).json({ msg: "User already exists" });
         }
 
-        // Default password
+        // Generate a random temporary password. A hardcoded shared value
+        // ('password123') let anyone who guessed it take over freshly
+        // created govt/admin accounts before the owner first logged in.
+        // The plaintext is returned ONCE in this response so the admin can
+        // hand it over securely; only the bcrypt hash is stored.
+        const crypto = require('crypto');
+        const tempPassword = crypto.randomBytes(9).toString('base64url');
         const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash('password123', salt);
+        const passwordHash = await bcrypt.hash(tempPassword, salt);
 
         const dbRole = role.toLowerCase();
 
@@ -90,7 +96,8 @@ router.post('/', requireRole(['admin']), async (req, res) => {
                 name: name || rootEmail,
                 rootEmail: rootEmail,
                 role: role,
-                status: status || 'Pending'
+                status: status || 'Pending',
+                temporaryPassword: tempPassword
             });
         } catch (txErr) {
             await client.query('ROLLBACK');

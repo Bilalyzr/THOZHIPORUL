@@ -84,7 +84,14 @@ router.post('/order', requireRole(['industry']), async (req, res) => {
         const options = {
             amount: selectedPlan.paise,
             currency: 'INR',
-            receipt: receiptId
+            receipt: receiptId,
+            // notes bind the order to the buyer + plan so /verify can prove
+            // server-side that THIS payment belongs to THIS caller's plan.
+            notes: {
+                purpose: 'subscription',
+                plan: plan,
+                industryId: String(industryId)
+            }
         };
 
         const order = await razorpay.orders.create(options);
@@ -131,13 +138,54 @@ router.post('/verify', requireRole(['industry']), async (req, res) => {
         } else if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
             return res.status(400).json({ error: 'Missing payment verification fields.' });
         } else {
+            // Step 1 — timing-safe HMAC check: proves the payment id belongs
+            // to this order id (signed by Razorpay with our key secret).
             const body = razorpay_order_id + '|' + razorpay_payment_id;
             const expectedSignature = crypto
                 .createHmac('sha256', RAZORPAY_KEY_SECRET)
                 .update(body.toString())
                 .digest('hex');
+            const sigBuf = Buffer.from(String(razorpay_signature));
+            const expBuf = Buffer.from(expectedSignature);
+            const sigOk = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+            if (!sigOk) {
+                return res.status(400).json({ error: 'Cryptographic signature mismatch. Payment verification failed.' });
+            }
 
-            isVerified = expectedSignature === razorpay_signature;
+            // Step 2 — server-side binding. The signature alone only proves
+            // "a payment happened for some order". Re-fetch the order AND the
+            // payment from Razorpay and require that they match each other,
+            // the requested plan's price, and the CALLER's industry id (set
+            // as order notes/receipt at creation). This closes the
+            // pay-cheap-plan / replay-someone-else's-payment holes where the
+            // client-controlled `plan` field was trusted directly.
+            if (!razorpay) {
+                return res.status(503).json({ error: 'Payment gateway not configured.' });
+            }
+            let order, payment;
+            try {
+                order = await razorpay.orders.fetch(razorpay_order_id);
+                payment = await razorpay.payments.fetch(razorpay_payment_id);
+            } catch (fetchErr) {
+                console.error('Razorpay fetch during verify failed:', fetchErr.message);
+                return res.status(400).json({ error: 'Unable to verify payment with the gateway.' });
+            }
+
+            const bindingErrors = [];
+            if (payment.order_id !== razorpay_order_id) bindingErrors.push('payment does not belong to this order');
+            if (!['captured', 'authorized'].includes(payment.status)) bindingErrors.push(`payment status is ${payment.status}`);
+            if (parseInt(payment.amount, 10) !== PLANS[plan].paise) bindingErrors.push('payment amount does not match the selected plan');
+            if (parseInt(order.amount, 10) !== PLANS[plan].paise) bindingErrors.push('order amount does not match the selected plan');
+            if (!order.receipt || !order.receipt.startsWith(`receipt_sub_${industryId}_`)) bindingErrors.push('order was not created for this account');
+            const notes = order.notes || {};
+            if (String(notes.industryId) !== String(industryId)) bindingErrors.push('order industry binding mismatch');
+            if (notes.plan !== plan) bindingErrors.push('order plan binding mismatch');
+
+            if (bindingErrors.length) {
+                console.warn(`[RAZORPAY] Verify rejected for industry ${industryId}: ${bindingErrors.join('; ')}`);
+                return res.status(400).json({ error: 'Payment cannot be verified for this account and plan.' });
+            }
+            isVerified = true;
         }
 
         if (!isVerified) {

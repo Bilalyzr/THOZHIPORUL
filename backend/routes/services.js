@@ -326,7 +326,12 @@ router.get('/:id', requireRole(['admin', 'govt', 'industry']), async (req, res) 
         `, [requestId]);
 
         if (rows.length === 0) return res.status(404).json({ error: 'Request not found' });
-        
+
+        // Tenant isolation: an industry may only read its own requests.
+        if (req.user.role === 'industry' && rows[0].industry_id !== req.user.profile_id) {
+            return res.status(404).json({ error: 'Request not found' });
+        }
+
         res.json(rows[0]);
     } catch (err) {
         console.error('Service Detail Error:', err.message);
@@ -464,6 +469,13 @@ async function ensureSla(client, requestId, serviceType) {
 // ============================================================
 router.get('/:id/timeline', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
+        // Tenant isolation: verify ownership before returning the timeline.
+        const owner = await db.query('SELECT industry_id FROM service_requests WHERE id = $1', [req.params.id]);
+        if (!owner.rows.length) return res.status(404).json({ error: 'Request not found' });
+        if (req.user.role === 'industry' && owner.rows[0].industry_id !== req.user.profile_id) {
+            return res.status(404).json({ error: 'Request not found' });
+        }
+
         const enhanced = await hasServiceV3Cols();
         const { rows } = await db.query(`
             SELECT sm.id, sm.stage_name, sm.status, sm.started_at, sm.completed_at,

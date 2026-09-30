@@ -9,22 +9,27 @@ if (missingEnv.length > 0) {
     process.exit(1);
 }
 
-// Production-only JWT_SECRET strength check. A weak/guessable secret lets an
-// attacker forge admin tokens, so we refuse to boot in production with one.
+// JWT_SECRET strength checks. A weak/guessable secret lets an attacker forge
+// admin tokens (bypassing password AND 2FA), so:
+//   - values from the known-weak list are refused in EVERY environment
+//     (dev deploys are reachable too, and the list contains secrets that
+//     have shipped in this repo's own example configs);
+//   - the minimum-length requirement stays production-only so short but
+//     unique local secrets still work for quick experiments.
 const WEAK_SECRETS = new Set([
     'sipcot_sims_super_secret_key_2026',
     'your_long_random_jwt_secret_here',
     'dev_only_insecure_secret_do_not_use_in_prod',
     'secret', 'changeme', 'password',
 ]);
+if (WEAK_SECRETS.has(process.env.JWT_SECRET)) {
+    console.error('[SERVER] [FATAL] JWT_SECRET matches a known weak value. Generate a strong, unique secret (e.g. `node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"`).');
+    process.exit(1);
+}
 if (process.env.NODE_ENV === 'production') {
     const secret = process.env.JWT_SECRET;
     if (secret.length < 32) {
         console.error('[SERVER] [FATAL] JWT_SECRET must be at least 32 characters in production.');
-        process.exit(1);
-    }
-    if (WEAK_SECRETS.has(secret)) {
-        console.error('[SERVER] [FATAL] JWT_SECRET matches a known weak value. Generate a strong, unique secret.');
         process.exit(1);
     }
 }

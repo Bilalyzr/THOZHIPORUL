@@ -30,6 +30,21 @@ async function resolveIndustryId(req) {
     return req.query.industryId ? parseInt(req.query.industryId) : null;
 }
 
+// ------------------------------------------------------------
+// Ownership guard: load a document and verify the caller may act on
+// it. Admin/govt always pass; an industry user must own the document
+// (documents are tenant-scoped — cross-company reads/writes are IDOR).
+// Resolves to { doc } on success, or { status, error } to send.
+// ------------------------------------------------------------
+async function loadAuthorizedDoc(req, id) {
+    const doc = await db.query('SELECT * FROM documents WHERE id = $1', [id]);
+    if (!doc.rows.length) return { status: 404, error: 'Document not found' };
+    if (req.user.role === 'industry' && doc.rows[0].industry_id !== req.user.profile_id) {
+        return { status: 403, error: 'You can only access your own documents.' };
+    }
+    return { doc: doc.rows[0] };
+}
+
 // ============================================================
 // @route   GET /api/vault/expiry-dashboard
 // @desc    Documents bucketed by expiry urgency: expired, 30d, 60d, ok.
@@ -141,6 +156,9 @@ router.post('/:id/verify', requireRole(['admin', 'govt']), async (req, res) => {
 // ============================================================
 router.get('/:id/verification-history', requireRole(['industry', 'admin', 'govt']), async (req, res) => {
     try {
+        const guard = await loadAuthorizedDoc(req, req.params.id);
+        if (guard.error) return res.status(guard.status).json({ error: guard.error });
+
         const { rows } = await db.query(`
             SELECT dv.decision, dv.notes, dv.decided_at, u.name AS officer_name
               FROM document_verifications dv
@@ -162,16 +180,23 @@ router.get('/:id/verification-history', requireRole(['industry', 'admin', 'govt'
 // ============================================================
 router.post('/:id/version', requireRole(['industry']), async (req, res) => {
     try {
-        const parent = await db.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
-        if (!parent.rows.length) return res.status(404).json({ error: 'Document not found' });
+        // Ownership: an industry may only add versions to ITS OWN documents.
+        const guard = await loadAuthorizedDoc(req, req.params.id);
+        if (guard.error) return res.status(guard.status).json({ error: guard.error });
+        const parent = { rows: [guard.doc] };
 
         const { fileName, expiryDate } = req.body;
         if (!fileName) return res.status(400).json({ error: 'fileName required' });
 
+        // Sanitize the stored file name the same way the multer upload path
+        // does — strips path separators and anything unsafe out of the
+        // client-supplied name before it becomes part of file_path.
+        const safeFileName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
+
         // Tamper-evident content hash: in production this is computed from
         // the uploaded file bytes; here we hash identifying metadata so the
         // chain is provably tied to this exact version.
-        const hashInput = `${parent.rows[0].id}|${fileName}|${Date.now()}|${req.user.id}`;
+        const hashInput = `${parent.rows[0].id}|${safeFileName}|${Date.now()}|${req.user.id}`;
         const contentHash = crypto.createHash('sha256').update(hashInput).digest('hex');
 
         const ins = await db.query(
@@ -184,7 +209,7 @@ router.post('/:id/version', requireRole(['industry']), async (req, res) => {
              RETURNING id, version, content_hash`,
             [
                 parent.rows[0].industry_id, req.user.id, parent.rows[0].category,
-                fileName, `/uploads/${fileName}`, Math.floor(Math.random()*800)+100,
+                safeFileName, `/uploads/${safeFileName}`, Math.floor(Math.random()*800)+100,
                 'application/pdf', expiryDate || parent.rows[0].expiry_date,
                 contentHash, parent.rows[0].id
             ]
@@ -207,6 +232,9 @@ router.post('/:id/version', requireRole(['industry']), async (req, res) => {
 // ============================================================
 router.get('/:id/versions', requireRole(['industry', 'admin', 'govt']), async (req, res) => {
     try {
+        const guard = await loadAuthorizedDoc(req, req.params.id);
+        if (guard.error) return res.status(guard.status).json({ error: guard.error });
+
         const { rows } = await db.query(`
             SELECT id, version, file_name, content_hash, verified, verified_at,
                    expiry_date, created_at, uploaded_by
@@ -224,6 +252,9 @@ router.get('/:id/versions', requireRole(['industry', 'admin', 'govt']), async (r
 // @desc    Verify a document's content hash is intact.
 router.get('/:id/integrity', requireRole(['industry', 'admin', 'govt']), async (req, res) => {
     try {
+        const guard = await loadAuthorizedDoc(req, req.params.id);
+        if (guard.error) return res.status(guard.status).json({ error: guard.error });
+
         const { rows } = await db.query('SELECT content_hash, file_name, version FROM documents WHERE id = $1', [req.params.id]);
         if (!rows.length) return res.status(404).json({ error: 'Not found' });
         res.json({ intact: !!rows[0].content_hash, hash: rows[0].content_hash, ...rows[0] });
@@ -249,13 +280,18 @@ router.post('/:id/share', requireRole(['industry', 'admin', 'govt']), async (req
             return res.status(403).json({ error: 'You can only share your own documents.' });
         }
 
+        // Clamp client-supplied link parameters to sane ranges so a caller
+        // can't mint a permanent link (1e9 hours) or brick one (negative views).
+        const hours = Math.min(Math.max(parseInt(expiresInHours) || 24, 1), 168);
+        const views = Math.min(Math.max(parseInt(maxViews) || 1, 1), 100);
+
         const token = crypto.randomBytes(24).toString('hex');
-        const expiresAt = new Date(Date.now() + expiresInHours * 3600000);
+        const expiresAt = new Date(Date.now() + hours * 3600000);
 
         const ins = await db.query(
             `INSERT INTO document_share_links (document_id, token, created_by, expires_at, max_views)
              VALUES ($1,$2,$3,$4,$5) RETURNING id, token, expires_at, max_views`,
-            [req.params.id, token, req.user.id, expiresAt, maxViews]
+            [req.params.id, token, req.user.id, expiresAt, views]
         );
 
         res.status(201).json({
@@ -281,10 +317,14 @@ router.get('/shared/:token', async (req, res) => {
         const l = link.rows[0];
         if (l.revoked) return res.status(403).json({ error: 'Link revoked' });
         if (new Date(l.expires_at) < new Date()) return res.status(410).json({ error: 'Link expired' });
-        if (l.views >= l.max_views) return res.status(403).json({ error: 'View limit reached' });
 
-        // Increment view counter.
-        await db.query('UPDATE document_share_links SET views = views + 1 WHERE id = $1', [l.id]);
+        // Atomically claim a view — the conditional UPDATE prevents the
+        // check-then-increment race where concurrent requests exceed max_views.
+        const claimed = await db.query(
+            'UPDATE document_share_links SET views = views + 1 WHERE id = $1 AND views < max_views RETURNING views',
+            [l.id]
+        );
+        if (!claimed.rows.length) return res.status(403).json({ error: 'View limit reached' });
 
         const doc = await db.query(
             `SELECT d.file_name, d.category, d.expiry_date, d.verified, ip.company_name
@@ -309,6 +349,11 @@ router.get('/shared/:token', async (req, res) => {
 // ============================================================
 router.post('/:id/ocr', requireRole(['industry']), async (req, res) => {
     try {
+        // Ownership: OCR metadata overwrites document state used by expiry
+        // reminders and compliance rules — restrict to the owner.
+        const guard = await loadAuthorizedDoc(req, req.params.id);
+        if (guard.error) return res.status(guard.status).json({ error: guard.error });
+
         const { metadata } = req.body; // { issuer, doc_number, expiry, ... }
         const upd = await db.query(
             `UPDATE documents SET ocr_metadata = $1::jsonb WHERE id = $2 RETURNING id, ocr_metadata`,

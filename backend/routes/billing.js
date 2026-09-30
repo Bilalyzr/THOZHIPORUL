@@ -163,20 +163,21 @@ router.post('/invoices/:id/pay', requireRole(['admin']), async (req, res) => {
 // @route   POST /api/billing/subscriptions
 // @desc    Create/upgrade a subscription with proration. Proration =
 //          credit the unused time on the old plan toward the new one.
-// @access  Private (Admin, Industry)
+// @access  Private (Admin only) — industry self-service upgrades must go
+//          through /api/payments (Razorpay order + verified payment);
+//          letting industry write 'active' rows here would grant paid
+//          subscriptions with zero payment.
 // ============================================================
-router.post('/subscriptions', requireRole(['admin', 'industry']), async (req, res) => {
+router.post('/subscriptions', requireRole(['admin']), async (req, res) => {
     try {
         const { plan } = req.body;
         if (!PLANS[plan]) return res.status(400).json({ error: `plan must be one of ${Object.keys(PLANS).join(',')}` });
 
-        const industryId = req.user.profile_id;
-        if (req.user.role === 'industry' && !industryId) return res.status(400).json({ error: 'No industry profile' });
+        const industryId = req.query.industryId || req.body.industryId;
+        if (!industryId) return res.status(400).json({ error: 'industryId required (query or body)' });
 
         // Look up existing subscription to compute proration.
-        const existing = req.user.role === 'admin'
-            ? await db.query('SELECT * FROM subscription_subscriptions WHERE industry_id=$1 AND status IN ($2,$3)', [req.query.industryId, 'active', 'trialing'])
-            : await db.query('SELECT * FROM subscription_subscriptions WHERE industry_id=$1 AND status IN ($2,$3)', [industryId, 'active', 'trialing']);
+        const existing = await db.query('SELECT * FROM subscription_subscriptions WHERE industry_id=$1 AND status IN ($2,$3)', [industryId, 'active', 'trialing']);
 
         let prorationCredit = 0;
         if (existing.rows.length) {
@@ -202,7 +203,7 @@ router.post('/subscriptions', requireRole(['admin', 'industry']), async (req, re
             `INSERT INTO subscription_subscriptions
                 (user_id, industry_id, plan, status, current_period_end, auto_renew)
              VALUES ($1,$2,$3,'active',$4,TRUE) RETURNING *`,
-            [req.user.id, industryId || req.query.industryId, plan, periodEnd]);
+            [req.user.id, industryId, plan, periodEnd]);
 
         res.status(201).json({
             subscription: ins.rows[0],

@@ -30,7 +30,8 @@ export default function GovRegistration() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     officerName: '', designation: '', department: '', jurisdiction: '',
-    officialEmail: '', phoneNumber: '', employeeId: '', password: '', confirmPassword: ''
+    officialEmail: '', phoneNumber: '', employeeId: '', password: '', confirmPassword: '',
+    inviteCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,10 @@ export default function GovRegistration() {
     }
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match.');
+      return;
+    }
+    if (!formData.inviteCode.trim()) {
+      setError('An invitation code from a SIPCOT administrator is required to register a government account.');
       return;
     }
 
@@ -102,6 +107,11 @@ export default function GovRegistration() {
               Officer Information
             </Typography>
             <Grid container spacing={2.5}>
+              <Grid size={{ xs: 12 }}>
+                <TextField required fullWidth label="Invitation Code" name="inviteCode"
+                  value={formData.inviteCode} onChange={handleChange}
+                  helperText="Government accounts are created by invitation only. Obtain this code from a SIPCOT administrator." />
+              </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField required fullWidth label="Officer Full Name" name="officerName"
                   value={formData.officerName} onChange={handleChange} />
@@ -169,7 +179,7 @@ export default function GovRegistration() {
             </Grid>
 
             <Alert severity="info" sx={{ mt: 3, borderRadius: 2 }}>
-              After registration, you can log in immediately with your email and password.
+              Government accounts are gated by an admin-issued invitation code. After registration, you can log in immediately with your email and password.
             </Alert>
 
             <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>

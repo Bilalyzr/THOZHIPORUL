@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const db = require('../db');
 const { requireRole } = require('./auth');
 const { requireFeature, TIER_FEATURES } = require('../middleware/subscriptionGuard');
@@ -28,7 +29,13 @@ router.post('/', requireRole(['industry']), async (req, res) => {
         csrBeneficiaries
     } = req.body;
 
-    const industry_id = req.user.profile_id || 101;
+    // Never fall back to a hardcoded industry id — a token without a linked
+    // profile must fail loudly instead of writing/reading another company's
+    // statutory filings (previously defaulted to industry 101).
+    if (!req.user.profile_id) {
+        return res.status(400).json({ error: 'No industry profile linked to this account. Contact support.' });
+    }
+    const industry_id = req.user.profile_id;
 
     // Use a single pooled client so BEGIN/INSERT/COMMIT form a real
     // transaction (db.query() checks out a NEW client each call, which
@@ -104,7 +111,10 @@ router.post('/', requireRole(['industry']), async (req, res) => {
 // @desc    Get the current Industry's own submissions
 // @access  Private (Industry only)
 router.get('/me', requireRole(['industry']), async (req, res) => {
-    const industry_id = req.user.profile_id || 101;
+    if (!req.user.profile_id) {
+        return res.status(400).json({ error: 'No industry profile linked to this account. Contact support.' });
+    }
+    const industry_id = req.user.profile_id;
     try {
         const query = `
             SELECT 
@@ -414,7 +424,15 @@ router.post('/bulk', requireRole(['industry']), requireFeature(TIER_FEATURES.EXC
 router.post('/api-submit', async (req, res) => {
     try {
         const apiKey = req.header('x-api-key');
-        const validKey = process.env.SUBMISSION_API_KEY && apiKey === process.env.SUBMISSION_API_KEY;
+        // Timing-safe comparison — a plain === leaks an early-exit signal
+        // that can help recover the master key byte-by-byte.
+        const masterKey = process.env.SUBMISSION_API_KEY;
+        let validKey = false;
+        if (masterKey && apiKey) {
+            const a = Buffer.from(String(apiKey));
+            const b = Buffer.from(String(masterKey));
+            validKey = a.length === b.length && crypto.timingSafeEqual(a, b);
+        }
         if (!validKey) return res.status(401).json({ error: 'Invalid or missing API key (x-api-key header).' });
 
         const { industryId, periodYear, periodQuarter, ...rest } = req.body;

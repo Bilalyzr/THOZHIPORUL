@@ -211,11 +211,15 @@ router.put('/password', requireRole(['admin', 'govt', 'industry']), async (req, 
         const u = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
         if (!u.rows.length) return res.status(404).json({ error: 'User not found.' });
 
-        // Verify current password (handle demo hash gracefully).
+        // Verify current password. The '$demo$' placeholder only counts as a
+        // match when demo login is explicitly enabled (mirrors the login
+        // rule) — otherwise a demo-hash account cannot have its password
+        // replaced through this endpoint.
         const hash = u.rows[0].password_hash;
+        const ENABLE_DEMO_LOGIN = process.env.ENABLE_DEMO_LOGIN === 'true';
         let isMatch = false;
         if (hash === '$demo$') {
-            isMatch = true; // demo accounts accept any current password
+            isMatch = ENABLE_DEMO_LOGIN;
         } else {
             isMatch = await bcrypt.compare(currentPassword, hash);
         }

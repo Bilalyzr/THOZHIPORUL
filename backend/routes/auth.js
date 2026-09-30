@@ -10,6 +10,15 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // Demo login bypass is OFF unless explicitly enabled via env. Never enable in production.
 const ENABLE_DEMO_LOGIN = process.env.ENABLE_DEMO_LOGIN === 'true';
+const crypto = require('crypto');
+
+// Constant-time string compare (for invite codes and other secrets).
+function safeEqual(a, b) {
+    const ba = Buffer.from(String(a || ''));
+    const bb = Buffer.from(String(b || ''));
+    if (ba.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ba, bb);
+}
 
 // ============================================================
 // REGISTER - Industry
@@ -68,9 +77,18 @@ router.post('/register/industry', async (req, res) => {
 // REGISTER - Government Officer
 // ============================================================
 router.post('/register/govt', async (req, res) => {
-    const { officerName, designation, department, jurisdiction, officialEmail, phoneNumber, employeeId, password } = req.body;
+    const { officerName, designation, department, jurisdiction, officialEmail, phoneNumber, employeeId, password, inviteCode } = req.body;
 
     try {
+        // The 'govt' role can approve statutory submissions, read every
+        // industry's financial data and manage grievances — so self-service
+        // registration must be gated by an admin-issued invite code
+        // (GOVT_INVITE_CODE env). Without it the endpoint stays closed.
+        const INVITE_CODE = process.env.GOVT_INVITE_CODE;
+        if (!INVITE_CODE || !inviteCode || !safeEqual(inviteCode, INVITE_CODE)) {
+            return res.status(403).json({ error: 'Government officer registration is by invitation only. Please contact a SIPCOT administrator.' });
+        }
+
         const userExists = await db.query('SELECT * FROM users WHERE email = $1', [officialEmail]);
         if (userExists.rows.length > 0) {
             return res.status(400).json({ error: 'An account with this email already exists.' });
@@ -156,6 +174,14 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
         }
 
+        // Enforce the account lifecycle managed in /api/users — a Suspended
+        // or Pending account must not be able to log in even with valid
+        // credentials (previously only checked for password correctness).
+        if (user.status && user.status !== 'Active') {
+            console.warn(`[AUTH] Blocked login for ${user.status} account: ${email}`);
+            return res.status(403).json({ error: `This account is ${user.status}. Contact a SIPCOT administrator.` });
+        }
+
         // Determine display name
         const name = user.role === 'industry' ? user.company_name : 
                     user.role === 'govt' ? user.officer_name : 'Admin';
@@ -180,37 +206,51 @@ router.post('/login', async (req, res) => {
         // In BOTH cases, NO session token is issued — the admin cannot
         // proceed without 2FA.
         if (user.role === 'admin') {
+            // Fail CLOSED: the only permitted fallback is "table doesn't exist
+            // yet" (pre-migration install), which forces the enrollment
+            // challenge below. Any other DB error blocks the login entirely —
+            // an admin session token is never issued on a failed 2FA lookup.
+            let mfaEnabled = false;
             try {
                 const mfaRow = await db.query('SELECT enabled FROM user_mfa WHERE user_id = $1', [user.id]);
-                const mfaEnabled = mfaRow.rows.length && mfaRow.rows[0].enabled;
-
-                // Issue a short-lived challenge token (5 min) so the
-                // verify-mfa / mfa-setup endpoints can identify the user.
-                const challengeToken = jwt.sign(
-                    { mfa_challenge: true, user_id: user.id, email: user.email },
-                    JWT_SECRET,
-                    { expiresIn: '5m' }
-                );
-
-                if (mfaEnabled) {
-                    // Case 1: MFA is ON — admin must enter the TOTP code.
-                    return res.json({
-                        mfa_required: true,
-                        challenge_token: challengeToken,
-                        email: user.email,
-                        msg: 'Enter the 6-digit code from Microsoft Authenticator.'
-                    });
+                mfaEnabled = !!(mfaRow.rows.length && mfaRow.rows[0].enabled);
+            } catch (err) {
+                if (err.code === '42P01') {
+                    // user_mfa table absent (pre-migration) → treat as "not
+                    // enrolled"; the setup challenge below still gates access.
+                    mfaEnabled = false;
                 } else {
-                    // Case 2: MFA NOT set up — admin must enroll NOW.
-                    // No dashboard access until 2FA is configured + verified.
-                    return res.json({
-                        mfa_setup_required: true,
-                        challenge_token: challengeToken,
-                        email: user.email,
-                        msg: '2FA is mandatory for admin accounts. Set up Microsoft Authenticator to continue.'
-                    });
+                    console.error('[AUTH] MFA gate DB error — failing closed:', err.message);
+                    return res.status(500).json({ error: 'Unable to verify 2FA status. Please try again later.' });
                 }
-            } catch (_) { /* user_mfa table absent — skip MFA (pre-migration) */ }
+            }
+
+            // Issue a short-lived challenge token (5 min) so the
+            // verify-mfa / mfa-setup endpoints can identify the user.
+            const challengeToken = jwt.sign(
+                { mfa_challenge: true, user_id: user.id, email: user.email },
+                JWT_SECRET,
+                { expiresIn: '5m' }
+            );
+
+            if (mfaEnabled) {
+                // Case 1: MFA is ON — admin must enter the TOTP code.
+                return res.json({
+                    mfa_required: true,
+                    challenge_token: challengeToken,
+                    email: user.email,
+                    msg: 'Enter the 6-digit code from Microsoft Authenticator.'
+                });
+            } else {
+                // Case 2: MFA NOT set up — admin must enroll NOW.
+                // No dashboard access until 2FA is configured + verified.
+                return res.json({
+                    mfa_setup_required: true,
+                    challenge_token: challengeToken,
+                    email: user.email,
+                    msg: '2FA is mandatory for admin accounts. Set up Microsoft Authenticator to continue.'
+                });
+            }
         }
 
         console.log(`[AUDIT] Login Success: ${user.email} | Role: ${user.role} | Name: ${name}`);

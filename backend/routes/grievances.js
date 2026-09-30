@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const db = require('../db');
 const { requireRole } = require('./auth');
 
@@ -39,7 +40,11 @@ router.post('/', async (req, res) => {
         // Enhancement (Module 10): generate a trackable reference number,
         // a quick sentiment guess, and an SLA deadline. The extra columns
         // are nullable so this still works pre-v3-migration.
-        const ref = `GRV-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 8999))}`;
+        // The reference is the ONLY credential for the public /track and
+        // /feedback endpoints, so it must be unguessable — a 4-digit
+        // Math.random suffix could be enumerated across the whole year in
+        // hours. 8 hex chars from crypto.randomBytes gives 2^32 per year.
+        const ref = `GRV-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
         const sentiment = guessSentiment(`${title} ${description || ''}`);
         const category = classifyCategory(`${title} ${description || ''}`);
 
@@ -156,12 +161,23 @@ router.put('/:id/assign', requireRole(['admin', 'govt']), async (req, res) => {
 // ============================================================
 // @route   POST /api/grievances/:id/feedback
 // @desc    Post-resolution feedback/rating from the citizen.
-// @access  Public (the citizen has the grievance reference).
+// @access  Public, but requires the grievance's reference number as
+//          proof of knowledge — ids are sequential, so without this
+//          anyone could spam/overwrite any grievance's rating.
 // ============================================================
 router.post('/:id/feedback', async (req, res) => {
     try {
-        const { rating, comment } = req.body;
+        const { rating, comment, reference } = req.body;
         if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'rating (1-5) required' });
+        if (!reference) return res.status(400).json({ error: 'Grievance reference number is required to submit feedback.' });
+
+        const owner = await db.query('SELECT reference_number FROM grievances WHERE id = $1', [req.params.id]);
+        if (!owner.rows.length) return res.status(404).json({ error: 'Grievance not found' });
+        const supplied = Buffer.from(String(reference));
+        const expected = Buffer.from(String(owner.rows[0].reference_number || ''));
+        const refOk = supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+        if (!refOk) return res.status(403).json({ error: 'Reference number does not match this grievance.' });
+
         const ins = await db.query(
             `INSERT INTO grievance_feedback (grievance_id, rating, comment)
              VALUES ($1,$2,$3)
