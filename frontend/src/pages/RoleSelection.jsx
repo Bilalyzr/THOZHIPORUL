@@ -1,9 +1,9 @@
 import React from 'react';
 import {
   Box, Container, Typography, Grid, Card, CardActionArea, CardContent,
-  Avatar, Stack, Chip, Button, Fade, Slide, Paper, Divider
+  Avatar, Stack, Chip, Button, Fade, Slide, Paper, Divider, Alert
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import FactoryIcon from '@mui/icons-material/Factory';
@@ -62,6 +62,9 @@ export default function RoleSelection() {
     setIsLoaded(true);
   }, []);
 
+  const [searchParams] = useSearchParams();
+  const sessionExpired = searchParams.get('session') === 'expired';
+
   return (
     <Box sx={{
       minHeight: '100vh', 
@@ -105,6 +108,11 @@ export default function RoleSelection() {
       }} />
 
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        {sessionExpired && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Your session expired (tokens last 8 hours). Please sign in again.
+          </Alert>
+        )}
         <Slide direction="down" in={isLoaded} timeout={600}>
           <Button
             startIcon={<ArrowBackIcon />}
