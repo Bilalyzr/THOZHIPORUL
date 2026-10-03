@@ -110,4 +110,64 @@ async function computeAllScores() {
     return { scored, policy: POLICY, as_of: today };
 }
 
-module.exports = { computeAllScores, POLICY };
+/**
+ * Event-driven single-industry scoring (called post-filing for instant
+ * score updates; the daily batch job remains as a safety net).
+ */
+async function computeIndustryScore(industryId) {
+    const { getFilingMatrix } = require('./missingSubmissionEngine');
+    const matrix = await getFilingMatrix({ year: new Date().getUTCFullYear() });
+    const ind = matrix.industries.find(i => i.industry_id === industryId);
+    const outstanding = ind ? ind.outstanding.length : 0;
+
+    const violations = await db.query(`
+        SELECT v.severity::text AS severity, COALESCE(r.category, 'other') AS category
+          FROM compliance_violations v
+     LEFT JOIN compliance_rules r ON r.id = v.rule_id
+         WHERE v.industry_id = $1 AND v.status <> 'resolved'`, [industryId]);
+    const findings = await db.query(`
+        SELECT COUNT(*)::int AS n FROM data_findings
+         WHERE industry_id = $1 AND status = 'open' AND severity IN ('high','critical')`, [industryId]);
+
+    const bucket = { submission: 0, environmental: 0, financial: 0, safety: 0, other: 0 };
+    for (const v of violations.rows) {
+        const d = POLICY.violationDeduction[v.severity] !== undefined ? POLICY.violationDeduction[v.severity] : POLICY.violationDeduction.low;
+        const cat = ['submission','environmental','financial','safety'].includes(v.category) ? v.category : 'other';
+        bucket[cat] += d;
+    }
+    const sevFindings = findings.rows[0] ? findings.rows[0].n : 0;
+    if (sevFindings) bucket.environmental += sevFindings * 5;
+    const missingDed = Math.min(outstanding * POLICY.missingPeriodDeduction, POLICY.missingPeriodCap);
+    bucket.submission += missingDed;
+
+    const clamp = (x) => Math.max(0, Math.min(100, Math.round(100 - x)));
+    const scores = {
+        submission_score: clamp(bucket.submission),
+        environmental_score: clamp(bucket.environmental),
+        financial_score: clamp(bucket.financial),
+        safety_score: clamp(bucket.safety)
+    };
+    scores.overall_score = clamp(
+        scores.submission_score * POLICY.weights.submission +
+        scores.environmental_score * POLICY.weights.environmental +
+        scores.financial_score * POLICY.weights.financial +
+        scores.safety_score * POLICY.weights.safety
+    );
+
+    const today = new Date().toISOString().slice(0, 10);
+    await db.query(`
+        INSERT INTO compliance_scores (industry_id, score_date, overall_score, submission_score, environmental_score, financial_score, safety_score)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (industry_id, score_date)
+       DO UPDATE SET overall_score = EXCLUDED.overall_score,
+                     submission_score = EXCLUDED.submission_score,
+                     environmental_score = EXCLUDED.environmental_score,
+                     financial_score = EXCLUDED.financial_score,
+                     safety_score = EXCLUDED.safety_score`,
+        [industryId, today, scores.overall_score, scores.submission_score,
+         scores.environmental_score, scores.financial_score, scores.safety_score]);
+    await db.query('UPDATE industry_profiles SET compliance_score = $1 WHERE id = $2', [scores.overall_score, industryId]);
+    return { industryId, ...scores };
+}
+
+module.exports = { computeAllScores, computeIndustryScore, POLICY };

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const cache = require('../services/cache');
 
 // @route   GET /api/parks
 // @desc    List all industrial parks (public summary)
@@ -55,7 +56,7 @@ router.get('/', async (req, res) => {
 // @desc    Compare parks side-by-side
 // @access  Public
 // NOTE: Must be defined BEFORE /:id to avoid route matching issues
-router.get('/compare', async (req, res) => {
+router.get('/compare', cache.middleware(5 * 60_000), async (req, res) => {
     try {
         const ids = (req.query.ids || '').split(',').map(Number).filter(id => !isNaN(id));
         if (ids.length === 0) return res.json([]);

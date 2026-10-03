@@ -113,6 +113,94 @@ function linreg(ys) {
     return { slope, intercept, sigma, predict: (x) => intercept + slope * x };
 }
 
+/**
+ * Holt-Winters Exponential Smoothing (additive trend + multiplicative
+ * seasonality, period=4 for quarters). Falls back to linear regression
+ * when the smoothing degenerates (flat/decreasing series).
+ */
+function holtWinters(history, horizon) {
+    const ys = history.map(p => p.value);
+    const n = ys.length;
+    const m = 4; // quarterly seasonality
+    const alpha = 0.3, beta = 0.1, gamma = 0.3;
+
+    // Initialize: first season average as level, first-diff as trend,
+    // first-cycle ratios as seasonal indices.
+    const firstCycle = ys.slice(0, m);
+    const avgFirst = firstCycle.reduce((a, b) => a + b, 0) / m;
+    if (avgFirst === 0) return linregFallback(history, horizon, 'ets_degenerate_flat');
+
+    let level = avgFirst;
+    let trend = n > m ? (ys[m] - ys[0]) / m : 0;
+    const seasonal = new Array(m).fill(1);
+    for (let i = 0; i < m && i < n; i++) seasonal[i % m] = ys[i] / avgFirst;
+
+    // Smooth through the series.
+    const fitted = [];
+    for (let t = 0; t < n; t++) {
+        const s = seasonal[t % m];
+        const prediction = (level + trend) * s;
+        fitted.push(prediction);
+        const oldLevel = level;
+        level = alpha * (ys[t] / s) + (1 - alpha) * (level + trend);
+        trend = beta * (level - oldLevel) + (1 - beta) * trend;
+        seasonal[t % m] = gamma * (ys[t] / level) + (1 - gamma) * s;
+    }
+
+    // Check degeneracy — if all seasonal indices are ~1, use linreg.
+    const seasSpread = Math.max(...seasonal) - Math.min(...seasonal);
+    if (seasSpread < 0.05) return linregFallback(history, horizon, 'ets_no_seasonality');
+
+    // Forecast.
+    const future = nextQuarters(history[n - 1], horizon);
+    const projection = [], band = [];
+    const residuals = ys.map((y, t) => y - fitted[t]);
+    const std = Math.sqrt(residuals.reduce((s2, r) => s2 + r * r, 0) / n) || 0;
+    for (let i = 1; i <= horizon; i++) {
+        const s = seasonal[(n + i - 1) % m];
+        const value = Math.max(0, Math.round((level + i * trend) * s));
+        const period = `${future[i - 1].year}-Q${future[i - 1].quarter}`;
+        projection.push({ period, value });
+        const w = Math.max(std, value * 0.12);
+        band.push({ period, low: Math.max(0, value - Math.round(w)), high: value + Math.round(w) });
+    }
+    return { model: 'holt_winters_ets', projection, band,
+             detail: { alpha, beta, gamma, seasonalIndices: seasonal.map(x => Math.round(x * 100) / 100) } };
+}
+
+function linregFallback(history, horizon, reason) {
+    const ys = history.map(p => p.value);
+    const reg = linreg(ys);
+    const future = nextQuarters(history[history.length - 1], horizon);
+    const projection = future.map((f, i) => ({ period: `${f.year}-Q${f.quarter}`, value: Math.max(0, Math.round(reg.predict(ys.length + i))) }));
+    const band = future.map((f, i) => {
+        const v = projection[i].value;
+        const w = Math.max(reg.sigma, v * 0.15);
+        return { period: `${f.year}-Q${f.quarter}`, low: Math.max(0, Math.round(v - w)), high: Math.round(v + w) };
+    });
+    return { model: `linear_regression (${reason})`, projection, band };
+}
+
+// ------------------------------------------------------------
+// Backtesting — train on first N-k points, predict k, report MAPE.
+function backtest(history, k = 1) {
+    if (history.length < 4 + k) return null;
+    const train = history.slice(0, history.length - k);
+    const actual = history.slice(history.length - k);
+    const ys = train.map(p => p.value);
+    const n = ys.length;
+    const reg = linreg(ys);
+    const errors = [];
+    for (let i = 0; i < k; i++) {
+        const pred = reg.predict(n + i);
+        const act = actual[i].value;
+        if (act !== 0) errors.push(Math.abs((act - pred) / act));
+    }
+    const mape = errors.length ? Math.round(errors.reduce((a, b) => a + b, 0) / errors.length * 1000) / 10 : null;
+    return { mape_pct: mape, trainPoints: n, testPoints: k,
+             note: mape !== null ? `MAPE ${mape}% (lower is better; <20% is good for quarterly data)` : 'insufficient non-zero actuals' };
+}
+
 // ------------------------------------------------------------
 // forecast(metric, scopeType, scopeId, horizon)
 // → { metric, scope, unit, history, model, projection, band,
@@ -147,32 +235,12 @@ async function forecast(metric, scopeType, scopeId, horizon = 4, { persist = tru
     let model, projection, band, caveat = null;
 
     if (history.length >= 8 && quartersSeen.size >= 4) {
-        // Linear regression + multiplicative seasonal factors.
-        const reg = linreg(ys);
-        // Seasonal ratio: actual / trend per quarter.
-        const ratios = {};
-        const counts = {};
-        history.forEach((p, i) => {
-            const trend = Math.max(reg.predict(i), 1e-9);
-            const r = p.value / trend;
-            (ratios[p.quarter] = ratios[p.quarter] || []).push(r);
-            counts[p.quarter] = (counts[p.quarter] || 0) + 1;
-        });
-        const seasonal = {};
-        for (const q of Object.keys(ratios)) {
-            seasonal[q] = ratios[q].reduce((a, b) => a + b, 0) / ratios[q].length;
-        }
-        model = 'linreg_seasonal';
-        const future = nextQuarters(history[history.length - 1], h);
-        projection = future.map((f, i) => ({
-            period: `${f.year}-Q${f.quarter}`,
-            value: Math.max(0, Math.round(reg.predict(ys.length + i) * (seasonal[f.quarter] || 1)))
-        }));
-        band = future.map((f, i) => {
-            const v = projection[i].value;
-            const w = Math.max(reg.sigma, v * 0.1);
-            return { period: `${f.year}-Q${f.quarter}`, low: Math.max(0, Math.round(v - w)), high: Math.round(v + w) };
-        });
+        // E3 UPGRADE: Holt-Winters ETS (additive trend + multiplicative
+        // seasonality) — better than raw linreg for quarterly patterns.
+        const result = holtWinters(history, h);
+        model = result.model;
+        projection = result.projection;
+        band = result.band;
     } else if (history.length >= 4) {
         const reg = linreg(ys);
         model = 'linear_regression';
@@ -201,13 +269,15 @@ async function forecast(metric, scopeType, scopeId, horizon = 4, { persist = tru
         caveat = 'Low training volume (2-3 quarters): a flat moving average with a wide band. Treat as indicative only.';
     }
 
+    const bt = backtest(history, Math.min(2, Math.max(1, Math.floor(history.length / 4))));
     const result = {
         ...base,
         data_status: 'OK',
         model,
         projection,
         band,
-        caveat
+        caveat,
+        backtest: bt
     };
 
     // Persist (replace previous batch for this metric+scope).
@@ -243,4 +313,4 @@ async function forecast(metric, scopeType, scopeId, horizon = 4, { persist = tru
     return result;
 }
 
-module.exports = { forecast, quarterlySeries, METRIC_CONFIG, MINIMUM_DATA };
+module.exports = { forecast, quarterlySeries, holtWinters, backtest, METRIC_CONFIG, MINIMUM_DATA };

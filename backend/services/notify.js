@@ -233,8 +233,50 @@ function logDelivery(notificationId, channel, status) {
     ).catch(() => { /* ignore */ });
 }
 
+/**
+ * E5: Digest batching — collapse multiple pending notifications for a
+ * user into one daily summary email (reduces email fatigue from the
+ * reminder engine). Called by the scheduler's daily digest job.
+ */
+async function sendDailyDigest(userId) {
+    if (!userId) return null;
+    try {
+        const { rows } = await db.query(
+            `SELECT id, title, message, category, severity, created_at
+               FROM notifications
+              WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'
+                AND (read_at IS NULL OR read_at > NOW() - INTERVAL '24 hours')
+           ORDER BY severity DESC, created_at DESC LIMIT 20`, [userId]);
+        if (!rows.length) return { digest: 'empty' };
+
+        const bySeverity = { error: [], warning: [], success: [], info: [] };
+        rows.forEach(n => (bySeverity[n.severity] || bySeverity.info).push(n));
+        const summary = rows.length === 1 ? rows[0].title
+            : `${rows.length} notifications: ${Object.entries(bySeverity)
+                .filter(([sev, items]) => items.length > 0)
+                .map(([sev, items]) => `${items.length} ${sev}`).join(', ')}`;
+
+        const body = 'Your THOZHIRPORUL daily summary:\n\n' +
+            Object.entries(bySeverity).filter(([sev, items]) => items.length > 0)
+                .map(([sev, items]) => `\n${sev.toUpperCase()} (${items.length}):\n` +
+                    items.map(n => `  - ${n.title}`).join('\n'))
+                .join('\n') + '\n\nLog in to THOZHIRPORUL to view details.';
+
+        const emailStatus = await EmailProvider.deliver(
+            (await getUserContact(userId)).email,
+            `[THOZHIRPORUL] Daily summary: ${summary}`,
+            body
+        );
+        return { digest: 'sent', notifications: rows.length, emailStatus };
+    } catch (e) {
+        console.warn('[NOTIFY:digest] failed:', e.message);
+        return { digest: 'error', message: e.message };
+    }
+}
+
 module.exports = {
     notify,
+    sendDailyDigest,
     liveBus,
     getPreferences,
     PROVIDERS,

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const cache = require('../services/cache');
+const CACHE_TTL = parseInt(process.env.DASHBOARD_CACHE_TTL_MS) || 60_000;
 
 // ============================================================
 // Helpers
@@ -23,7 +25,7 @@ const labelForServiceType = (t) => SERVICE_TYPE_LABELS[t] || 'Service Request';
 //          REAL quarter-over-quarter changes from the quarterly filing
 //          series (no hardcoded zeros) — null when history is missing.
 // @access  Private (Admin, Govt)
-router.get('/kpis', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/kpis', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         // Financial + employment totals from the latest submission per industry.
         // investment_amount / annual_turnover are stored in rupees -> Crores.
@@ -96,7 +98,7 @@ router.get('/kpis', requireRole(['admin', 'govt']), async (req, res) => {
 // @route   GET /api/command/heatmap
 // @desc    District-level aggregation for state heatmap
 // @access  Private (Admin, Govt)
-router.get('/heatmap', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/heatmap', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         const { rows } = await db.query(`
             SELECT
@@ -133,7 +135,7 @@ router.get('/heatmap', requireRole(['admin', 'govt']), async (req, res) => {
 // @route   GET /api/command/rankings
 // @desc    Park performance rankings (?sort=infrastructure_score|total_investment_cr|total_employment)
 // @access  Private (Admin, Govt)
-router.get('/rankings', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/rankings', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         // Whitelist sortable columns to avoid injection; default to infra score.
         const sortWhitelist = {
@@ -319,7 +321,7 @@ router.get('/alerts', requireRole(['admin', 'govt']), async (req, res) => {
 // @route   GET /api/command/trends
 // @desc    Historical trend data for charts (?metric=investment|employment|compliance)
 // @access  Private (Admin, Govt)
-router.get('/trends', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/trends', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         const metric = req.query.metric || 'investment';
 
@@ -370,7 +372,7 @@ router.get('/trends', requireRole(['admin', 'govt']), async (req, res) => {
 // @route   GET /api/command/activity-feed
 // @desc    Recent system-wide activity feed (real submissions, violations, service requests)
 // @access  Private (Admin, Govt)
-router.get('/activity-feed', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/activity-feed', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         // Union of the most recent real events across three domains, then take
         // the newest overall.

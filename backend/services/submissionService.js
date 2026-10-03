@@ -338,6 +338,14 @@ async function fileSubmission(opts) {
     }
     client.release();
 
+    // 5b. Event-driven compliance scoring (instant score update, non-fatal).
+    try {
+        const { computeIndustryScore } = require('./complianceScoring');
+        await computeIndustryScore(industryId);
+    } catch (e) {
+        console.warn('[fileSubmission] event-driven scoring skipped:', e.message);
+    }
+
     // 6. Post-commit intelligence (non-fatal): consistency + anomaly
     //    evaluation writes data_findings and notifies on severity.
     //    Amendments ALSO get version-over-version anomaly evaluation —
@@ -371,6 +379,9 @@ async function fileSubmission(opts) {
             }
         });
     } catch (_) { /* audit is best-effort */ }
+
+    // Invalidate dashboard caches — new data means stale aggregations.
+    try { require('./cache').invalidate(''); } catch (_) { /* cache optional */ }
 
     console.log(`[SUBMISSION] industry=${industryId} ${p.periodYear}-Q${p.periodQuarter ?? 'FY'} v${versionNo} (${changeKind}, source=${source})`);
     return {

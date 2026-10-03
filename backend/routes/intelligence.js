@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const cache = require('../services/cache');
+const CACHE_TTL = parseInt(process.env.DASHBOARD_CACHE_TTL_MS) || 60_000;
 const { forecast, quarterlySeries, METRIC_CONFIG } = require('../services/forecastService');
 
 // ============================================================
@@ -150,7 +152,7 @@ router.get('/forecast', requireRole(['admin', 'govt', 'industry']), async (req, 
 // every intelligence dimension (Phase 12). All values from real
 // records; counts that cannot be derived return 0 honestly.
 // ------------------------------------------------------------
-router.get('/park-overview', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/park-overview', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         const { rows } = await db.query(`
             WITH latest AS (
@@ -247,7 +249,7 @@ router.get('/park-overview', requireRole(['admin', 'govt']), async (req, res) =>
 // park's configured infrastructure columns; conversions are
 // stated explicitly. No capacity configured → honest NOT_CONFIGURED.
 // ------------------------------------------------------------
-router.get('/capacity', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/capacity', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         const parkId = req.query.parkId ? parseInt(req.query.parkId) : null;
         const DAYS_PER_QUARTER = 91, HOURS_PER_QUARTER = 2190;

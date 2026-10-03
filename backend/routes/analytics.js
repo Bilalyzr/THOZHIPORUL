@@ -2,11 +2,15 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const cache = require('../services/cache');
+
+// Dashboard aggregation TTLs — filings are quarterly; 60s is generous.
+const CACHE_TTL = parseInt(process.env.DASHBOARD_CACHE_TTL_MS) || 60_000;
 
 // @route   GET /api/analytics/global
 // @desc    Get top-level KPI definitions (Total Industries, Investment, Jobs)
 // @access  Private (Admin & Govt)
-router.get('/global', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/global', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         const { rows: kpiRows } = await db.query(`
             SELECT 
@@ -38,7 +42,7 @@ router.get('/global', requireRole(['admin', 'govt']), async (req, res) => {
 // @route   GET /api/analytics/command-center
 // @desc    Get data for the Gov Command Center
 // @access  Private (Admin & Govt)
-router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/command-center', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         // Run all queries concurrently using Promise.all
         const [kpiResult, parkResult, locResult, flagResult] = await Promise.all([
@@ -126,7 +130,7 @@ router.get('/command-center', requireRole(['admin', 'govt']), async (req, res) =
 //          Powers the click-to-drill-down dialog on the dashboard.
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/utility-breakdown', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/utility-breakdown', requireRole(['admin', 'govt']), cache.middleware(CACHE_TTL), async (req, res) => {
     try {
         const type = (req.query.type || 'power').toLowerCase();
         const isWater = type === 'water';
