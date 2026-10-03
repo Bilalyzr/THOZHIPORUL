@@ -48,9 +48,9 @@ const PLANS_V2 = {
     starter: {
         key: 'starter',
         name: 'Starter',
-        tagline: 'Statutory compliance — free forever',
-        monthlyPrice: 0,
-        annualPrice: 0,
+        tagline: 'Digital filing made simple',
+        monthlyPrice: 1499,
+        annualPrice: 14990,
         currency: 'INR',
         targetUser: 'Small units (< 50 employees), new allottees',
         maxSubmissionsPerYear: 12,       // quarterly + amendments
@@ -211,7 +211,7 @@ router.get('/plans', async (req, res) => {
             plans: Object.values(PLANS_V2),
             comparison: COMPARISON,
             principles: [
-                'Statutory filing is always FREE — this is a constitutional obligation, not a feature',
+                'Starter tier priced at ₹1,499/mo — accessible for small units, covers platform costs',
                 'Value-add features are priced by the intelligence they unlock',
                 'No tier gates access to your own data — only to analytical capabilities',
                 'Upgrade/downgrade anytime; no lock-in; pro-rated refunds',

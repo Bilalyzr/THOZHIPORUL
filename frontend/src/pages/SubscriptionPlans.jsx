@@ -39,19 +39,19 @@ const V2_PLANS = [
   {
     key: 'free_starter',
     name: 'Starter',
-    subtitle: 'Statutory compliance — free forever',
-    monthlyPrice: 0,
-    annualPrice: 0,
-    badge: 'ALWAYS FREE',
+    subtitle: 'Digital filing made simple',
+    monthlyPrice: 1499,
+    annualPrice: 14990,
+    badge: 'GET STARTED',
     target: 'Small units (< 50 employees), new allottees',
     features: [
-      'Quarterly data filing (all 8 domains)',
+      'All 8 data domains, quarterly filing',
       'Server-side validation with field-level errors',
-      'Versioned submission history — never lose data',
+      'Versioned submission history',
       'Compliance score + reporting calendar',
-      'Basic anomaly detection (period-over-change)',
-      'Document vault (50 MB ≈ 250 filing PDFs)',
-      'In-app + email notifications with daily digest',
+      'Basic anomaly detection (POP%)',
+      'Document vault (50 MB)',
+      'Email + in-app notifications',
       'CSV report export',
     ],
     isPopular: false,
@@ -117,8 +117,7 @@ const V2_COMPARISON = [
     { feature: 'Compliance score', starter: true, professional: true, enterprise: true },
     { feature: 'Reporting calendar + reminders', starter: true, professional: true, enterprise: true },
     { feature: 'Document vault', starter: true, professional: true, enterprise: true },
-  ]},
-  { category: 'Data Quality', statutory: false, rows: [
+  ]},  { category: 'Data Quality', statutory: false, rows: [
     { feature: 'Cross-field validation', starter: true, professional: true, enterprise: true },
     { feature: 'Cross-metric consistency checks', starter: false, professional: true, enterprise: true },
     { feature: 'Anomaly detection (POP%)', starter: true, professional: true, enterprise: true },
@@ -197,10 +196,6 @@ export default function SubscriptionPlans() {
   }, []);
 
   const handleSelectPlan = async (planKey, planName) => {
-    if (planKey === 'free_starter') {
-      setSnackbar({ open: true, message: 'You are on the free Starter plan. Statutory features are always available!', severity: 'info' });
-      return;
-    }
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
     if (!token) {
@@ -276,7 +271,7 @@ export default function SubscriptionPlans() {
         label="Subscription Plans"
         title="Industrial Intelligence"
         titleHighlight="Priced by Value"
-        subtitle="Statutory filing is always FREE — that's a constitutional obligation, not a feature. Premium tiers unlock forecasting, AI analytics, and automation as you grow."
+        subtitle="Every plan includes statutory filing with server-side validation and versioned history. Higher tiers unlock forecasting, AI analytics, and automation."
         accentColor="#2E7D32"
         accentColor2="#1F4E79"
       >
@@ -394,7 +389,7 @@ export default function SubscriptionPlans() {
                         '&:hover': { transform: 'translateY(-3px)', boxShadow: plan.isPopular ? `0 16px 40px ${plan.color}50` : `0 8px 24px ${plan.color}20` },
                         '&.Mui-disabled': { bgcolor: currentTier === plan.key ? `${plan.color}15` : 'transparent', color: currentTier === plan.key ? plan.color : 'text.disabled', borderColor: currentTier === plan.key ? plan.color : 'text.disabled' },
                       }}>
-                      {currentTier === plan.key ? 'Current Plan' : processing === plan.key ? 'Processing…' : plan.key === 'free_starter' ? 'Included Free' : `Subscribe to ${plan.name}`}
+                      {currentTier === plan.key ? 'Current Plan' : processing === plan.key ? 'Processing…' : `Subscribe to ${plan.name}`}
                     </Button>
                   </CardContent>
                 </Card>
@@ -426,7 +421,7 @@ export default function SubscriptionPlans() {
                   {section.category}
                 </Typography>
                 {section.statutory && (
-                  <Chip label="ALWAYS FREE" size="small" sx={{ ml: 'auto', bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontSize: '0.6rem', fontWeight: 700 }} />
+                  <Chip label="ALL PLANS" size="small" sx={{ ml: 'auto', bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontSize: '0.6rem', fontWeight: 700 }} />
                 )}
               </Box>
               {section.rows.map((row, idx) => (
