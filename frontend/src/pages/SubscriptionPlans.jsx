@@ -6,7 +6,7 @@ import {
   CircularProgress, Tooltip
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Check, Star, ArrowForward, WorkspacePremium, CheckCircle, Close, Insights, Memory, Security } from '@mui/icons-material';
+import { Check, Star, ArrowForward, WorkspacePremium, CheckCircle, Close, Insights, Memory, Security, Rocket, TrendingUp, Diamond, Bolt, School } from '@mui/icons-material';
 import { keyframes } from '@emotion/react';
 import UnifiedNav from '../components/UnifiedNav';
 import UnifiedFooter from '../components/UnifiedFooter';
@@ -44,6 +44,7 @@ const V2_PLANS = [
     annualPrice: 14990,
     badge: 'GET STARTED',
     target: 'Small units (< 50 employees), new allottees',
+    icon: 'rocket',
     features: [
       'All 8 data domains, quarterly filing',
       'Server-side validation with field-level errors',
@@ -57,6 +58,7 @@ const V2_PLANS = [
     isPopular: false,
     color: '#64748B',
     gradient: 'linear-gradient(135deg, #64748B 0%, #475569 100%)',
+    accent: '#94A3B8',
   },
   {
     key: 'sme_pro',
@@ -64,8 +66,9 @@ const V2_PLANS = [
     subtitle: 'For growing industries that need foresight',
     monthlyPrice: 4999,
     annualPrice: 49990,
-    badge: 'RECOMMENDED',
+    badge: 'MOST POPULAR',
     target: 'SMEs (50-500 employees), established units',
+    icon: 'trending',
     features: [
       'Everything in Starter, plus:',
       'Bulk CSV upload + scoped API key (10K calls/mo)',
@@ -81,6 +84,7 @@ const V2_PLANS = [
     isPopular: true,
     color: '#2E7D32',
     gradient: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)',
+    accent: '#4CAF50',
   },
   {
     key: 'enterprise_suite',
@@ -90,6 +94,7 @@ const V2_PLANS = [
     annualPrice: 249990,
     badge: 'PREMIUM',
     target: 'Large units (500+), multi-park operations',
+    icon: 'diamond',
     features: [
       'Everything in Professional, plus:',
       'AI corroboration (expansion coherence analysis)',
@@ -105,6 +110,7 @@ const V2_PLANS = [
     isPopular: false,
     color: '#1F4E79',
     gradient: 'linear-gradient(135deg, #1F4E79 0%, #143656 100%)',
+    accent: '#42A5F5',
   },
 ];
 
@@ -289,113 +295,233 @@ export default function SubscriptionPlans() {
           <Chip label="2 MONTHS FREE" sx={{ background: 'linear-gradient(135deg, #2E7D32, #1B5E20)', color: 'white', fontWeight: 800, fontSize: '0.7rem', height: 28, px: 1, borderRadius: '50px', animation: `${glowPulse} 2.5s ease-in-out infinite` }} />
         </Box>
 
-        <Box sx={{ mt: { xs: 8, md: 10 }, position: 'relative', zIndex: 2 }}>
-          <Grid container spacing={4}>
-          {V2_PLANS.map((plan, idx) => (
-            <Grid key={idx} size={{ xs: 12, md: 4 }}>
-              <Fade in timeout={400 + idx * 150}>
+        <Box sx={{ mt: { xs: 6, md: 8 }, position: 'relative', zIndex: 2 }}>
+          <Grid container spacing={{ xs: 3, md: 4 }} alignItems="stretch">
+          {V2_PLANS.map((plan, idx) => {
+            const PlanIcon = plan.icon === 'rocket' ? Rocket : plan.icon === 'trending' ? TrendingUp : Diamond;
+            const isPlus = plan.features[0]?.endsWith('plus:');
+            const displayFeatures = isPlus ? plan.features.slice(1) : plan.features;
+            return (
+            <Grid key={idx} size={{ xs: 12, sm: 6, md: 4 }} sx={{ display: 'flex' }}>
+              <Fade in timeout={400 + idx * 150} style={{ flex: 1 }}>
                 <Card elevation={0} sx={{
-                  height: '100%', borderRadius: 4,
+                  flex: 1, display: 'flex', flexDirection: 'column',
+                  borderRadius: 5,
                   border: plan.isPopular ? '2px solid #2E7D32' : '1px solid #e2e8f0',
                   position: 'relative', overflow: 'visible',
                   transition: 'all 0.4s cubic-bezier(0.4,0,0.2,1)',
-                  bgcolor: plan.isPopular ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.9)',
+                  bgcolor: 'rgba(255,255,255,0.95)',
                   backdropFilter: 'blur(20px)',
-                  boxShadow: plan.isPopular ? '0 16px 64px rgba(46,125,50,0.2)' : '0 8px 40px rgba(0,0,0,0.07)',
-                  '&:hover': { transform: plan.isPopular ? 'translateY(-20px)' : 'translateY(-14px)', boxShadow: plan.isPopular ? '0 40px 80px rgba(46,125,50,0.3)' : `0 32px 64px ${plan.color}18`, borderColor: plan.isPopular ? '#2E7D32' : plan.color },
+                  boxShadow: plan.isPopular
+                    ? '0 20px 60px rgba(46,125,50,0.18)'
+                    : '0 4px 24px rgba(0,0,0,0.06)',
+                  '&:hover': {
+                    transform: 'translateY(-12px)',
+                    boxShadow: plan.isPopular
+                      ? '0 36px 72px rgba(46,125,50,0.28)'
+                      : `0 24px 56px ${plan.color}15`,
+                    borderColor: plan.isPopular ? '#2E7D32' : plan.accent,
+                    '& .plan-icon': { transform: 'scale(1.15) rotate(5deg)' },
+                  },
                 }}>
+                  {/* Ribbon for popular */}
                   {plan.isPopular && (
-                    <Box sx={{ position: 'absolute', top: -16, left: '50%', transform: 'translateX(-50%)', px: 3, py: 1, borderRadius: '50px', background: 'linear-gradient(135deg, #4CAF50, #2E7D32)', color: 'white', fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.1em', boxShadow: '0 4px 20px rgba(46,125,50,0.5)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Star sx={{ fontSize: 14 }} /> MOST POPULAR
+                    <Box sx={{
+                      position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)',
+                      px: 3, py: 0.8, borderRadius: '50px', whiteSpace: 'nowrap',
+                      background: 'linear-gradient(135deg, #4CAF50, #2E7D32)',
+                      color: 'white', fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.12em',
+                      boxShadow: '0 4px 20px rgba(46,125,50,0.5)', zIndex: 2,
+                      display: 'flex', alignItems: 'center', gap: 0.5,
+                    }}>
+                      <Star sx={{ fontSize: 13 }} /> MOST POPULAR
                     </Box>
                   )}
-                  <Box sx={{ height: 5, borderRadius: '16px 16px 0 0', background: plan.gradient }} />
-                  <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-                    <Box sx={{ mb: 3 }}>
-                      <Chip label={plan.badge} size="small" sx={{ background: plan.gradient, color: 'white', fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.1em', px: 1.5 }} />
+
+                  {/* Gradient top strip with icon */}
+                  <Box sx={{
+                    height: 80, position: 'relative', overflow: 'hidden',
+                    background: plan.gradient,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '20px 20px 0 0',
+                    '&::after': {
+                      content: '""', position: 'absolute', inset: 0,
+                      background: 'radial-gradient(circle at 30% 120%, rgba(255,255,255,0.15) 0%, transparent 60%)',
+                    },
+                  }}>
+                    <Box className="plan-icon" sx={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 56, height: 56, borderRadius: 3,
+                      background: 'rgba(255,255,255,0.15)',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      backdropFilter: 'blur(8px)',
+                      transition: 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+                      zIndex: 1,
+                    }}>
+                      <PlanIcon sx={{ fontSize: 30, color: 'white' }} />
                     </Box>
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h5" fontWeight={900} sx={{ mb: 0.5, fontSize: '1.5rem' }}>{plan.name}</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{plan.subtitle}</Typography>
-                      <Tooltip title={plan.target}>
-                        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 2, fontStyle: 'italic' }}>
-                          {plan.target}
-                        </Typography>
-                      </Tooltip>
+                    <Chip
+                      label={`${displayFeatures.length} features`}
+                      size="small"
+                      sx={{
+                        position: 'absolute', bottom: 8, right: 12,
+                        bgcolor: 'rgba(255,255,255,0.2)', color: 'white',
+                        fontSize: '0.6rem', fontWeight: 600, height: 20,
+                        backdropFilter: 'blur(4px)',
+                      }}
+                    />
+                  </Box>
+
+                  <CardContent sx={{ p: { xs: 2.5, md: 3 }, display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    {/* Plan name + subtitle */}
+                    <Box sx={{ mb: 2.5 }}>
+                      <Typography variant="h5" fontWeight={800} sx={{ fontSize: '1.4rem', mb: 0.3, color: plan.color }}>
+                        {plan.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+                        {plan.subtitle}
+                      </Typography>
+                    </Box>
+
+                    {/* Price block */}
+                    <Box sx={{
+                      mb: 3, py: 2.5, px: 2,
+                      borderRadius: 3,
+                      bgcolor: `${plan.color}08`,
+                      border: `1px solid ${plan.color}15`,
+                    }}>
                       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-                        {typeof plan.monthlyPrice === 'number' ? (
+                        {billingPeriod === 'annual' && (
+                          <Typography component="span" sx={{ fontSize: '1.1rem', color: 'text.disabled', textDecoration: 'line-through', fontWeight: 500 }}>
+                            ₹{plan.monthlyPrice.toLocaleString('en-IN')}
+                          </Typography>
+                        )}
+                        <Typography variant="h2" fontWeight={800} sx={{
+                          fontSize: { xs: '2.2rem', md: '2.6rem' },
+                          background: plan.gradient,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          lineHeight: 1.1,
+                        }}>
+                          {billingPeriod === 'annual'
+                            ? `₹${Math.round(plan.annualPrice / 12).toLocaleString('en-IN')}`
+                            : `₹${plan.monthlyPrice.toLocaleString('en-IN')}`}
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary" fontWeight={600}>
+                          /mo
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                        {billingPeriod === 'annual' ? (
                           <>
-                            {billingPeriod === 'annual' && (
-                              <Typography component="span" sx={{ fontSize: '1.2rem', color: 'text.disabled', textDecoration: 'line-through', fontWeight: 500 }}>
-                                ₹{plan.monthlyPrice.toLocaleString('en-IN')}
-                              </Typography>
-                            )}
-                            <Typography variant="h3" fontWeight={900} sx={{ fontSize: '2.5rem', background: plan.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                              {billingPeriod === 'annual'
-                                ? `₹${Math.round(plan.annualPrice / 12).toLocaleString('en-IN')}`
-                                : `₹${plan.monthlyPrice.toLocaleString('en-IN')}`}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                              /mo
-                            </Typography>
-                            {billingPeriod === 'annual' && (
-                              <Chip
-                                label={`SAVE ₹${((plan.monthlyPrice * 12) - plan.annualPrice).toLocaleString('en-IN')}/yr`}
-                                size="small"
-                                sx={{ bgcolor: '#E8F5E9', color: '#2E7D32', fontWeight: 700, fontSize: '0.7rem' }}
-                              />
-                            )}
-                            <Typography variant="caption" color="text.disabled" sx={{ display: 'block', width: '100%', mt: 0.5 }}>
-                              {billingPeriod === 'annual'
-                                ? `Billed ₹${plan.annualPrice.toLocaleString('en-IN')} annually`
-                                : `Or ₹${plan.annualPrice.toLocaleString('en-IN')}/yr (2 months free)`}
+                            <Chip
+                              label={`SAVE ₹${((plan.monthlyPrice * 12) - plan.annualPrice).toLocaleString('en-IN')}/yr`}
+                              size="small" color="success"
+                              sx={{ fontWeight: 700, fontSize: '0.65rem', height: 22 }}
+                            />
+                            <Typography variant="caption" color="text.disabled">
+                              Billed ₹{plan.annualPrice.toLocaleString('en-IN')}/yr
                             </Typography>
                           </>
                         ) : (
-                          <>
-                            <Typography variant="h3" fontWeight={900} sx={{ fontSize: '2.5rem', background: plan.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                              Free
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                              forever
-                            </Typography>
-                          </>
+                          <Typography variant="caption" color="text.disabled">
+                            Annual: ₹{plan.annualPrice.toLocaleString('en-IN')}/yr · 2 months free
+                          </Typography>
                         )}
                       </Box>
                     </Box>
-                    <Divider sx={{ my: 3, borderColor: 'rgba(0,0,0,0.06)' }} />
-                    <List dense disablePadding sx={{ mb: 4 }}>
-                      {plan.features.map((feature, i) => (
-                        <ListItem key={i} disableGutters sx={{ py: i === 0 && feature.endsWith('plus:') ? 1.5 : 0.9 }}>
-                          <ListItemIcon sx={{ minWidth: 32 }}>
-                            <Box sx={{ width: 22, height: 22, borderRadius: '50%', background: `${plan.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <Check sx={{ fontSize: 14, color: plan.color }} />
+
+                    {/* Target user */}
+                    <Tooltip title={plan.target} arrow placement="top">
+                      <Typography variant="caption" sx={{
+                        display: 'block', mb: 2, textAlign: 'center',
+                        color: 'text.disabled', fontStyle: 'italic',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        Best for: {plan.target.split(',')[0]}
+                      </Typography>
+                    </Tooltip>
+
+                    <Divider sx={{ mb: 2, borderColor: 'rgba(0,0,0,0.06)' }} />
+
+                    {/* Features */}
+                    {isPlus && (
+                      <Typography variant="caption" sx={{
+                        display: 'block', mb: 1.5, fontWeight: 700,
+                        color: plan.color, textAlign: 'center', letterSpacing: '0.05em',
+                      }}>
+                        EVERYTHING IN {plan.key === 'sme_pro' ? 'STARTER' : 'PROFESSIONAL'}, PLUS:
+                      </Typography>
+                    )}
+                    <List dense disablePadding sx={{ mb: 3, flex: 1 }}>
+                      {displayFeatures.map((feature, i) => (
+                        <ListItem key={i} disableGutters sx={{ py: 0.7 }}>
+                          <ListItemIcon sx={{ minWidth: 30 }}>
+                            <Box sx={{
+                              width: 20, height: 20, borderRadius: '50%',
+                              background: `${plan.color}12`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <Check sx={{ fontSize: 13, color: plan.color }} />
                             </Box>
                           </ListItemIcon>
-                          <ListItemText primary={feature}
-                            primaryTypographyProps={{ variant: 'body2', fontWeight: feature.endsWith('plus:') ? 700 : 500, color: feature.endsWith('plus:') ? plan.color : 'text.primary', fontStyle: feature.endsWith('plus:') ? 'italic' : 'normal' }} />
+                          <ListItemText
+                            primary={feature}
+                            primaryTypographyProps={{
+                              variant: 'body2',
+                              fontWeight: 500,
+                              color: 'text.primary',
+                              sx: { lineHeight: 1.4 },
+                            }}
+                          />
                         </ListItem>
                       ))}
                     </List>
-                    <Button fullWidth variant={plan.isPopular ? 'contained' : 'outlined'} size="large"
+
+                    {/* CTA Button */}
+                    <Button
+                      fullWidth
+                      variant={plan.isPopular ? 'contained' : 'outlined'}
+                      size="large"
                       disabled={processing === plan.key || currentTier === plan.key}
                       onClick={() => handleSelectPlan(plan.key, plan.name)}
-                      endIcon={currentTier === plan.key ? <CheckCircle /> : (processing === plan.key ? <CircularProgress size={18} color="inherit" /> : <ArrowForward />)}
+                      endIcon={currentTier === plan.key
+                        ? <CheckCircle />
+                        : (processing === plan.key ? <CircularProgress size={18} color="inherit" /> : <ArrowForward />)}
                       sx={{
-                        py: 1.8, fontWeight: 700, borderRadius: 3,
+                        mt: 'auto', py: 1.6, fontWeight: 700, borderRadius: 2.5,
+                        fontSize: '0.9rem', letterSpacing: '0.02em',
                         background: plan.isPopular ? plan.gradient : undefined,
                         color: plan.isPopular ? 'white' : plan.color,
-                        borderColor: plan.color, borderWidth: plan.isPopular ? 0 : 2,
-                        '&:hover': { transform: 'translateY(-3px)', boxShadow: plan.isPopular ? `0 16px 40px ${plan.color}50` : `0 8px 24px ${plan.color}20` },
-                        '&.Mui-disabled': { bgcolor: currentTier === plan.key ? `${plan.color}15` : 'transparent', color: currentTier === plan.key ? plan.color : 'text.disabled', borderColor: currentTier === plan.key ? plan.color : 'text.disabled' },
-                      }}>
-                      {currentTier === plan.key ? 'Current Plan' : processing === plan.key ? 'Processing…' : `Subscribe to ${plan.name}`}
+                        borderColor: plan.color,
+                        borderWidth: plan.isPopular ? 0 : 1.5,
+                        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: plan.isPopular
+                            ? `0 12px 32px ${plan.color}40`
+                            : `0 8px 24px ${plan.color}18`,
+                          background: plan.isPopular ? plan.gradient : `${plan.color}08`,
+                        },
+                        '&.Mui-disabled': {
+                          bgcolor: currentTier === plan.key ? `${plan.color}10` : 'transparent',
+                          color: currentTier === plan.key ? plan.color : 'text.disabled',
+                          borderColor: currentTier === plan.key ? plan.color : 'text.disabled',
+                        },
+                      }}
+                    >
+                      {currentTier === plan.key
+                        ? '✓ Current Plan'
+                        : processing === plan.key
+                          ? 'Processing…'
+                          : `Subscribe to ${plan.name}`}
                     </Button>
                   </CardContent>
                 </Card>
               </Fade>
             </Grid>
-          ))}
+            );
+          })}
         </Grid>
         </Box>
       </PageHero>
