@@ -36,7 +36,7 @@ const q = (sql, p) => db.query(sql, p);
 
 async function main() {
   const govt = await login('govt@tn.gov.in');
-  const ind = await login('industry@abc.com');
+  const ind = await login('hyundai@sipcot.com');
 
   // 1. Workflow persistent ID
   {
@@ -86,7 +86,7 @@ async function main() {
   {
     await post(ind, '/submissions', { periodYear: 2026, periodQuarter: 3, investmentAmount: 50000000, annualTurnover: 90000000, permanentEmployees: 740, powerUsage: 30000 });
     await post(ind, '/submissions', { periodYear: 2026, periodQuarter: 3, investmentAmount: 50000000, annualTurnover: 90000000, permanentEmployees: 1250, powerUsage: 30000, amendmentReason: 'audit correction' });
-    const v = await q(`SELECT MAX(version_no) v FROM submission_versions sv JOIN data_submissions ds ON ds.id=sv.submission_id WHERE ds.period_year=2026 AND ds.period_quarter=3 AND ds.industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='industry@abc.com'))`);
+    const v = await q(`SELECT MAX(version_no) v FROM submission_versions sv JOIN data_submissions ds ON ds.id=sv.submission_id WHERE ds.period_year=2026 AND ds.period_quarter=3 AND ds.industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='hyundai@sipcot.com'))`);
     note(7, (v.rows[0].v || 0) >= 2, `versions preserved: v${v.rows[0].v}`);
   }
 
@@ -213,8 +213,8 @@ async function main() {
   }
 
   // cleanup test artifacts (2026-Q3 filings from test 7/8)
-  await q(`DELETE FROM data_submissions WHERE period_year=2026 AND period_quarter=3 AND industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='industry@abc.com'))`);
-  await q(`DELETE FROM data_findings WHERE period_year=2026 AND period_quarter=3 AND industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='industry@abc.com'))`);
+  await q(`DELETE FROM data_submissions WHERE period_year=2026 AND period_quarter=3 AND industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='hyundai@sipcot.com'))`);
+  await q(`DELETE FROM data_findings WHERE period_year=2026 AND period_quarter=3 AND industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='hyundai@sipcot.com'))`);
   await q(`DELETE FROM agent_workflows WHERE initiated_by IS NULL OR input->>'question' LIKE '%test%'`);
 
   const passed = results.filter(r => r.ok).length;

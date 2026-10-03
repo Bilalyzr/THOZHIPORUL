@@ -4,6 +4,7 @@ const db = require('../db');
 const { requireRole } = require('./auth');
 const { recordAudit } = require('./audit');
 const { getFilingMatrix, getCurrentPeriodOverview } = require('../services/missingSubmissionEngine');
+const cache = require('../services/cache');
 
 // ============================================================
 // reporting-periods.js — the reporting calendar + period-based
@@ -99,7 +100,7 @@ router.post('/generate', requireRole(['admin']), async (req, res) => {
 // GET /api/reporting-periods/filing-matrix?year=&quarter=&parkId=
 // The government view: every expected filer × every elapsed
 // period, with status + reminder history + summary counts.
-router.get('/filing-matrix', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/filing-matrix', requireRole(['admin', 'govt']), cache.middleware(60_000), async (req, res) => {
     try {
         const year = parseInt(req.query.year) || new Date().getUTCFullYear();
         const quarter = req.query.quarter ? parseInt(req.query.quarter) : null;
@@ -113,7 +114,7 @@ router.get('/filing-matrix', requireRole(['admin', 'govt']), async (req, res) =>
 });
 
 // GET /api/reporting-periods/current — current-period snapshot.
-router.get('/current', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/current', requireRole(['admin', 'govt']), cache.middleware(60_000), async (req, res) => {
     try {
         res.json(await getCurrentPeriodOverview(req.query.parkId ? parseInt(req.query.parkId) : null));
     } catch (err) {

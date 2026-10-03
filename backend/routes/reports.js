@@ -6,6 +6,7 @@ const { recordAudit } = require('./audit');
 const { buildXlsx } = require('../utils/xlsx');
 const { getFilingMatrix } = require('../services/missingSubmissionEngine');
 const { forecast, quarterlySeries, METRIC_CONFIG } = require('../services/forecastService');
+const cache = require('../services/cache');
 
 // ============================================================
 // reports.js — reporting layer (Phase 20).
@@ -355,7 +356,7 @@ async function fetchReportRows() {
 }
 
 // @route   GET /api/reports/data
-router.get('/data', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/data', requireRole(['admin', 'govt']), cache.middleware(60_000), async (req, res) => {
     try {
         const rows = await fetchReportRows();
         const totals = rows.reduce((acc, r) => {
@@ -455,7 +456,7 @@ function parsePeriod(p) {
     return { year: parseInt(m[1]), quarter };
 }
 
-router.get('/chart-data', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/chart-data', requireRole(['admin', 'govt']), cache.middleware(300_000), async (req, res) => {
     try {
         const metric = ['investment', 'employment', 'compliance'].includes(req.query.metric)
             ? req.query.metric : 'investment';
@@ -537,7 +538,7 @@ router.post('/log', requireRole(['admin', 'govt', 'industry']), async (req, res)
     }
 });
 
-router.get('/executive-summary', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/executive-summary', requireRole(['admin', 'govt']), cache.middleware(120_000), async (req, res) => {
     try {
         const matrix = await getFilingMatrix({ year: new Date().getUTCFullYear() });
         const totals = await db.query(`

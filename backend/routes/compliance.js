@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
 const { recordAudit } = require('./audit');
+const cache = require('../services/cache');
 
 // ============================================================
 // Helpers
@@ -14,7 +15,7 @@ const pct = (part, total) => (total > 0 ? Math.round((part / total) * 1000) / 10
 // @desc    Summary compliance cards (buckets industries by latest score)
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/overview', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/overview', requireRole(['admin', 'govt']), cache.middleware(60_000), async (req, res) => {
     try {
         // Bucket each industry by its most recent overall_score. Industries with
         // no scoring history at all are counted as "missing" (never assessed).
@@ -57,7 +58,7 @@ router.get('/overview', requireRole(['admin', 'govt']), async (req, res) => {
 // @desc    Paginated violation list (filter by severity/status)
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/violations', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/violations', requireRole(['admin', 'govt']), cache.middleware(60_000), async (req, res) => {
     try {
         const { severity, status } = req.query;
         const page = Math.max(parseInt(req.query.page) || 1, 1);
@@ -262,7 +263,7 @@ router.post('/send-reminders', requireRole(['admin', 'govt']), async (req, res) 
 // @desc    Compliance score trends over time (from compliance_scores)
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/trends', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/trends', requireRole(['admin', 'govt']), cache.middleware(300_000), async (req, res) => {
     try {
         const { rows } = await db.query(`
             SELECT
@@ -290,7 +291,7 @@ router.get('/trends', requireRole(['admin', 'govt']), async (req, res) => {
 // @desc    Open violations grouped by rule category
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/by-category', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/by-category', requireRole(['admin', 'govt']), cache.middleware(300_000), async (req, res) => {
     try {
         const { rows } = await db.query(`
             SELECT
@@ -320,7 +321,7 @@ router.get('/by-category', requireRole(['admin', 'govt']), async (req, res) => {
 // @desc    Current aggregates from real data + projected 1-year outlook
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/predictions', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/predictions', requireRole(['admin', 'govt']), cache.middleware(300_000), async (req, res) => {
     try {
         // Current figures are real (latest submission per industry). The
         // projection is a REAL quarter-over-quarter growth rate computed

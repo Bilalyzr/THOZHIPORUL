@@ -162,21 +162,20 @@ export default function GovCommandCenter() {
   const [capacity, setCapacity] = useState(null);
 
   useEffect(() => {
-    intelligenceService.getParkResources('power')
-      .then(res => setPowerDemand(res.data))
-      .catch(() => setPowerDemand(null));
-    intelligenceService.getParkResources('water')
-      .then(res => setWaterDemand(res.data))
-      .catch(() => setWaterDemand(null));
-    intelligenceService.getForecast('power', 'state', null, 4)
-      .then(res => setPowerForecast(res.data))
-      .catch(() => setPowerForecast(null));
-    intelligenceService.getForecast('water', 'state', null, 4)
-      .then(res => setWaterForecast(res.data))
-      .catch(() => setWaterForecast(null));
-    intelligenceService.getCapacity()
-      .then(res => setCapacity(res.data))
-      .catch(() => setCapacity(null));
+    // PARALLEL: all intelligence panels load simultaneously
+    Promise.allSettled([
+      intelligenceService.getParkResources('power'),
+      intelligenceService.getParkResources('water'),
+      intelligenceService.getForecast('power', 'state', null, 4),
+      intelligenceService.getForecast('water', 'state', null, 4),
+      intelligenceService.getCapacity()
+    ]).then(([pd, wd, pf, wf, cap]) => {
+      if (pd.status === 'fulfilled') setPowerDemand(pd.value.data);
+      if (wd.status === 'fulfilled') setWaterDemand(wd.value.data);
+      if (pf.status === 'fulfilled') setPowerForecast(pf.value.data);
+      if (wf.status === 'fulfilled') setWaterForecast(wf.value.data);
+      if (cap.status === 'fulfilled') setCapacity(cap.value.data);
+    });
   }, []);
 
   const forecastText = (fc) => {
@@ -276,6 +275,8 @@ export default function GovCommandCenter() {
       }
     };
 
+    // PARALLEL LOAD: fire all independent data fetches simultaneously
+    // (was sequential — each waited for the previous to complete).
     fetchCommandCenterData();
     fetchAdditionalData();
     // T1.1 + T2.5 — load park realisation + MD escalations

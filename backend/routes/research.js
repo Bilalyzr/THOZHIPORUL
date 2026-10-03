@@ -16,6 +16,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
+const cache = require('../services/cache');
 
 // ------------------------------------------------------------
 // Helper: does industry_profiles have the v4 columns? Cached.
@@ -39,7 +40,7 @@ async function hasV4Cols() {
 // @route   GET /api/research/realisation
 // @access  Private (Industry)
 // ============================================================
-router.get('/realisation', requireRole(['industry']), async (req, res) => {
+router.get('/realisation', cache.middleware(120_000), requireRole(['industry']), async (req, res) => {
     try {
         const v4 = await hasV4Cols();
         if (!v4) return res.json({ available: false, msg: 'v4 migration not applied yet.' });
@@ -94,7 +95,7 @@ router.get('/realisation', requireRole(['industry']), async (req, res) => {
 // @route   GET /api/research/park-realisation
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/park-realisation', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/park-realisation', cache.middleware(120_000), requireRole(['admin', 'govt']), async (req, res) => {
     try {
         const v4 = await hasV4Cols();
         if (!v4) return res.json({ available: false, parks: [] });
@@ -130,7 +131,7 @@ router.get('/park-realisation', requireRole(['admin', 'govt']), async (req, res)
 // @route   GET /api/research/csr-dashboard
 // @access  Private (Admin, Govt see all; Industry sees own)
 // ============================================================
-router.get('/csr-dashboard', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
+router.get('/csr-dashboard', cache.middleware(120_000), requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
         const scoped = req.user.role === 'industry' && req.user.profile_id;
         const filter = scoped ? `AND ip.id = $1` : '';
@@ -224,7 +225,7 @@ router.post('/csr-check', requireRole(['admin']), async (req, res) => {
 // @desc    Latest submissions with their declared vs gst turnover + status.
 // @access  Private (Admin, Govt)
 // ============================================================
-router.get('/gst-reconciliation', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/gst-reconciliation', cache.middleware(120_000), requireRole(['admin', 'govt']), async (req, res) => {
     try {
         const { rows } = await db.query(`
             SELECT DISTINCT ON (ip.id)

@@ -204,17 +204,26 @@ router.get('/park-overview', requireRole(['admin', 'govt']), cache.middleware(CA
           GROUP BY ip.park_id`);
         const prodMap = new Map(prod.rows.map(r => [r.park_id, Number(r.production_inr) || 0]));
 
-        // Filing compliance (missing/overdue this year) per park.
+        // Filing compliance per park — ONE matrix call (was N+1 per-park loop).
         const { getFilingMatrix } = require('../services/missingSubmissionEngine');
         const year = new Date().getUTCFullYear();
-        const parkIds = rows.map(r => r.id);
         const missingByPark = new Map();
-        for (const pid of parkIds) {
-            try {
-                const m = await getFilingMatrix({ year, parkId: pid });
-                missingByPark.set(pid, { overdue: m.summary.overdue, missing: m.summary.missing, expected: m.summary.expected_industries });
-            } catch (_) { missingByPark.set(pid, null); }
-        }
+        try {
+            const matrix = await getFilingMatrix({ year });
+            for (const ind of matrix.industries) {
+                const pid = ind.park_id || ind.parkId;
+                if (!pid) continue;
+                if (!missingByPark.has(pid)) {
+                    missingByPark.set(pid, { overdue: 0, missing: 0, expected: 0 });
+                }
+                const entry = missingByPark.get(pid);
+                entry.expected++;
+                if (ind.outstanding && ind.outstanding.length > 0) {
+                    if (ind.any_overdue) entry.overdue += ind.outstanding.length;
+                    else entry.missing += ind.outstanding.length;
+                }
+            }
+        } catch (_) { /* filing matrix unavailable */ }
 
         res.json(rows.map(r => ({
             park_id: r.id, name: r.name, code: r.code, district: r.district,
@@ -258,60 +267,69 @@ router.get('/capacity', requireRole(['admin', 'govt']), cache.middleware(CACHE_T
             parkId ? 'SELECT * FROM industrial_parks WHERE id = $1' : 'SELECT * FROM industrial_parks ORDER BY id',
             parkId ? [parkId] : [])).rows;
 
-        const out = [];
-        for (const p of parks) {
+        // BATCH: fetch ALL park series and forecasts in one parallel pass
+        // (was 2 x N sequential DB round-trips).
+        const parkIds = parks.map(p => p.id);
+        const seriesResults = await Promise.all(
+            parkIds.flatMap(id => [
+                quarterlySeries('water', 'park', id).catch(() => []),
+                quarterlySeries('power', 'park', id).catch(() => [])
+            ])
+        );
+        const forecastResults = await Promise.all(
+            parkIds.flatMap(id => [
+                forecast('water', 'park', id, 4, { persist: false }).catch(() => ({ data_status: 'ERROR' })),
+                forecast('power', 'park', id, 4, { persist: false }).catch(() => ({ data_status: 'ERROR' }))
+            ])
+        );
+
+        const out = parks.map((p, pi) => {
             const entry = { park_id: p.id, name: p.name, resources: {} };
-            for (const metric of ['water', 'power']) {
-                const series = await quarterlySeries(metric, 'park', p.id);
+            ['water', 'power'].forEach((metric, mi) => {
+                const series = seriesResults[pi * 2 + mi] || [];
+                const fc = forecastResults[pi * 2 + mi] || { data_status: 'ERROR' };
                 const current = series.length ? series[series.length - 1].value : null;
-                const fc = await forecast(metric, 'park', p.id, 4, { persist: false });
 
                 let projected = null, projection_source = 'forecast (4-quarter mean)';
                 if (fc.data_status === 'OK') {
-                    projected = Math.round(fc.projection.reduce((s, x) => s + x.value, 0) / fc.projection.length);
+                    projected = Math.round(fc.projection.reduce((sum, x) => sum + x.value, 0) / fc.projection.length);
                 } else if (current !== null) {
-                    projected = current; projection_source = 'latest actual (forecast unavailable — insufficient history)';
+                    projected = current; projection_source = 'latest actual (forecast unavailable)';
                 }
 
                 let capacity = null, unit = '';
                 if (metric === 'water') {
                     capacity = p.water_capacity_kl !== null && Number(p.water_capacity_kl) > 0
-                        ? Math.round(Number(p.water_capacity_kl) * DAYS_PER_QUARTER) : null; // KL/qtr
+                        ? Math.round(Number(p.water_capacity_kl) * DAYS_PER_QUARTER) : null;
                     unit = 'KL/quarter';
                 } else {
                     capacity = p.power_capacity_mw !== null && Number(p.power_capacity_mw) > 0
-                        ? Math.round(Number(p.power_capacity_mw) * 1000 * HOURS_PER_QUARTER) : null; // kWh/qtr
+                        ? Math.round(Number(p.power_capacity_mw) * 1000 * HOURS_PER_QUARTER) : null;
                     unit = 'kWh/quarter';
                 }
 
                 let gap = null, risk = 'UNKNOWN';
-                if (capacity === null) {
-                    risk = 'NOT_CONFIGURED';
-                } else if (projected === null) {
-                    risk = 'NO_DEMAND_DATA';
-                } else {
+                if (capacity === null) { risk = 'NOT_CONFIGURED'; }
+                else if (projected === null) { risk = 'NO_DEMAND_DATA'; }
+                else {
                     gap = projected - capacity;
                     const util = capacity > 0 ? projected / capacity : 0;
                     risk = util > 1.0 ? 'HIGH' : util > 0.85 ? 'MEDIUM' : 'LOW';
                 }
 
                 entry.resources[metric] = {
-                    unit,
-                    current_demand: current,
-                    projected_demand: projected,
-                    projection_source,
-                    capacity,
-                    capacity_basis: capacity === null
-                        ? 'NOT_CONFIGURED'
+                    unit, current_demand: current, projected_demand: projected,
+                    projection_source, capacity,
+                    capacity_basis: capacity === null ? 'NOT_CONFIGURED'
                         : (metric === 'water'
-                            ? `configured ${p.water_capacity_kl} KL/day × ${DAYS_PER_QUARTER} days`
-                            : `configured ${p.power_capacity_mw} MW × 1000 kW × ${HOURS_PER_QUARTER} h`),
-                    gap,
-                    risk
+                            ? 'configured ' + p.water_capacity_kl + ' KL/day x ' + DAYS_PER_QUARTER + ' days'
+                            : 'configured ' + p.power_capacity_mw + ' MW x 1000 kW x ' + HOURS_PER_QUARTER + ' h'),
+                    gap, risk
                 };
-            }
-            out.push(entry);
-        }
+            });
+            return entry;
+        });
+
         res.json({
             parks: out,
             notes: [

@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
 const { recordAudit } = require('./audit');
+const cache = require('../services/cache');
 
 // ============================================================
 // AI DECISION SUPPORT ENGINE (Phase 18 upgrade)
@@ -364,7 +365,7 @@ router.get('/batch', requireRole(['admin', 'govt']), async (req, res) => {
 });
 
 // @route   GET /api/ai-decisions/dashboard-summary
-router.get('/dashboard-summary', requireRole(['admin', 'govt']), async (req, res) => {
+router.get('/dashboard-summary', requireRole(['admin', 'govt']), cache.middleware(60_000), async (req, res) => {
   try {
     const [industries, violations, leaseExpiry, outstanding, payment] = await Promise.all([
       fetchIndustries(), fetchOpenViolations(), fetchLeaseExpiry(),
