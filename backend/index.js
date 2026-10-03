@@ -323,6 +323,9 @@ app.use('/api/intelligence', require('./routes/intelligence'));
 // v8 Agentic Intelligence & Orchestration Layer (LangGraph supervisor,
 // specialist agents, tool registry, approval gates, full audit).
 app.use('/api/agent', require('./routes/agent'));
+
+// v2 subscription plans — redesigned for current software capabilities
+app.use('/api/subscription-v2', require('./routes/subscription-v2'));
 require('./agentic/workflows/submissionWorkflow');
 require('./agentic/workflows/otherWorkflows');
 require('./agentic/agents/specialists');
