@@ -35,7 +35,6 @@ router.get('/layers', async (req, res) => {
             { layer_key: 'investment_heat', display_name: 'Investment Heatmap', is_active: true },
             { layer_key: 'occupancy_heat', display_name: 'Occupancy Heatmap', is_active: false },
             { layer_key: 'environmental', display_name: 'Environmental', is_active: false },
-            { layer_key: 'iot_live', display_name: 'Live IoT Status', is_active: false }
         ]);
     }
 });
@@ -86,81 +85,6 @@ router.get('/plots/:id', requireRole(['admin', 'govt', 'industry']), async (req,
         res.json({ ...r, readiness_score: Math.round((readiness / 3) * 100) });
     } catch (err) {
         console.error('Plot Drill-down Error:', err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// ============================================================
-// @route   GET /api/gis/iot-overlay
-// @desc    Latest IoT telemetry per park (live power/water/effluent).
-//          Powers the "Live IoT Status" map layer.
-// @access  Private (Admin, Govt)
-// ============================================================
-router.get('/iot-overlay', requireRole(['admin', 'govt']), async (req, res) => {
-    try {
-        const { rows } = await db.query(`
-            SELECT DISTINCT ON (p.id, t.metric)
-                   p.id AS park_id, p.name AS park_name, p.latitude, p.longitude,
-                   t.metric, t.value, t.unit, t.recorded_at, t.is_anomaly
-              FROM industrial_parks p
-              JOIN iot_telemetry t ON t.park_id = p.id
-             WHERE t.recorded_at > NOW() - INTERVAL '24 hours'
-          ORDER BY p.id, t.metric, t.recorded_at DESC`);
-        // Reshape into one object per park with its metrics.
-        const byPark = {};
-        for (const r of rows) {
-            if (!byPark[r.park_id]) byPark[r.park_id] = {
-                park_id: r.park_id, park_name: r.park_name,
-                latitude: r.latitude, longitude: r.longitude, metrics: {}, has_anomaly: false
-            };
-            byPark[r.park_id].metrics[r.metric] = { value: r.value, unit: r.unit, recorded_at: r.recorded_at };
-            if (r.is_anomaly) byPark[r.park_id].has_anomaly = true;
-        }
-        res.json(Object.values(byPark));
-    } catch (_) {
-        res.json([]); // no telemetry yet — empty overlay
-    }
-});
-
-// ============================================================
-// @route   POST /api/gis/iot
-// @desc    Ingest an IoT telemetry reading (smart meter / SCADA push).
-//          Anomaly flag set when value exceeds 2x the park's 7-day avg.
-// @access  Private (service / Admin — would be an API key in prod)
-// ============================================================
-router.post('/iot', requireRole(['admin']), async (req, res) => {
-    try {
-        const { parkId, plotId, metric, value, unit } = req.body;
-        if (!parkId || !metric || value == null) return res.status(400).json({ error: 'parkId, metric, value required' });
-
-        // Compare against 7-day average to flag anomalies.
-        const avg = await db.query(
-            `SELECT AVG(value) AS a FROM iot_telemetry WHERE park_id=$1 AND metric=$2 AND recorded_at > NOW()-INTERVAL '7 days'`,
-            [parkId, metric]);
-        const baseline = parseFloat(avg.rows[0].a);
-        const isAnomaly = !Number.isNaN(baseline) && baseline > 0 && value > baseline * 2;
-
-        const ins = await db.query(
-            `INSERT INTO iot_telemetry (park_id, plot_id, metric, value, unit, is_anomaly)
-             VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, is_anomaly`,
-            [parkId, plotId || null, metric, value, unit || null, isAnomaly]
-        );
-
-        // If anomalous, surface an alert.
-        if (isAnomaly) {
-            const { notify } = require('../services/notify');
-            await notify({
-                roleScope: 'admin',
-                category: 'system',
-                severity: 'warning',
-                title: `IoT anomaly: ${metric} at park ${parkId}`,
-                message: `${metric} reading of ${value}${unit || ''} is >2× the 7-day average (${baseline.toFixed(1)}${unit || ''}).`,
-                metadata: { parkId, metric, value, baseline }
-            });
-        }
-        res.status(201).json(ins.rows[0]);
-    } catch (err) {
-        console.error('IoT Ingest Error:', err.message);
         res.status(500).send('Server Error');
     }
 });

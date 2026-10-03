@@ -8,8 +8,7 @@ const db = require('../db');
 // JWT_SECRET is validated as required at startup (see index.js) — no insecure fallback.
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Demo login bypass is OFF unless explicitly enabled via env. Never enable in production.
-const ENABLE_DEMO_LOGIN = process.env.ENABLE_DEMO_LOGIN === 'true';
+// (ENABLE_DEMO_LOGIN removed 2026-10-03 — the $demo$ hash bypass no longer exists.)
 const crypto = require('crypto');
 
 // Constant-time string compare (for invite codes and other secrets).
@@ -170,14 +169,10 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Password check. The '$demo$' placeholder hash only bypasses verification
-        // when demo login is explicitly enabled — otherwise it can never authenticate.
-        let isMatch = false;
-        if (user.password_hash === '$demo$') {
-            isMatch = ENABLE_DEMO_LOGIN;
-        } else {
-            isMatch = await bcrypt.compare(password, user.password_hash);
-        }
+        // Password check. (The legacy '$demo$' placeholder-hash bypass was
+        // REMOVED 2026-10-03 — every account must authenticate with its real
+        // bcrypt hash. ENABLE_DEMO_LOGIN no longer has any effect on login.)
+        const isMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!isMatch) {
             console.warn(`[AUTH] Password mismatch for: ${email}`);

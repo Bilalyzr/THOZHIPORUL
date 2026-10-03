@@ -372,37 +372,4 @@ router.get('/shared/:token', async (req, res) => {
     }
 });
 
-// ============================================================
-// @route   POST /api/vault/:id/ocr
-// @desc    OCR metadata extraction (Module 4). Until a real OCR
-//          provider (Tesseract/Google Vision) is plugged in, this
-//          records metadata supplied by the client and marks the
-//          doc as OCR-processed so downstream rules can use it.
-// @access  Private (Industry)
-// ============================================================
-router.post('/:id/ocr', requireRole(['industry']), async (req, res) => {
-    try {
-        // Ownership: OCR metadata overwrites document state used by expiry
-        // reminders and compliance rules — restrict to the owner.
-        const guard = await loadAuthorizedDoc(req, req.params.id);
-        if (guard.error) return res.status(guard.status).json({ error: guard.error });
-
-        const { metadata } = req.body; // { issuer, doc_number, expiry, ... }
-        const upd = await db.query(
-            `UPDATE documents SET ocr_metadata = $1::jsonb WHERE id = $2 RETURNING id, ocr_metadata`,
-            [JSON.stringify(metadata || {}), req.params.id]
-        );
-        if (!upd.rows.length) return res.status(404).json({ error: 'Document not found' });
-
-        // If OCR found an expiry, sync it onto the document for reminder logic.
-        if (metadata && metadata.expiry) {
-            await db.query('UPDATE documents SET expiry_date = $1 WHERE id = $2', [metadata.expiry, req.params.id]);
-        }
-        res.json({ msg: 'OCR metadata stored', ocr_metadata: upd.rows[0].ocr_metadata });
-    } catch (err) {
-        console.error('OCR Error:', err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
 module.exports = router;

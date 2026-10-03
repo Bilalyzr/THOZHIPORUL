@@ -36,7 +36,6 @@ const PublicGrievance = lazy(() => import('./pages/PublicGrievance'));
 const IndustryDashboard = lazy(() => import('./pages/IndustryDashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const IndustryRegistration = lazy(() => import('./pages/IndustryRegistration'));
-const DataSubmission = lazy(() => import('./pages/DataSubmission'));
 const ComplianceMonitoring = lazy(() => import('./pages/ComplianceMonitoring'));
 const ReportsDashboard = lazy(() => import('./pages/ReportsDashboard'));
 const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'));
@@ -80,7 +79,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               {/* Legacy routes (preserved for backward compatibility) */}
               <Route path="/industry-dashboard" element={<IndustryDashboard />} />
               <Route path="/admin-dashboard" element={<AdminDashboard />} />
-              <Route path="/data-submission" element={<DataSubmission />} />
               <Route path="/compliance" element={<ComplianceMonitoring />} />
               <Route path="/reports" element={<ReportsDashboard />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />

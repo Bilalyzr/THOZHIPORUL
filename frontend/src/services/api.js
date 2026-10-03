@@ -226,11 +226,10 @@ export const industryAdminService = {
   revokeApiKey: (id) => api.delete(`/industries/${id}/api-key`),
 };
 
+// Workflow automation — the simulated in-memory endpoints (evaluate/rules/
+// execute-action) were removed from the backend 2026-10-03; the DB-backed
+// builder + real activity stats remain.
 export const workflowService = {
-  evaluateRules: (data) => api.post('/workflow/evaluate', data),
-  getRules: (type) => api.get(`/workflow/rules${type ? `?type=${type}` : ''}`),
-  updateRuleset: (ruleset, ruleId, data) => api.put(`/workflow/rules/${ruleset}/${ruleId}`, data),
-  executeAction: (data) => api.post('/workflow/execute-action', data),
   getActivityLog: (params) => api.get('/workflow/activity-log', { params }),
   getStats: () => api.get('/workflow/stats'),
 };
@@ -282,7 +281,6 @@ export const vaultService = {
   getVersions: (id) => api.get(`/vault/${id}/versions`),
   integrity: (id) => api.get(`/vault/${id}/integrity`),
   createShareLink: (id, data) => api.post(`/vault/${id}/share`, data),
-  storeOcr: (id, data) => api.post(`/vault/${id}/ocr`, data),
 };
 
 // Scheduled reports + saved configs (Quick Win 4 + Top 3-C)

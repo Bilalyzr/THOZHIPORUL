@@ -1,354 +1,18 @@
+// ============================================================
+// workflow-automation.js — DB-backed workflow automation.
+//
+// The former in-memory rulesets + /evaluate + /rules + /execute-action
+// endpoints (which returned simulated results) were REMOVED 2026-10-03
+// as dead simulated code — no frontend caller used them. What remains
+// is real: activity + stats derived from live records, and the Module
+// 11 no-code builder (workflow_definitions) with genuine side-effect
+// execution through notify()/status changes/compliance notices.
+// ============================================================
+
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
-
-// ============================================================
-// WORKFLOW AUTOMATION ENGINE
-// Handles automatic approvals, escalations, and rule-based actions
-// ============================================================
-
-// In-memory workflow rules (in production, store in database)
-const workflowRules = {
-  // Auto-approval rules
-  autoApproval: {
-    enabled: true,
-    rules: [
-      {
-        id: 'auto-approve-noc-high-compliance',
-        name: 'Auto-approve NOC for high compliance industries',
-        conditions: {
-          compliance_score: { operator: '>=', value: 90 },
-          service_type: ['noc_fire', 'noc_pollution'],
-          no_critical_violations: true,
-          payment_status: 'current'
-        },
-        actions: ['auto_approve_request', 'send_approval_notification'],
-        priority: 1
-      },
-      {
-        id: 'auto-approve-lease-renewal-good-standing',
-        name: 'Auto-approve lease renewals for good standing industries',
-        conditions: {
-          compliance_score: { operator: '>=', value: 85 },
-          service_type: ['lease_renewal'],
-          lease_within_expiry_limit: 90, // days
-          payment_status: 'current'
-        },
-        actions: ['auto_approve_request', 'update_lease_dates', 'send_approval_notification'],
-        priority: 2
-      }
-    ]
-  },
-
-  // Escalation rules
-  escalation: {
-    enabled: true,
-    rules: [
-      {
-        id: 'escalate-overdue-submissions',
-        name: 'Escalate overdue submissions to regional officer',
-        conditions: {
-          days_overdue: { operator: '>', value: 30 },
-          submission_type: ['quarterly', 'annual']
-        },
-        actions: ['escalate_to_regional_officer', 'send_escalation_notice'],
-        priority: 1
-      },
-      {
-        id: 'escalate-critical-violations',
-        name: 'Escalate critical violations immediately',
-        conditions: {
-          violation_severity: 'critical',
-          days_open: { operator: '>', value: 7 }
-        },
-        actions: ['escalate_to_director', 'schedule_emergency_meeting', 'send_legal_notice'],
-        priority: 0
-      }
-    ]
-  },
-
-  // Notification rules
-  notifications: {
-    enabled: true,
-    rules: [
-      {
-        id: 'notify-lease-expiry-60-days',
-        name: 'Notify 60 days before lease expiry',
-        conditions: {
-          days_until_expiry: { operator: '<=', value: 60 },
-          days_until_expiry: { operator: '>', value: 30 }
-        },
-        actions: ['send_email_notification', 'create_system_alert'],
-        priority: 3
-      },
-      {
-        id: 'notify-payment-overdue',
-        name: 'Notify payment overdue',
-        conditions: {
-          payment_days_overdue: { operator: '>', value: 15 }
-        },
-        actions: ['send_payment_reminder', 'add_late_fee_notice'],
-        priority: 2
-      }
-    ]
-  }
-};
-
-// ============================================================
-// RULE ENGINE
-// ============================================================
-
-function evaluateCondition(actualValue, condition) {
-  const { operator, value } = condition;
-
-  switch (operator) {
-    case '>': return actualValue > value;
-    case '>=': return actualValue >= value;
-    case '<': return actualValue < value;
-    case '<=': return actualValue <= value;
-    case '==': return actualValue === value;
-    case '!=': return actualValue !== value;
-    case 'in': return Array.isArray(value) && value.includes(actualValue);
-    case 'not_in': return Array.isArray(value) && !value.includes(actualValue);
-    default: return false;
-  }
-}
-
-function evaluateRule(ruleset, industryData, requestData) {
-  if (!ruleset.enabled) return { match: false };
-
-  const matchingRules = [];
-
-  for (const rule of ruleset.rules) {
-    let allConditionsMet = true;
-
-    // Check each condition
-    for (const [key, condition] of Object.entries(rule.conditions)) {
-      let actualValue;
-
-      // Map condition key to actual data
-      switch (key) {
-        case 'compliance_score':
-          actualValue = industryData.compliance_score || 0;
-          break;
-        case 'service_type':
-          actualValue = requestData?.service_type;
-          break;
-        case 'no_critical_violations':
-          actualValue = !(industryData.violations || []).some(v => v.severity === 'critical');
-          break;
-        case 'payment_status':
-          actualValue = industryData.payment_status;
-          break;
-        case 'lease_within_expiry_limit':
-          actualValue = industryData.days_until_expiry !== undefined &&
-                        industryData.days_until_expiry > condition;
-          continue; // Skip standard evaluation
-        case 'days_overdue':
-          actualValue = requestData?.days_overdue || 0;
-          break;
-        case 'violation_severity':
-          actualValue = requestData?.violation_severity;
-          break;
-        case 'days_open':
-          actualValue = requestData?.days_open || 0;
-          break;
-        case 'days_until_expiry':
-          actualValue = industryData.days_until_expiry || 0;
-          break;
-        default:
-          allConditionsMet = false;
-      }
-
-      if (actualValue !== undefined && !evaluateCondition(actualValue, condition)) {
-        allConditionsMet = false;
-        break;
-      }
-    }
-
-    if (allConditionsMet) {
-      matchingRules.push(rule);
-    }
-  }
-
-  return {
-    match: matchingRules.length > 0,
-    rules: matchingRules.sort((a, b) => a.priority - b.priority)
-  };
-}
-
-// ============================================================
-// ENDPOINTS
-// ============================================================
-
-// @route   POST /api/workflow/evaluate
-// @desc    Evaluate workflow rules for a given scenario (real industry data)
-// @access  Private (Admin, Govt)
-router.post('/evaluate', requireRole(['admin', 'govt']), async (req, res) => {
-  try {
-    const { industry_id, service_type, ruleset = 'autoApproval' } = req.body;
-
-    // Pull the real compliance score + open critical violations for this industry.
-    let industryData = { compliance_score: 0, payment_status: 'current', violations: [], days_until_expiry: 0 };
-    if (industry_id) {
-      const { rows } = await db.query(`
-        SELECT
-          (SELECT overall_score FROM compliance_scores
-           WHERE industry_id = $1 ORDER BY score_date DESC LIMIT 1) AS compliance_score,
-          (SELECT COUNT(*) FROM compliance_violations
-           WHERE industry_id = $1 AND severity = 'critical'
-             AND status NOT IN ('resolved')) AS critical_violations,
-          (SELECT MIN(pp.lease_end_date) FROM park_plots pp
-           WHERE pp.allottee_industry_id = $1) AS lease_end_date
-      `, [industry_id]);
-
-      const r = rows[0] || {};
-      const critical = parseInt(r.critical_violations) || 0;
-      let daysUntilExpiry = 0;
-      if (r.lease_end_date) {
-        daysUntilExpiry = Math.round((new Date(r.lease_end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      }
-      industryData = {
-        compliance_score: r.compliance_score != null ? parseFloat(r.compliance_score) : 0,
-        payment_status: 'current',
-        violations: critical > 0 ? [{ severity: 'critical' }] : [],
-        days_until_expiry: daysUntilExpiry
-      };
-    }
-
-    const requestData = { service_type };
-
-    const result = evaluateRule(workflowRules[ruleset], industryData, requestData);
-
-    if (result.match) {
-      const actions = result.rules.flatMap(r => r.actions);
-      res.json({
-        triggered: true,
-        ruleset: ruleset,
-        matched_rules: result.rules.map(r => ({ id: r.id, name: r.name })),
-        actions_to_execute: actions,
-        industry_id,
-        evaluated_at: new Date().toISOString()
-      });
-    } else {
-      res.json({
-        triggered: false,
-        ruleset: ruleset,
-        reason: 'No matching rules found for current conditions',
-        industry_id,
-        evaluated_at: new Date().toISOString()
-      });
-    }
-  } catch (err) {
-    console.error('Workflow Evaluation Error:', err.message);
-    res.status(500).json({ error: 'Failed to evaluate workflow rules' });
-  }
-});
-
-// @route   GET /api/workflow/rules
-// @desc    Get all workflow rules
-// @access  Private (Admin, Govt)
-router.get('/rules', requireRole(['admin', 'govt']), (req, res) => {
-  const { type } = req.query;
-
-  if (type && workflowRules[type]) {
-    res.json({ type, rules: workflowRules[type] });
-  } else if (type) {
-    res.status(404).json({ error: 'Ruleset not found' });
-  } else {
-    res.json(workflowRules);
-  }
-});
-
-// @route   PUT /api/workflow/rules/:ruleset/:ruleId
-// @desc    Update a specific workflow rule
-// @access  Private (Admin, Govt)
-router.put('/rules/:ruleset/:ruleId', requireRole(['admin', 'govt']), (req, res) => {
-  try {
-    const { ruleset, ruleId } = req.params;
-    const { enabled } = req.body;
-
-    if (!workflowRules[ruleset]) {
-      return res.status(404).json({ error: 'Ruleset not found' });
-    }
-
-    if (enabled !== undefined) {
-      workflowRules[ruleset].enabled = enabled;
-    }
-
-    res.json({
-      success: true,
-      ruleset,
-      enabled: workflowRules[ruleset].enabled,
-      message: `Ruleset "${ruleset}" updated successfully`
-    });
-  } catch (err) {
-    console.error('Rule Update Error:', err.message);
-    res.status(500).json({ error: 'Failed to update rule' });
-  }
-});
-
-// @route   POST /api/workflow/execute-action
-// @desc    Execute a workflow action
-// @access  Private (Admin, Govt)
-router.post('/execute-action', requireRole(['admin', 'govt']), async (req, res) => {
-  try {
-    const { action, industry_id, request_id, params } = req.body;
-
-    // Log the action execution
-    console.log(`[Workflow Engine] Executing action: ${action} for industry: ${industry_id}`);
-
-    // Simulated execution. Notification delivery (email/SMS) is not wired to a
-    // live gateway yet, so these responses are honestly labelled as simulated.
-    const executionResults = {
-      auto_approve_request: {
-        success: true,
-        simulated: true,
-        message: 'Request auto-approved (simulated — no live approval workflow connected)',
-        approved_at: new Date().toISOString(),
-        approved_by: 'Workflow Automation Engine'
-      },
-      send_approval_notification: {
-        success: true,
-        simulated: true,
-        message: 'Approval notification queued (simulated — email/SMS gateway not connected)',
-        sent_at: new Date().toISOString()
-      },
-      escalate_to_regional_officer: {
-        success: true,
-        simulated: true,
-        message: 'Case escalation prepared (simulated — no live case-management link)',
-        escalated_at: new Date().toISOString(),
-        assigned_to: 'Regional Officer - Chennai'
-      },
-      send_escalation_notice: {
-        success: true,
-        simulated: true,
-        message: 'Escalation notice queued (simulated — delivery gateway not connected)',
-        sent_at: new Date().toISOString()
-      },
-      create_system_alert: {
-        success: true,
-        simulated: true,
-        message: 'System alert created (simulated)',
-        alert_id: `ALT-${Date.now()}`
-      }
-    };
-
-    const result = executionResults[action] || {
-      success: true,
-      simulated: true,
-      message: `Action "${action}" executed (simulated)`,
-      executed_at: new Date().toISOString()
-    };
-
-    res.json(result);
-  } catch (err) {
-    console.error('Action Execution Error:', err.message);
-    res.status(500).json({ error: 'Failed to execute action' });
-  }
-});
 
 // @route   GET /api/workflow/activity-log
 // @desc    Get workflow activity, derived from real service requests + violations
@@ -423,7 +87,13 @@ router.get('/activity-log', requireRole(['admin', 'govt']), async (req, res) => 
 // @access  Private (Admin, Govt)
 router.get('/stats', requireRole(['admin', 'govt']), async (req, res) => {
   try {
-    // Counts of records that the ruleset would act on, from real data.
+    // Counts of records automations would act on, from real data.
+    const wfDefs = await db.query(
+      `SELECT COUNT(*) FILTER (WHERE is_active) AS active, COUNT(*) AS total FROM workflow_definitions`).catch(() => ({ rows: [{ active: 0, total: 0 }] }));
+    const stats2 = {
+      active: parseInt(wfDefs.rows[0].active) || 0,
+      total: parseInt(wfDefs.rows[0].total) || 0
+    };
     const { rows } = await db.query(`
       SELECT
         (SELECT COUNT(*) FROM service_requests
@@ -465,15 +135,7 @@ router.get('/stats', requireRole(['admin', 'govt']), async (req, res) => {
         notifications_sent: notifications
       },
       pending_review: parseInt(r.pending_review) || 0,
-      rules_status: {
-        autoApproval: { enabled: workflowRules.autoApproval.enabled, rules_count: workflowRules.autoApproval.rules.length },
-        escalation: { enabled: workflowRules.escalation.enabled, rules_count: workflowRules.escalation.rules.length },
-        notifications: { enabled: workflowRules.notifications.enabled, rules_count: workflowRules.notifications.rules.length }
-      },
-      time_saved: {
-        auto_approvals: `${autoApproved * 5} hours`,
-        total_efficiency: `${autoApproved + escalated > 0 ? Math.round((autoApproved / (autoApproved + escalated + notifications)) * 100) : 0}%`
-      }
+      db_backed_workflows: stats2
     };
 
     res.json(stats);

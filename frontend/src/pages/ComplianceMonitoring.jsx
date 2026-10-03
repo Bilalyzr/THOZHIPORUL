@@ -33,7 +33,6 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import SendIcon from '@mui/icons-material/Send';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -41,7 +40,7 @@ import HistoryIcon from '@mui/icons-material/History';
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-import { submissionService, workspaceService } from '../services/api';
+import { submissionService, workspaceService, reportExportService } from '../services/api';
 
 function ComplianceMonitoring() {
   const [role, setRole] = useState('admin');
@@ -93,17 +92,24 @@ function ComplianceMonitoring() {
     setPage(0);
   };
 
-  const handleSendReminder = (industryName) => {
-    setSnackbar({ open: true, message: `Reminder sent to ${industryName} successfully!`, severity: 'info' });
+  // REAL export — the v7 reports engine (CSV with metadata + caveats).
+  const handleExport = async () => {
+    try {
+      const res = await reportExportService.export('compliance', 'csv');
+      const blob = new Blob([res.data], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `THOZHIRPORUL_compliance_${Date.now()}.csv`; a.click();
+      URL.revokeObjectURL(url);
+      setSnackbar({ open: true, message: 'Compliance report downloaded.', severity: 'success' });
+    } catch {
+      setSnackbar({ open: true, message: 'Export failed (admin/govt only).', severity: 'error' });
+    }
   };
 
   const handleViewProfile = (row) => {
     setSelectedIndustry(row);
     setViewDialogOpen(true);
-  };
-
-  const handleExport = () => {
-    setSnackbar({ open: true, message: 'Downloading compliance report...', severity: 'success' });
   };
 
   const getStatusChip = (status) => {
@@ -419,12 +425,7 @@ function ComplianceMonitoring() {
                     {getStatusChip(row.status)}
                   </TableCell>
                   <TableCell align="right">
-                    {row.status !== 'Compliant' && (
-                      <IconButton color="primary" onClick={() => handleSendReminder(row.name)} title="Send Reminder">
-                        <SendIcon />
-                      </IconButton>
-                    )}
-                    <IconButton color="secondary" onClick={() => handleViewProfile(row)} title="View Details">
+                        <IconButton color="secondary" onClick={() => handleViewProfile(row)} title="View Details">
                       <VisibilityIcon />
                     </IconButton>
                   </TableCell>
