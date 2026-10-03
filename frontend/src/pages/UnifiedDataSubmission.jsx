@@ -61,6 +61,10 @@ export default function UnifiedDataSubmission() {
   const [validationErrors, setValidationErrors] = useState([]); // [{field,message}]
   const [calendar, setCalendar] = useState(null);
   const [queryDialog, setQueryDialog] = useState(null);
+  // Filing-proof attachments (read client-side, sent as base64; stored
+  // server-side as real documents linked to the submission).
+  const [proofFiles, setProofFiles] = useState([]);
+  const [proofError, setProofError] = useState('');
 
   const refreshHistory = async () => {
     try {
@@ -94,7 +98,7 @@ export default function UnifiedDataSubmission() {
   const handleChange = (field) => (e) => setFormData({ ...formData, [field]: e.target.value });
 
   // Build the canonical payload: financials INR, counts, KL, kWh.
-  const buildPayload = () => ({
+  const buildPayload = async () => ({
     periodYear: Number(formData.periodYear),
     periodQuarter: Number(formData.periodQuarter),
     operationalStatus: formData.operationalStatus || undefined,
@@ -122,13 +126,19 @@ export default function UnifiedDataSubmission() {
           remarks: p.remarks || null
         }))
       : [],
-    amendmentReason: formData.amendmentReason || undefined
+    amendmentReason: formData.amendmentReason || undefined,
+    attachments: proofFiles.length ? await Promise.all(proofFiles.map(f => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ fileName: f.name, fileBase64: String(reader.result).split(',')[1] || '' });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(f);
+    }).then(a => a && a.fileBase64 ? a : null).catch(() => null))).then(xs => xs.filter(Boolean)) : []
   });
 
   const handleSubmit = async () => {
     setValidationErrors([]);
     try {
-      const res = await submissionService.submit(buildPayload());
+      const res = await submissionService.submit(await buildPayload());
       const b = res.data || {};
       const periodLabel = `Q${formData.periodQuarter} ${formData.periodYear}`;
       const findings = b.findings ? ` Consistency findings: ${b.findings.consistency}, anomalies flagged: ${b.findings.anomalies}.` : '';
@@ -140,6 +150,8 @@ export default function UnifiedDataSubmission() {
       setFormData({ ...EMPTY_FORM });
       setActiveStep(0);
       setEditingId(null);
+      setProofFiles([]);
+      setProofError('');
       refreshHistory();
     } catch (err) {
       const data = err.response && err.response.data;
@@ -493,6 +505,19 @@ export default function UnifiedDataSubmission() {
                 ? 'You are amending an APPROVED filing — a reason is required and the previous version is preserved.'
                 : 'Review all data before submitting. Server-side validation runs on every field; failures are reported per field and nothing is saved.'}
             </Alert>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>Proof documents (optional — up to 5 files, 5 MB each, PDF/PNG)</Typography>
+              <input type="file" accept="application/pdf,image/png" multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []).slice(0, 5);
+                  const bad = files.find(f => f.size > 5 * 1024 * 1024);
+                  setProofError(bad ? `"${bad.name}" exceeds the 5 MB limit.` : '');
+                  setProofFiles(files);
+                }} style={{ display: 'none' }} id="proof-upload" />
+              <label htmlFor="proof-upload"><Button size="small" variant="outlined" component="span" startIcon={<CloudUpload />}>Attach proof documents</Button></label>
+              {proofFiles.map(f => <Chip key={f.name} label={`${f.name} (${Math.round(f.size / 1024)} KB)`} size="small" sx={{ ml: 1 }} />)}
+              {proofError && <Alert severity="error" sx={{ mt: 1 }}>{proofError}</Alert>}
+            </Box>
             {amendingApproved && (
               <TextField fullWidth multiline rows={2} label="Amendment reason (required) *" value={formData.amendmentReason}
                 onChange={handleChange('amendmentReason')} sx={{ mb: 2 }}
@@ -695,6 +720,7 @@ export default function UnifiedDataSubmission() {
                   { label: 'CSR Spent', value: toCrDisplay(viewDialog.data?.csrSpent) },
                   { label: 'Beneficiaries', value: viewDialog.data?.csrBeneficiaries ?? '-' },
                   ...((viewDialog.data?.productionItems || []).map((p) => ({ label: `Production: ${p.productName}`, value: `${p.quantity} ${p.unit} · ₹${(Number(p.productionValue) / CR).toFixed(2)} Cr` }))),
+                  ...((viewDialog.data?.attachments || []).map((a) => ({ label: `Proof document`, value: `${a.fileName} (${a.fileSizeKb} KB · in Secure Vault)` }))),
                 ].map((item, i) => (
                   <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.8, borderBottom: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="body2" color="text.secondary">{item.label}</Typography>

@@ -129,3 +129,24 @@ test('toNumber never confuses missing with 0', () => {
     assert.strictEqual(toNumber('42').value, 42);
     assert.strictEqual(toNumber('x').ok, false);
 });
+
+test('filing-proof attachments: count, size, name, base64 validated', async () => {
+    const tinyPdf = Buffer.from('%PDF-1.4 test').toString('base64');
+    const base = { ...BASE, investmentAmount: 1, annualTurnover: 1, permanentEmployees: 1 };
+    const ok = await validateSubmission({ ...base, attachments: [{ fileName: 'audit proof.pdf', fileBase64: tinyPdf }] });
+    assert.strictEqual(ok.ok, true, JSON.stringify(ok.errors));
+    assert.strictEqual(ok.normalized.attachments.length, 1);
+    assert.strictEqual(ok.normalized.attachments[0].fileName, 'audit_proof.pdf'); // sanitized
+
+    const tooMany = await validateSubmission({ ...base, attachments: Array.from({ length: 6 }, () => ({ fileName: 'a.pdf', fileBase64: tinyPdf })) });
+    assert.ok(tooMany.errors.some(e => e.field === 'attachments' && e.code === 'TOO_MANY'));
+
+    const tooBig = await validateSubmission({ ...base, attachments: [{ fileName: 'big.pdf', fileBase64: 'A'.repeat(7 * 1024 * 1024) }] });
+    assert.ok(tooBig.errors.some(e => e.code === 'TOO_LARGE'));
+
+    const badB64 = await validateSubmission({ ...base, attachments: [{ fileName: 'x.pdf', fileBase64: '!!!' }] });
+    assert.ok(badB64.errors.some(e => e.code === 'INVALID'));
+
+    const noName = await validateSubmission({ ...base, attachments: [{ fileBase64: tinyPdf }] });
+    assert.ok(noName.errors.some(e => e.code === 'REQUIRED' && e.field.endsWith('.fileName')));
+});

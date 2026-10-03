@@ -180,20 +180,79 @@ async function dataAvailability(industryId) {
     return { submissions: rows[0].n, distinct_periods: rows[0].periods };
 }
 
+// Domain metrics the version-diff detector scores.
+const SNAPSHOT_METRICS = [
+    'investmentAmount', 'annualTurnover', 'exportRevenue', 'rdExpenditure',
+    'permanentEmployees', 'contractEmployees', 'scStEmployees', 'womenEmployees',
+    'waterConsumption', 'powerUsage', 'wasteGenerated', 'wasteRecycledPct', 'csrSpent'
+];
+
+// Related metrics for Yes.docx's expansion-coherence question: a major
+// change in one domain should normally be corroborated by movement in
+// its related domains (investment ↔ employment ↔ water/power ↔ production).
+const RELATED_METRICS = {
+    permanentEmployees: ['investmentAmount', 'powerUsage', 'waterConsumption'],
+    contractEmployees: ['investmentAmount', 'powerUsage', 'waterConsumption'],
+    womenEmployees: ['permanentEmployees', 'contractEmployees'],
+    scStEmployees: ['permanentEmployees', 'contractEmployees'],
+    investmentAmount: ['permanentEmployees', 'contractEmployees', 'powerUsage'],
+    powerUsage: ['production:*', 'permanentEmployees', 'contractEmployees'],
+    waterConsumption: ['production:*', 'powerUsage'],
+    annualTurnover: ['production:*', 'permanentEmployees'],
+};
+
+// Summarize corroboration for a diff: { related: {fieldOrPrefix: {pct, direction}}, corroborated: bool }
+function correlationSummary(diff, changedField, minPct) {
+    const relations = RELATED_METRICS[changedField] || [];
+    const related = {};
+    let corroborated = false;
+    for (const rel of relations) {
+        if (rel.endsWith('*')) {
+            // Production line items: any product quantity/value change counts.
+            const prodChanges = diff.filter(d => d.field.startsWith('production:'))
+                .map(d => d.change_pct).filter(p => p !== null && p !== undefined);
+            if (prodChanges.length) {
+                const max = Math.max(...prodChanges.map(Math.abs));
+                related['production'] = { pct: prodChanges.find(p => Math.abs(p) === max), count: prodChanges.length };
+                if (max >= minPct) corroborated = true;
+            } else {
+                related['production'] = null;
+            }
+            continue;
+        }
+        const d = diff.find(x => x.field === rel);
+        if (!d || d.change_pct === null || d.change_pct === undefined) { related[rel] = null; continue; }
+        related[rel] = { pct: d.change_pct };
+        if (Math.abs(d.change_pct) >= minPct) corroborated = true;
+    }
+    return { related, corroborated };
+}
+
 // ------------------------------------------------------------
 // evaluateVersionChange — anomaly evaluation of an AMENDMENT's
 // diff (old version → new version of the SAME period). This is
 // separate from period-over-period detection: a +68.9% revision
 // within one quarter is exactly the change the audit requires the
 // system to notice, even with no prior quarter filed.
+//
+// Also answers Yes.docx's cross-metric question: a major change in
+// one domain is CHECKED for corroborating movement in related
+// domains in the same revision. Corroborated changes carry the
+// evidence; uncorroborated ones raise an A-CORROBORATION finding
+// ("expansion appears unbalanced or single-field error").
 // ------------------------------------------------------------
 async function evaluateVersionChange(submissionId, diff, detectedBy = 'ingest') {
     if (!Array.isArray(diff) || diff.length === 0) return 0;
-    const popRule = (await getEnabledByCategory('anomaly')).find(r => r.rule_id === 'A-POP-CHANGE');
+    const anomalyRules = await getEnabledByCategory('anomaly');
+    const popRule = anomalyRules.find(r => r.rule_id === 'A-POP-CHANGE');
+    const corrobRule = anomalyRules.find(r => r.rule_id === 'A-CORROBORATION');
     if (!popRule) return 0;
     const c = popRule.config;
     const threshold = c.maxChangePct ?? 50;
     const minBaseline = c.minBaseline ?? 1;
+    const corrobCfg = (corrobRule && corrobRule.config) || {};
+    const relatedMinPct = corrobCfg.relatedMinPct ?? 10;
+    const corrobSeverity = corrobCfg.severity || 'warning';
 
     const { rows } = await db.query(`
         SELECT ds.industry_id, ds.period_year, ds.period_quarter, ip.company_name
@@ -211,6 +270,9 @@ async function evaluateVersionChange(submissionId, diff, detectedBy = 'ingest') 
         if (Math.abs(oldV) < minBaseline) continue;
         if (Math.abs(d.change_pct) <= threshold) continue;
 
+        // Cross-metric corroboration (Yes.docx expansion-coherence).
+        const corr = correlationSummary(diff, d.field, relatedMinPct);
+
         const f = {
             findingType: 'anomaly', ruleId: 'A-POP-CHANGE', industryId: s.industry_id,
             submissionId, periodYear: s.period_year, periodQuarter: s.period_quarter,
@@ -220,7 +282,9 @@ async function evaluateVersionChange(submissionId, diff, detectedBy = 'ingest') 
             evidence: {
                 what_changed: d.field, old_value: oldV, new_value: newV,
                 change_pct: d.change_pct, compared_with: 'previous version of this filing',
-                threshold_pct: threshold, status: 'REVIEW_REQUIRED'
+                threshold_pct: threshold, status: 'REVIEW_REQUIRED',
+                corroborated_by_related_metrics: corr.corroborated,
+                related_changes: corr.related
             }
         };
         await upsertFinding(f);
@@ -229,20 +293,31 @@ async function evaluateVersionChange(submissionId, diff, detectedBy = 'ingest') 
             await notify({
                 roleScope: 'govt', category: 'compliance', severity: 'warning',
                 title: `Anomaly: ${d.change_pct > 0 ? '+' : ''}${d.change_pct}% ${d.field} (amendment)`,
-                message: `${s.company_name} — ${f.reason}`,
+                message: `${s.company_name} — ${f.reason}${corr.corroborated ? ' Related metrics moved in the same revision (corroborated expansion).' : ' No corroborating movement in related metrics.'}`,
                 link: '/compliance-engine',
-                metadata: { rule: 'A-POP-CHANGE', industryId: s.industry_id, metric: d.field, changePct: d.change_pct }
+                metadata: { rule: 'A-POP-CHANGE', industryId: s.industry_id, metric: d.field, changePct: d.change_pct, corroborated: corr.corroborated }
             });
+        }
+
+        // Uncorroborated major change → dedicated review finding.
+        if (!corr.corroborated && corrobRule && Object.keys(corr.related).length) {
+            const cf = {
+                findingType: 'anomaly', ruleId: 'A-CORROBORATION', industryId: s.industry_id,
+                submissionId, periodYear: s.period_year, periodQuarter: s.period_quarter,
+                metric: d.field, observed: newV, expected: oldV, changePct: d.change_pct,
+                severity: corrobSeverity, detectedBy,
+                reason: `Major change in ${d.field} (${d.change_pct > 0 ? '+' : ''}${d.change_pct}%) has no corroborating movement (≥${relatedMinPct}%) in related metrics (${Object.keys(corr.related).join(', ')}) — expansion appears unbalanced or this may be a single-field error.`,
+                evidence: {
+                    changed_metric: d.field, change_pct: d.change_pct,
+                    related_min_pct: relatedMinPct, related_changes: corr.related,
+                    question: 'Does this change correspond to increased investment, power, water or production?'
+                }
+            };
+            await upsertFinding(cf);
+            findings++;
         }
     }
     return findings;
 }
 
-// Domain metrics the version-diff detector scores.
-const SNAPSHOT_METRICS = [
-    'investmentAmount', 'annualTurnover', 'exportRevenue', 'rdExpenditure',
-    'permanentEmployees', 'contractEmployees', 'scStEmployees', 'womenEmployees',
-    'waterConsumption', 'powerUsage', 'wasteGenerated', 'wasteRecycledPct', 'csrSpent'
-];
-
-module.exports = { evaluateSubmission, evaluateVersionChange, dataAvailability };
+module.exports = { evaluateSubmission, evaluateVersionChange, dataAvailability, correlationSummary, SNAPSHOT_METRICS, RELATED_METRICS };

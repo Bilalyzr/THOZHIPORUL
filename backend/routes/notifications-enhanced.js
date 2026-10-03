@@ -17,12 +17,30 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { requireRole } = require('./auth');
-const { liveBus, getPreferences } = require('../services/notify');
+const { liveBus, getPreferences, providerStatus } = require('../services/notify');
 
 // ------------------------------------------------------------
 // Helper: get a user's id safely (industry users have id+profile).
 // ------------------------------------------------------------
 const userId = (req) => req.user && req.user.id;
+
+// ============================================================
+// @route   GET /api/notifications-v2/provider-status
+// @desc    HONEST per-channel delivery capability (admin): what
+//          is really configured vs the labelled dev providers.
+// @access  Private (Admin)
+// ============================================================
+router.get('/provider-status', requireRole(['admin']), async (req, res) => {
+    try {
+        res.json({
+            channels: providerStatus(),
+            note: 'Email is delivered via SMTP (nodemailer) when SMTP_* env vars are set; SMS via a Twilio-compatible REST endpoint when SMS_PROVIDER_URL/KEY are set. Unset channels run as clearly-labelled SIMULATED dev providers and are never recorded as sent.'
+        });
+    } catch (err) {
+        console.error('Provider Status Error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
 
 // ============================================================
 // @route   GET /api/notifications-v2

@@ -51,7 +51,11 @@ router.get('/me', requireRole(['industry']), async (req, res) => {
                 (SELECT json_agg(json_build_object(
                     'productName', pd.product_name, 'quantity', pd.quantity, 'unit', pd.unit,
                     'productionValue', pd.production_value, 'remarks', pd.remarks) ORDER BY pd.id)
-                 FROM production_data pd WHERE pd.submission_id = ds.id) AS production_items
+                 FROM production_data pd WHERE pd.submission_id = ds.id) AS production_items,
+                (SELECT json_agg(json_build_object('id', d.id, 'fileName', d.file_name,
+                                                   'fileSizeKb', d.file_size_kb, 'category', d.category)
+                                 ORDER BY d.id)
+                   FROM documents d WHERE d.submission_id = ds.id) AS attachments
             FROM data_submissions ds
             LEFT JOIN financial_data f ON f.submission_id = ds.id
             LEFT JOIN employment_data e ON e.submission_id = ds.id
@@ -88,7 +92,8 @@ router.get('/me', requireRole(['industry']), async (req, res) => {
                 csrActivities: row.csr_activities,
                 csrSpent: row.csr_spent,
                 csrBeneficiaries: row.csr_beneficiaries,
-                productionItems: row.production_items || []
+                productionItems: row.production_items || [],
+                attachments: row.attachments || []
             }
         }));
 

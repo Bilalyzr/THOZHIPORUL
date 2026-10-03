@@ -256,6 +256,36 @@ async function main() {
             `v2: by=${v2?.filed_by_email} at=${v2?.filed_at}; diff ${diff?.old}→${diff?.new}; audit payload fields=${ap.changed_fields?.join(',')}; entry_hash chained=${!!(await q('SELECT entry_hash FROM audit_logs WHERE action=$1 ORDER BY id DESC LIMIT 1', ['SUBMISSION_AMENDED'])).rows[0]?.entry_hash}`);
     }
 
+    // ---- TEST 11: filing-proof attachments (real bytes → documents, disk, link) ----
+    {
+        const tinyPdf = Buffer.from('%PDF-1.4 % E2E attachment proof %%EOF').toString('base64');
+        const r = await post(industry, '/submissions', {
+            periodYear: 2026, periodQuarter: 3,
+            investmentAmount: 60000000, annualTurnover: 95000000, permanentEmployees: 810,
+            attachments: [{ fileName: 'e2e proof doc.pdf', fileBase64: tinyPdf }]
+        });
+        const subId11 = r.data?.submissionId;
+        const doc = await q(`SELECT d.id, d.file_name, d.file_path, d.file_size_kb, d.category, d.submission_id, d.content_hash
+                               FROM documents d WHERE d.submission_id = $1`, [subId11]);
+        const row = doc.rows[0];
+        const fs = require('fs');
+        const path = require('path');
+        const onDisk = row ? fs.existsSync(path.join(__dirname, '..', 'uploads', path.basename(row.file_path))) : false;
+        const me = await get(industry, '/submissions/me');
+        const mine = (me.data || []).find(x => x.id === subId11);
+        note(11, r.status === 201 && !!row && row.category === 'submission_attachment'
+            && row.submission_id === subId11 && onDisk && !!row.content_hash
+            && mine?.data?.attachments?.length === 1,
+            `HTTP ${r.status}; doc id=${row?.id} cat=${row?.category} linked=${row?.submission_id === subId11} onDisk=${onDisk} hash=${row?.content_hash?.slice(0, 12)}…; /me attachments=${mine?.data?.attachments?.length}`);
+        // cleanup T11
+        if (row) {
+            fs.unlinkSync(path.join(__dirname, '..', 'uploads', path.basename(row.file_path)));
+            await q('DELETE FROM documents WHERE id = $1', [row.id]);
+        }
+        await q('DELETE FROM data_submissions WHERE id = $1', [subId11]);
+        await q(`DELETE FROM data_findings WHERE industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='industry@abc.com')) AND period_year=2026 AND period_quarter=3`);
+    }
+
     // ---- cleanup TEST 4 filing ----
     await q(`DELETE FROM data_submissions WHERE id=$1`, [subId4]);
     await q(`DELETE FROM data_findings WHERE period_year=2026 AND period_quarter=3 AND industry_id=(SELECT id FROM industry_profiles WHERE user_id=(SELECT id FROM users WHERE email='industry@abc.com'))`);

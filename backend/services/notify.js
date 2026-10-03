@@ -35,42 +35,92 @@ const InAppProvider = {
 };
 
 // --- Email -----------------------------------------------------
-// A real provider requires BOTH credentials (SMTP_*) AND a
-// transport implementation. This build ships a development
-// provider: it logs the message and reports SIMULATED. To plug in
-// a real transport, implement deliver() with nodemailer etc. and
-// set the SMTP_* env vars — the status flips to SENT only then.
+// REAL transport via nodemailer when SMTP_* credentials are set
+// (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, optional SMTP_SECURE).
+// Without credentials the development provider logs and reports
+// SIMULATED — never "sent".
 const EmailProvider = {
     name: 'email',
     get configured() {
         return !!(process.env.SMTP_HOST && process.env.SMTP_USER);
     },
-    transportImplemented: false, // flip to true when a real sender is wired in
+    get transportImplemented() {
+        return true; // nodemailer is installed and wired below
+    },
+    _transport: null,
+    _transportKey: null,
+    _getTransport() {
+        const key = `${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 587}:${process.env.SMTP_USER}:${process.env.SMTP_SECURE || ''}`;
+        if (!this._transport || this._transportKey !== key) {
+            const nodemailer = require('nodemailer');
+            this._transport = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: parseInt(process.env.SMTP_PORT) || 587,
+                secure: process.env.SMTP_SECURE === 'true',
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            });
+            this._transportKey = key;
+        }
+        return this._transport;
+    },
     async deliver(to, subject, body) {
         if (!to) return 'SKIPPED';
-        if (!this.configured || !this.transportImplemented) {
+        if (!this.configured) {
             console.log(`[NOTIFY:email][SIMULATED] to=${to} subj="${subject}" :: ${String(body).slice(0, 80)}...`);
             return 'SIMULATED';
         }
-        // Real transport path (unreachable until implemented):
-        return 'FAILED';
+        try {
+            const info = await this._getTransport().sendMail({
+                from: process.env.SMTP_FROM || process.env.SMTP_USER,
+                to, subject, text: String(body)
+            });
+            console.log(`[NOTIFY:email][SENT] to=${to} response="${info.response}"`);
+            return 'SENT';
+        } catch (err) {
+            console.error(`[NOTIFY:email][FAILED] to=${to}:`, err.message);
+            return 'FAILED';
+        }
     }
 };
 
 // --- SMS / WhatsApp --------------------------------------------
+// Generic SMS REST adapter (Twilio-compatible JSON contract):
+// POST {SMS_PROVIDER_URL}/v1/messages with Bearer SMS_PROVIDER_KEY,
+// body { to, from: SMS_FROM, text }. Honest SENT/FAILED by the
+// provider's HTTP response; SIMULATED without credentials.
 const SmsProvider = {
     name: 'sms',
     get configured() {
-        return !!process.env.SMS_PROVIDER_KEY;
+        return !!(process.env.SMS_PROVIDER_URL && process.env.SMS_PROVIDER_KEY);
     },
-    transportImplemented: false,
+    get transportImplemented() {
+        return true;
+    },
     async deliver(to, body) {
         if (!to) return 'SKIPPED';
-        if (!this.configured || !this.transportImplemented) {
+        if (!this.configured) {
             console.log(`[NOTIFY:sms][SIMULATED] to=${to} :: ${String(body).slice(0, 60)}...`);
             return 'SIMULATED';
         }
-        return 'FAILED';
+        try {
+            const res = await fetch(`${process.env.SMS_PROVIDER_URL.replace(/\/$/, '')}/v1/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${process.env.SMS_PROVIDER_KEY}`
+                },
+                body: JSON.stringify({ to, from: process.env.SMS_FROM || 'SIPCOT', text: String(body).slice(0, 480) })
+            });
+            if (!res.ok) {
+                console.error(`[NOTIFY:sms][FAILED] to=${to}: HTTP ${res.status}`);
+                return 'FAILED';
+            }
+            console.log(`[NOTIFY:sms][SENT] to=${to} HTTP ${res.status}`);
+            return 'SENT';
+        } catch (err) {
+            console.error(`[NOTIFY:sms][FAILED] to=${to}:`, err.message);
+            return 'FAILED';
+        }
     }
 };
 

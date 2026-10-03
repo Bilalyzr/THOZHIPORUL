@@ -376,3 +376,16 @@ ALTER TABLE employment_data ALTER COLUMN permanent_employees DROP NOT NULL;
 ALTER TABLE employment_data ALTER COLUMN contract_employees DROP NOT NULL;
 ALTER TABLE csr_activities ALTER COLUMN description DROP NOT NULL;
 ALTER TABLE csr_activities ALTER COLUMN amount_spent DROP NOT NULL;
+
+-- A-CORROBORATION — cross-metric expansion coherence (Yes.docx):
+-- a major single-domain change without corroborating movement in
+-- related domains raises a review finding.
+INSERT INTO intelligence_rules (rule_id, category, description, config) VALUES
+ ('A-CORROBORATION', 'anomaly', 'Major change without corroborating movement in related metrics (expansion coherence)',
+   '{"relatedMinPct":10,"severity":"warning"}')
+ON CONFLICT (rule_id) DO NOTHING;
+
+-- Relational link for filing-proof attachments (F3): documents
+-- submitted alongside a quarterly filing reference it directly.
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS submission_id INTEGER REFERENCES data_submissions(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_documents_submission ON documents (submission_id);

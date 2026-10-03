@@ -302,6 +302,33 @@ async function fileSubmission(opts) {
              JSON.stringify(diff), userId || null, newStatus, source]
         );
 
+        // Filing-proof attachments: real bytes hashed (sha256), written to
+        // uploads/, and linked to this submission. Written before commit;
+        // on rollback an orphan file is possible (harmless, noted here).
+        if (Array.isArray(p.attachments) && p.attachments.length) {
+            const fs = require('fs');
+            const path = require('path');
+            const crypto = require('crypto');
+            const UPLOADS = path.join(__dirname, '..', 'uploads');
+            fs.mkdirSync(UPLOADS, { recursive: true });
+            for (const att of p.attachments) {
+                const bytes = Buffer.from(att.fileBase64, 'base64');
+                const diskName = `filing_${submissionId}_${Date.now()}_${att.fileName}`;
+                fs.writeFileSync(path.join(UPLOADS, diskName), bytes);
+                const contentHash = crypto.createHash('sha256').update(bytes).digest('hex');
+                await client.query(
+                    `INSERT INTO documents
+                       (industry_id, uploaded_by, category, file_name, file_path, file_size_kb,
+                        mime_type, verified, content_hash, submission_id)
+                     VALUES ($1,$2,'submission_attachment',$3,$4,$5,$6,FALSE,$7,$8)`,
+                    [industryId, userId || null, att.fileName, `/uploads/${diskName}`,
+                     Math.max(1, Math.round(bytes.length / 1024)),
+                     att.fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'application/pdf',
+                     contentHash, submissionId]
+                );
+            }
+        }
+
         await client.query('COMMIT');
     } catch (e) {
         try { await client.query('ROLLBACK'); } catch (_) { /* tx already gone */ }

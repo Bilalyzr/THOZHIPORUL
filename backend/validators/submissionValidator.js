@@ -201,6 +201,34 @@ async function validateSubmission(payload, opts = {}) {
         }
     }
 
+    // ---- Filing-proof attachments (optional, ≤5 files, ≤5MB each) --
+    normalized.attachments = null;
+    if (payload.attachments !== undefined && payload.attachments !== null) {
+        if (!Array.isArray(payload.attachments)) {
+            errors.push(err('attachments', 'attachments must be an array of {fileName, fileBase64}.', 'INVALID'));
+        } else if (payload.attachments.length > 5) {
+            errors.push(err('attachments', 'A filing may attach at most 5 proof documents.', 'TOO_MANY'));
+        } else {
+            const items = [];
+            for (let i = 0; i < payload.attachments.length; i++) {
+                const raw = payload.attachments[i] || {};
+                const pfx = `attachments[${i}]`;
+                const name = raw.fileName !== undefined && raw.fileName !== null ? String(raw.fileName) : '';
+                if (!name.trim()) { errors.push(err(`${pfx}.fileName`, 'Attachment file name is required.', 'REQUIRED')); continue; }
+                const safe = name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+                if (typeof raw.fileBase64 !== 'string' || !raw.fileBase64) {
+                    errors.push(err(`${pfx}.fileBase64`, 'Attachment content (base64) is required.', 'REQUIRED')); continue;
+                }
+                let bytes;
+                try { bytes = Buffer.from(raw.fileBase64, 'base64'); } catch (_) { bytes = null; }
+                if (!bytes || !bytes.length) { errors.push(err(`${pfx}.fileBase64`, 'Attachment is not valid base64.', 'INVALID')); continue; }
+                if (bytes.length > 5 * 1024 * 1024) { errors.push(err(`${pfx}.fileBase64`, 'Attachment exceeds the 5 MB limit.', 'TOO_LARGE')); continue; }
+                items.push({ fileName: safe, fileBase64: raw.fileBase64, byteLength: bytes.length });
+            }
+            normalized.attachments = items;
+        }
+    }
+
     // ---- Empty-filing guard ---------------------------------
     const anyDomain = NUMERIC_FIELDS.some(f => normalized[f] !== null && normalized[f] !== undefined)
         || (normalized.productionItems && normalized.productionItems.length)
