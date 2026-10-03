@@ -18,6 +18,29 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Expired/invalid session → clear stale credentials and return to the
+// login entry point (instead of generic "Error loading data" snackbars).
+// Skipped for the login endpoint itself so bad credentials show their
+// own message, and only fires when a token HAD been stored.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response && error.response.status;
+    const url = (error.config && error.config.url) || '';
+    const hadToken = !!localStorage.getItem('token');
+    if (status === 401 && hadToken && !url.includes('/auth/login') && !url.includes('/auth/verify-mfa')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+      if (!window.location.pathname.startsWith('/role-selection')) {
+        window.location.assign('/role-selection?session=expired');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const authService = {
   login: async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
