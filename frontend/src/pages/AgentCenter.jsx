@@ -440,7 +440,7 @@ function WorkflowsPanel() {
             { label: 'Total Runs', value: metrics.agent_runs_total, icon: <Memory />, color: '#1F4E79' },
             { label: 'Failures', value: metrics.agent_failures_total, icon: <Warning />, color: '#D32F2F' },
             { label: 'Tool Calls', value: metrics.tool_calls_total, icon: <Bolt />, color: '#F57C00' },
-            { label: 'Model Calls', value: metrics.model_calls_total, icon: <Science />, color: '#7B1FA2' },
+            { label: 'Model Calls', value: metrics.model_calls_total, icon: <Science />, color: '#1F4E79' },
             { label: 'Avg Duration', value: `${metrics.avg_workflow_duration_ms || 0}ms`, icon: <Speed />, color: '#2E7D32' },
             { label: 'Pending Approvals', value: metrics.approvals_pending, icon: <Schedule />, color: '#F57C00' },
           ].map((m, i) => (
@@ -570,7 +570,7 @@ export default function AgentCenter() {
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ p: 1.5, borderRadius: 3, bgcolor: '#7B1FA210', color: '#7B1FA2' }}>
+          <Box sx={{ p: 1.5, borderRadius: 3, bgcolor: 'rgba(31,78,121,0.08)', color: 'primary.main' }}>
             <Memory sx={{ fontSize: 32 }} />
           </Box>
           <Box>

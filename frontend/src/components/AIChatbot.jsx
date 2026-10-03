@@ -152,11 +152,11 @@ export default function AIChatbot() {
           sx={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 1300,
             width: 56, height: 56,
-            background: 'linear-gradient(135deg, #7B1FA2, #5E1A7A)',
+            background: 'linear-gradient(135deg, #1F4E79, #2E7D32)',
             animation: `${float} 3s ease-in-out infinite`,
             '&:hover': { transform: 'scale(1.1)' },
             transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-            boxShadow: '0 8px 32px rgba(123,31,162,0.4)',
+            boxShadow: '0 8px 32px rgba(31,78,121,0.4)',
           }}
         >
           <AutoAwesomeIcon sx={{ color: 'white', fontSize: 26 }} />
@@ -177,7 +177,7 @@ export default function AIChatbot() {
       }}>
         <Box sx={{
           p: 2, display: 'flex', alignItems: 'center', gap: 1.5,
-          background: 'linear-gradient(135deg, #7B1FA2, #4A148C)',
+          background: 'linear-gradient(135deg, #1F4E79, #143656)',
           color: 'white',
         }}>
           <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 36, height: 36 }}>
@@ -201,14 +201,14 @@ export default function AIChatbot() {
         }}>
         {messages.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <AutoAwesomeIcon sx={{ fontSize: 48, color: '#7B1FA2', opacity: 0.3, mb: 2 }} />
+            <AutoAwesomeIcon sx={{ fontSize: 48, color: '#1F4E79', opacity: 0.3, mb: 2 }} />
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Ask about compliance, anomalies, investment, forecasts, or missing filings.
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
               {DEFAULT_SUGGESTIONS.map(s => (
                 <Chip key={s} label={s} size="small" variant="outlined" onClick={() => handleSend(s)}
-                  sx={{ fontSize: '0.72rem', mb: 0.5, borderColor: '#7B1FA230', color: '#7B1FA2' }} />
+                  sx={{ fontSize: '0.72rem', mb: 0.5, borderColor: 'rgba(31,78,121,0.2)', color: '#1F4E79' }} />
               ))}
             </Box>
             {history.length > 0 && (
