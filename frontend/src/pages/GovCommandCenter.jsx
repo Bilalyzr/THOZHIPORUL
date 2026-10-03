@@ -303,10 +303,6 @@ export default function GovCommandCenter() {
       })
       .catch(() => {});
 
-    lifecycleService.getMdEscalations()
-      .then((res) => setMdEscalations(res.data || []))
-      .catch(() => {});
-
     // AI Decision Support — populate the action panel from the REAL
     // dashboard-summary endpoint (risk_distribution + recommendations)
     // instead of leaving it empty. Only seeds tasks the officer hasn't

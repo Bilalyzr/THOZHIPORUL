@@ -326,6 +326,9 @@ app.use('/api/agent', require('./routes/agent'));
 
 // v2 subscription plans — redesigned for current software capabilities
 app.use('/api/subscription-v2', require('./routes/subscription-v2'));
+
+// Comprehensive chart data (all visualizations in one payload)
+app.use('/api/charts', require('./routes/charts'));
 require('./agentic/workflows/submissionWorkflow');
 require('./agentic/workflows/otherWorkflows');
 require('./agentic/agents/specialists');
