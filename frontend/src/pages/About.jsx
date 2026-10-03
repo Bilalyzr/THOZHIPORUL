@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Box, Container, Typography, Grid, Paper, Button, Chip, Divider, Card, CardContent, Fade
+  Box, Container, Typography, Grid, Paper, Button, Chip, Card, CardContent, Fade
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
@@ -43,7 +43,7 @@ const slideInRight = keyframes`
 
 const sectionPattern = {
   backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)',
-  backgroundSize: '28px 28px',
+  backgroundSize: '28px 28px'
 };
 
 export default function About() {
@@ -73,8 +73,8 @@ export default function About() {
             background: 'linear-gradient(135deg, #2E7D32, #1B5E20)',
             borderRadius: 3, fontSize: '1rem',
             boxShadow: '0 8px 24px rgba(46,125,50,0.45)',
-            '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 16px 36px rgba(46,125,50,0.5)' },
-          }}
+            '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 16px 36px rgba(46,125,50,0.5)' }
+}}
         >
           Access Platform
         </Button>
@@ -97,8 +97,8 @@ export default function About() {
                   border: '1px solid rgba(255,255,255,0.8)',
                   boxShadow: '0 8px 40px rgba(0,0,0,0.08)', textAlign: 'center',
                   animation: `${fadeInUp} 0.6s ease-out ${idx * 0.1}s both`,
-                  '&:hover': { transform: 'translateY(-8px)', boxShadow: `0 24px 48px ${stat.color}18`, borderColor: `${stat.color}30` },
-                }}>
+                  '&:hover': { transform: 'translateY(-8px)', boxShadow: `0 24px 48px ${stat.color}18`, borderColor: `${stat.color}30` }
+}}>
                   <Box sx={{ color: stat.color, mb: 1.5, display: 'inline-flex', p: 1.5, borderRadius: 2.5, bgcolor: `${stat.color}0d` }}>
                     {stat.icon}
                   </Box>
@@ -144,8 +144,8 @@ export default function About() {
                   sx={{
                     px: 4, py: 1.5, fontWeight: 700, borderColor: '#1F4E79', color: '#1F4E79',
                     borderRadius: 3, borderWidth: 2,
-                    '&:hover': { bgcolor: '#1F4E79', color: 'white', transform: 'translateX(4px)' },
-                  }}>
+                    '&:hover': { bgcolor: '#1F4E79', color: 'white', transform: 'translateX(4px)' }
+}}>
                   Explore All Features
                 </Button>
               </Box>
@@ -157,8 +157,8 @@ export default function About() {
                   borderRadius: 5, overflow: 'hidden', border: '1px solid #e2e8f0',
                   boxShadow: '0 24px 64px rgba(0,0,0,0.08)',
                   '&:hover': { transform: 'translateY(-10px)', boxShadow: '0 40px 80px rgba(0,0,0,0.14)' },
-                  transition: 'all 0.4s ease',
-                }}>
+                  transition: 'all 0.4s ease'
+}}>
                   <Box sx={{ p: 4, bgcolor: 'linear-gradient(135deg, #0d2435 0%, #1a3a12 100%)', background: 'linear-gradient(135deg, #0d2435 0%, #143656 100%)', color: 'white' }}>
                     <Typography variant="h6" fontWeight={800} sx={{ mb: 1 }}>
                       The Problem We Solve
@@ -209,28 +209,28 @@ export default function About() {
               {
                 icon: <VerifiedIcon sx={{ fontSize: 40 }} />, title: 'Data Reliability',
                 desc: 'Server-side validation with field-level errors, cross-metric consistency checks, unit canonicalisation (INR/KL/kWh), and versioned history that never loses data.',
-                color: '#1F4E79', tags: ['Validation', 'Versioning', 'Anomaly Detection'],
-              },
+                color: '#1F4E79', tags: ['Validation', 'Versioning', 'Anomaly Detection']
+},
               {
                 icon: <TrendingUpIcon sx={{ fontSize: 40 }} />, title: 'Industrial Intelligence',
                 desc: 'Quarterly forecasting with Holt-Winters ETS and confidence bands, park-level demand analysis, capacity planning (water/power gap + risk), and growth analytics (QoQ/YoY).',
-                color: '#2E7D32', tags: ['Forecasting', 'Capacity Planning', 'Growth Analytics'],
-              },
+                color: '#2E7D32', tags: ['Forecasting', 'Capacity Planning', 'Growth Analytics']
+},
               {
                 icon: <MemoryIcon sx={{ fontSize: 40 }} />, title: 'Agentic AI',
                 desc: 'LangGraph.js orchestration with 11 specialist agents, 16 registered tools, 6 workflows, and human approval gates. Agents coordinate trusted services — they never become the source of truth.',
-                color: '#7B1FA2', tags: ['LangGraph', '11 Agents', 'Human Gates'],
-              },
+                color: '#7B1FA2', tags: ['LangGraph', '11 Agents', 'Human Gates']
+},
               {
                 icon: <ScheduleIcon sx={{ fontSize: 40 }} />, title: 'Automation',
                 desc: 'Admin-configurable reporting calendar with 5-stage escalating reminders, daily compliance scoring, anomaly batch detection, scheduled report generation, and notification digest batching.',
-                color: '#E65100', tags: ['Calendar', 'Reminders', 'Escalation'],
-              },
+                color: '#E65100', tags: ['Calendar', 'Reminders', 'Escalation']
+},
               {
                 icon: <SecurityIcon sx={{ fontSize: 40 }} />, title: 'Security & Sovereignty',
                 desc: 'Role-based access with encrypted TOTP 2FA, hash-chained audit trails with change payloads, self-hosted LLM runtime (Ollama/vLLM), and zero allottee data egress to third-party AI.',
-                color: '#B71C1C', tags: ['RBAC + 2FA', 'Audit Chain', 'Zero Egress'],
-              },
+                color: '#B71C1C', tags: ['RBAC + 2FA', 'Audit Chain', 'Zero Egress']
+},
             ].map((feature, idx) => (
               <Grid key={idx} size={{ xs: 12, sm: 6, md: idx < 3 ? 4 : 6 }}>
                 <Fade in timeout={400 + idx * 120}>
@@ -241,14 +241,14 @@ export default function About() {
                     boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
                     animation: `${fadeInUp} 0.6s ease-out ${idx * 0.12}s both`,
                     '&:hover': { transform: 'translateY(-10px)', boxShadow: `0 28px 56px ${feature.color}18`, borderColor: `${feature.color}30` },
-                    transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
-                  }}>
+                    transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)'
+}}>
                     <CardContent sx={{ p: 3.5 }}>
                       <Box sx={{
                         color: feature.color, mb: 2.5, width: 64, height: 64, borderRadius: 3,
                         bgcolor: `${feature.color}0d`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        '&:hover': { transform: 'scale(1.1) rotate(5deg)' }, transition: 'all 0.3s ease',
-                      }}>
+                        '&:hover': { transform: 'scale(1.1) rotate(5deg)' }, transition: 'all 0.3s ease'
+}}>
                         {feature.icon}
                       </Box>
                       <Typography variant="h6" fontWeight={800} sx={{ mb: 1.5, fontSize: '1.15rem', color: feature.color }}>
@@ -295,8 +295,8 @@ export default function About() {
                   p: 2, borderRadius: 2, textAlign: 'center',
                   border: '1px solid #e2e8f0', bgcolor: 'white',
                   '&:hover': { borderColor: '#1F4E7930', boxShadow: '0 4px 16px rgba(31,78,121,0.1)' },
-                  transition: 'all 0.2s ease',
-                }}>
+                  transition: 'all 0.2s ease'
+}}>
                   <Typography variant="body2" fontWeight={600} color="text.primary" sx={{ fontSize: '0.85rem' }}>
                     {name}
                   </Typography>
@@ -342,8 +342,8 @@ export default function About() {
       <Box sx={{
         py: 16,
         background: 'linear-gradient(135deg, #060d1a 0%, #0d2435 40%, #0a1e14 100%)',
-        color: 'white', textAlign: 'center', position: 'relative', overflow: 'hidden',
-      }}>
+        color: 'white', textAlign: 'center', position: 'relative', overflow: 'hidden'
+}}>
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
           <AutoAwesomeIcon sx={{ fontSize: 64, mb: 3, opacity: 0.9, animation: `${float} 4s ease-in-out infinite` }} />
           <Typography variant="h3" fontWeight={900} sx={{ mb: 3, fontSize: { xs: '1.75rem', md: '2.75rem' } }}>

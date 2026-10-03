@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Paper, Grid, Card, CardContent, Button,
-  Radio, RadioGroup, FormControlLabel, FormControl, FormLabel,
+  Box, Typography, Paper, Grid, Button,
+  Radio, RadioGroup, FormControlLabel, FormControl,
   Select, MenuItem, InputLabel, Checkbox, FormGroup,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, Divider, LinearProgress, Alert, Snackbar, Dialog, DialogTitle,
-  DialogContent, DialogActions, List, ListItem, ListItemIcon, ListItemText,
-  Avatar, TextField, IconButton
+  DialogContent, DialogActions, List, ListItem, ListItemText
 } from '@mui/material';
 import {
   PictureAsPdf, TableChart, DataObject, Download,
@@ -29,8 +28,8 @@ export default function ReportExportCenter() {
   const [columns, setColumns] = useState({
     company_name: true, investment: true, employment: true,
     location: true, water_usage: false, power_usage: false,
-    csr_spend: false, compliance: true, turnover: false,
-  });
+    csr_spend: false, compliance: true, turnover: false
+});
 
 
 

@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Paper, TextField, Button, Grid, Alert,
-  Snackbar, Card, CardContent, Divider, List, ListItem,
-  ListItemIcon, ListItemText, Container, Chip, Stack, Fade
+  Box, Typography, Paper, TextField, Button, Grid, Card, CardContent, Container, Chip, Stack, Fade
 } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import {
@@ -21,7 +19,7 @@ const fadeInUp = keyframes`
 
 const sectionPattern = {
   backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)',
-  backgroundSize: '28px 28px',
+  backgroundSize: '28px 28px'
 };
 
 import { grievanceService } from '../services/api';
@@ -69,20 +67,20 @@ export default function PublicGrievance() {
       label: 'Grievances Resolved',
       value: stats ? fmt(stats.resolved) : '—',
       icon: <AssignmentTurnedIn sx={{ fontSize: 30 }} />,
-      color: '#2E7D32',
-    },
+      color: '#2E7D32'
+},
     {
       label: 'Active Inquiries',
       value: stats ? fmt(stats.active) : '—',
       icon: <HourglassEmpty sx={{ fontSize: 30 }} />,
-      color: '#1F4E79',
-    },
+      color: '#1F4E79'
+},
     {
       label: 'Avg. Response Time',
       value: avgHrs ? `${avgHrs} hr${avgHrs !== 1 ? 's' : ''}` : '—',
       icon: <Speed sx={{ fontSize: 30 }} />,
-      color: '#2E7D32',
-    },
+      color: '#2E7D32'
+},
   ];
 
   const faqs = [
@@ -124,8 +122,8 @@ export default function PublicGrievance() {
                       boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
                       transition: 'all 0.3s ease',
                       animation: `${fadeInUp} 0.5s ease-out ${i * 0.1}s both`,
-                      '&:hover': { transform: 'translateY(-8px)', boxShadow: `0 20px 48px ${stat.color}20`, borderColor: `${stat.color}30` },
-                    }}
+                      '&:hover': { transform: 'translateY(-8px)', boxShadow: `0 20px 48px ${stat.color}20`, borderColor: `${stat.color}30` }
+}}
                   >
                     <Box sx={{ color: stat.color, mb: 1.5, display: 'flex', justifyContent: 'center' }}>
                       <Box sx={{ p: 1.5, borderRadius: 2.5, background: `linear-gradient(135deg, ${stat.color}18, ${stat.color}08)`, display: 'inline-flex', boxShadow: `0 4px 12px ${stat.color}20` }}>
@@ -167,8 +165,8 @@ export default function PublicGrievance() {
                     boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
                     overflow: 'hidden',
                     '&:hover': { boxShadow: '0 16px 56px rgba(0,0,0,0.1)' },
-                    transition: 'all 0.3s ease',
-                  }}
+                    transition: 'all 0.3s ease'
+}}
                 >
                   <Box sx={{ height: 5, background: 'linear-gradient(90deg, #1F4E79, #2E7D32, #1F4E79)', backgroundSize: '200% 100%' }} />
                   <CardContent sx={{ p: 4 }}>
@@ -238,8 +236,8 @@ export default function PublicGrievance() {
                                 borderRadius: 3, fontSize: '1rem',
                                 boxShadow: '0 8px 24px rgba(31,78,121,0.4)',
                                 transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 16px 40px rgba(46,125,50,0.5)' },
-                              }}
+                                '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 16px 40px rgba(46,125,50,0.5)' }
+}}
                             >
                               Submit Grievance
                             </Button>
@@ -276,8 +274,8 @@ export default function PublicGrievance() {
                         boxShadow: '0 2px 16px rgba(0,0,0,0.04)',
                         transition: 'all 0.25s ease',
                         animation: `${fadeInUp} 0.5s ease-out ${0.3 + idx * 0.1}s both`,
-                        '&:hover': { transform: 'translateX(6px)', boxShadow: '0 8px 32px rgba(46,125,50,0.12)', borderColor: '#2E7D32' },
-                      }}
+                        '&:hover': { transform: 'translateX(6px)', boxShadow: '0 8px 32px rgba(46,125,50,0.12)', borderColor: '#2E7D32' }
+}}
                     >
                       <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
@@ -297,8 +295,8 @@ export default function PublicGrievance() {
                     mt: 4, borderRadius: 3.5, p: 3,
                     bgcolor: 'rgba(46,125,50,0.05)',
                     border: '1px solid rgba(46,125,50,0.2)',
-                    boxShadow: 'none',
-                  }}
+                    boxShadow: 'none'
+}}
                 >
                   <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5, color: '#2E7D32' }}>
                     How Grievance Redressal Works

@@ -7,7 +7,7 @@ import {
   Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip
 } from '@mui/material';
 import {
-  CloudUpload, Download, CheckCircle, Edit, Visibility,
+  CloudUpload, Download, Edit, Visibility,
   NavigateBefore, NavigateNext, Send, Save, Add, DeleteOutline, History
 } from '@mui/icons-material';
 import { submissionService, lifecycleService, reportingPeriodService } from '../services/api';
@@ -45,7 +45,7 @@ const EMPTY_FORM = {
   csrPillar: 'education_skills', csrPatBaseline: '', csrMandatedSpend: '',
   csrActualSpend: '', csrPartner: '', csrCsr1No: '', csrSdgGoals: '', csrLocation: '',
   productionItems: [],       // [{productName, quantity, unit, productionValue(in Cr input), remarks}]
-  amendmentReason: '',
+  amendmentReason: ''
 };
 
 export default function UnifiedDataSubmission() {
@@ -202,8 +202,8 @@ export default function UnifiedDataSubmission() {
       csrActivities: d.csrActivities ?? '',
       csrSpent: d.csrSpent != null ? String(Number(d.csrSpent) / CR) : '',
       csrBeneficiaries: d.csrBeneficiaries ?? '',
-      productionItems: (d.productionItems || []).map(p => ({ ...p, productionValue: p.productionValue != null ? String(Number(p.productionValue) / CR) : '' })),
-    });
+      productionItems: (d.productionItems || []).map(p => ({ ...p, productionValue: p.productionValue != null ? String(Number(p.productionValue) / CR) : '' }))
+});
     setEditingId(entry.id);
     setActiveStep(0);
     setMode('form');
@@ -233,8 +233,8 @@ export default function UnifiedDataSubmission() {
         wasteRecycledPct: p.waste_recycled_pct ?? f.wasteRecycledPct,
         csrActivities: p.csr_activities || f.csrActivities,
         csrSpent: p.csr_spent != null ? String(Number(p.csr_spent) / CR) : f.csrSpent,
-        productionItems: (p.production_items || []).map(x => ({ ...x, productionValue: x.production_value != null ? String(Number(x.production_value) / CR) : '' })),
-      }));
+        productionItems: (p.production_items || []).map(x => ({ ...x, productionValue: x.production_value != null ? String(Number(x.production_value) / CR) : '' }))
+}));
       setSnackbar({ open: true, message: `Prefilled from your last filing (${p.period_year}-Q${p.period_quarter ?? 'FY'}).`, severity: 'success' });
     } catch {
       setSnackbar({ open: true, message: 'Prefill failed.', severity: 'error' });
@@ -333,8 +333,8 @@ export default function UnifiedDataSubmission() {
         wasteRecycledPct: cells[13] !== '' && cells[13] !== undefined ? Number(cells[13]) : null,
         csrActivities: cells[14] || null,
         csrSpent: cells[15] !== '' && cells[15] !== undefined ? Number(cells[15]) * CR : null,
-        csrBeneficiaries: cells[16] !== '' && cells[16] !== undefined ? Number(cells[16]) : null,
-      };
+        csrBeneficiaries: cells[16] !== '' && cells[16] !== undefined ? Number(cells[16]) : null
+};
       try {
         const res = await submissionService.submit(payload);
         results.push(`Row ${i}: ✅ ${res.data.msg || 'filed'}${res.data.version ? ` (v${res.data.version})` : ''}`);

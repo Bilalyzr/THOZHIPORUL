@@ -6,7 +6,7 @@ import {
   CircularProgress, Tooltip
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Check, Star, ArrowForward, WorkspacePremium, CheckCircle, Close, Insights, Memory, Security, Rocket, TrendingUp, Diamond, Bolt, School } from '@mui/icons-material';
+import { Check, Star, ArrowForward, WorkspacePremium, CheckCircle, Close, Insights, Memory, Security, Rocket, TrendingUp, Diamond, School } from '@mui/icons-material';
 import { keyframes } from '@emotion/react';
 import UnifiedNav from '../components/UnifiedNav';
 import UnifiedFooter from '../components/UnifiedFooter';
@@ -31,7 +31,7 @@ const fadeInUp = keyframes`
 
 const sectionPattern = {
   backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)',
-  backgroundSize: '28px 28px',
+  backgroundSize: '28px 28px'
 };
 
 // V2 plan data — mirrors backend/routes/subscription-v2.js PLANS_V2
@@ -58,8 +58,8 @@ const V2_PLANS = [
     isPopular: false,
     color: '#64748B',
     gradient: 'linear-gradient(135deg, #64748B 0%, #475569 100%)',
-    accent: '#94A3B8',
-  },
+    accent: '#94A3B8'
+},
   {
     key: 'sme_pro',
     name: 'Professional',
@@ -84,8 +84,8 @@ const V2_PLANS = [
     isPopular: true,
     color: '#2E7D32',
     gradient: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)',
-    accent: '#4CAF50',
-  },
+    accent: '#4CAF50'
+},
   {
     key: 'enterprise_suite',
     name: 'Enterprise',
@@ -110,8 +110,8 @@ const V2_PLANS = [
     isPopular: false,
     color: '#1F4E79',
     gradient: 'linear-gradient(135deg, #1F4E79 0%, #143656 100%)',
-    accent: '#42A5F5',
-  },
+    accent: '#42A5F5'
+},
 ];
 
 // V2 comparison — mirrors backend COMPARISON
@@ -222,8 +222,8 @@ export default function SubscriptionPlans() {
           razorpay_order_id: order.orderId,
           razorpay_payment_id: 'mock_pay_' + order.orderId.slice(-10),
           razorpay_signature: 'mock',
-          plan: planKey,
-        });
+          plan: planKey
+});
         if (verifyRes.data && !verifyRes.data.error) {
           setSnackbar({ open: true, message: `Successfully upgraded to ${planName}! (Mock mode)`, severity: 'success' });
           invalidateSubscriptionCache();
@@ -247,8 +247,8 @@ export default function SubscriptionPlans() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature,
-              plan: planKey,
-            });
+              plan: planKey
+});
             if (verifyRes.data && !verifyRes.data.error) {
               setSnackbar({ open: true, message: `Successfully upgraded to ${planName}!`, severity: 'success' });
               invalidateSubscriptionCache();
@@ -259,8 +259,8 @@ export default function SubscriptionPlans() {
           } catch { setSnackbar({ open: true, message: 'Payment verification failed.', severity: 'error' }); }
           setProcessing(null);
         },
-        modal: { ondismiss: () => { setSnackbar({ open: true, message: 'Payment cancelled.', severity: 'info' }); setProcessing(null); } },
-      });
+        modal: { ondismiss: () => { setSnackbar({ open: true, message: 'Payment cancelled.', severity: 'info' }); setProcessing(null); } }
+});
       rzp.open();
     } catch (err) {
       setSnackbar({ open: true, message: err.response?.data?.error || 'Could not start checkout.', severity: 'error' });
@@ -321,9 +321,9 @@ export default function SubscriptionPlans() {
                       ? '0 36px 72px rgba(46,125,50,0.28)'
                       : `0 24px 56px ${plan.color}15`,
                     borderColor: plan.isPopular ? '#2E7D32' : plan.accent,
-                    '& .plan-icon': { transform: 'scale(1.15) rotate(5deg)' },
-                  },
-                }}>
+                    '& .plan-icon': { transform: 'scale(1.15) rotate(5deg)' }
+}
+}}>
                   {/* Ribbon for popular */}
                   {plan.isPopular && (
                     <Box sx={{
@@ -332,8 +332,8 @@ export default function SubscriptionPlans() {
                       background: 'linear-gradient(135deg, #4CAF50, #2E7D32)',
                       color: 'white', fontWeight: 800, fontSize: '0.7rem', letterSpacing: '0.12em',
                       boxShadow: '0 4px 20px rgba(46,125,50,0.5)', zIndex: 2,
-                      display: 'flex', alignItems: 'center', gap: 0.5,
-                    }}>
+                      display: 'flex', alignItems: 'center', gap: 0.5
+}}>
                       <Star sx={{ fontSize: 13 }} /> MOST POPULAR
                     </Box>
                   )}
@@ -346,9 +346,9 @@ export default function SubscriptionPlans() {
                     borderRadius: '20px 20px 0 0',
                     '&::after': {
                       content: '""', position: 'absolute', inset: 0,
-                      background: 'radial-gradient(circle at 30% 120%, rgba(255,255,255,0.15) 0%, transparent 60%)',
-                    },
-                  }}>
+                      background: 'radial-gradient(circle at 30% 120%, rgba(255,255,255,0.15) 0%, transparent 60%)'
+}
+}}>
                     <Box className="plan-icon" sx={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: 56, height: 56, borderRadius: 3,
@@ -356,8 +356,8 @@ export default function SubscriptionPlans() {
                       border: '2px solid rgba(255,255,255,0.3)',
                       backdropFilter: 'blur(8px)',
                       transition: 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-                      zIndex: 1,
-                    }}>
+                      zIndex: 1
+}}>
                       <PlanIcon sx={{ fontSize: 30, color: 'white' }} />
                     </Box>
                     <Chip
@@ -367,8 +367,8 @@ export default function SubscriptionPlans() {
                         position: 'absolute', bottom: 8, right: 12,
                         bgcolor: 'rgba(255,255,255,0.2)', color: 'white',
                         fontSize: '0.6rem', fontWeight: 600, height: 20,
-                        backdropFilter: 'blur(4px)',
-                      }}
+                        backdropFilter: 'blur(4px)'
+}}
                     />
                   </Box>
 
@@ -388,8 +388,8 @@ export default function SubscriptionPlans() {
                       mb: 3, py: 2.5, px: 2,
                       borderRadius: 3,
                       bgcolor: `${plan.color}08`,
-                      border: `1px solid ${plan.color}15`,
-                    }}>
+                      border: `1px solid ${plan.color}15`
+}}>
                       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
                         {billingPeriod === 'annual' && (
                           <Typography component="span" sx={{ fontSize: '1.1rem', color: 'text.disabled', textDecoration: 'line-through', fontWeight: 500 }}>
@@ -401,8 +401,8 @@ export default function SubscriptionPlans() {
                           background: plan.gradient,
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
-                          lineHeight: 1.1,
-                        }}>
+                          lineHeight: 1.1
+}}>
                           {billingPeriod === 'annual'
                             ? `₹${Math.round(plan.annualPrice / 12).toLocaleString('en-IN')}`
                             : `₹${plan.monthlyPrice.toLocaleString('en-IN')}`}
@@ -436,8 +436,8 @@ export default function SubscriptionPlans() {
                       <Typography variant="caption" sx={{
                         display: 'block', mb: 2, textAlign: 'center',
                         color: 'text.disabled', fontStyle: 'italic',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+}}>
                         Best for: {plan.target.split(',')[0]}
                       </Typography>
                     </Tooltip>
@@ -448,8 +448,8 @@ export default function SubscriptionPlans() {
                     {isPlus && (
                       <Typography variant="caption" sx={{
                         display: 'block', mb: 1.5, fontWeight: 700,
-                        color: plan.color, textAlign: 'center', letterSpacing: '0.05em',
-                      }}>
+                        color: plan.color, textAlign: 'center', letterSpacing: '0.05em'
+}}>
                         EVERYTHING IN {plan.key === 'sme_pro' ? 'STARTER' : 'PROFESSIONAL'}, PLUS:
                       </Typography>
                     )}
@@ -460,8 +460,8 @@ export default function SubscriptionPlans() {
                             <Box sx={{
                               width: 20, height: 20, borderRadius: '50%',
                               background: `${plan.color}12`,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
+                              display: 'flex', alignItems: 'center', justifyContent: 'center'
+}}>
                               <Check sx={{ fontSize: 13, color: plan.color }} />
                             </Box>
                           </ListItemIcon>
@@ -471,8 +471,8 @@ export default function SubscriptionPlans() {
                               variant: 'body2',
                               fontWeight: 500,
                               color: 'text.primary',
-                              sx: { lineHeight: 1.4 },
-                            }}
+                              sx: { lineHeight: 1.4 }
+}}
                           />
                         </ListItem>
                       ))}
@@ -501,14 +501,14 @@ export default function SubscriptionPlans() {
                           boxShadow: plan.isPopular
                             ? `0 12px 32px ${plan.color}40`
                             : `0 8px 24px ${plan.color}18`,
-                          background: plan.isPopular ? plan.gradient : `${plan.color}08`,
-                        },
+                          background: plan.isPopular ? plan.gradient : `${plan.color}08`
+},
                         '&.Mui-disabled': {
                           bgcolor: currentTier === plan.key ? `${plan.color}10` : 'transparent',
                           color: currentTier === plan.key ? plan.color : 'text.disabled',
-                          borderColor: currentTier === plan.key ? plan.color : 'text.disabled',
-                        },
-                      }}
+                          borderColor: currentTier === plan.key ? plan.color : 'text.disabled'
+}
+}}
                     >
                       {currentTier === plan.key
                         ? '✓ Current Plan'

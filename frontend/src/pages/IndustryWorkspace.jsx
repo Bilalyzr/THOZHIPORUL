@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Paper, Grid, Card, CardContent, Chip, LinearProgress,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Box, Typography, Paper, Grid, Card, Chip, LinearProgress,
   List, ListItem, ListItemIcon, ListItemText, Button, Divider, Avatar,
   Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert,
   CircularProgress
 } from '@mui/material';
 import {
   CheckCircle, RadioButtonUnchecked, Warning, Info, Business,
-  People, CurrencyRupee, Bolt, WaterDrop, Description,
-  UploadFile, Gavel, Assignment, Schedule
+  People, CurrencyRupee, Bolt, WaterDrop, Description
 } from '@mui/icons-material';
 import { workspaceService, researchService, lifecycleService, strategyService } from '../services/api';
 import { createDashboardStyles } from '../utils/dashboardStyles';

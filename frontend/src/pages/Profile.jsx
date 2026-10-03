@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Grid, TextField, Button, Avatar, Chip, Divider,
-  CircularProgress, Alert, Snackbar, Card, CardContent, IconButton, Tooltip
+  CircularProgress, Alert, Snackbar
 } from '@mui/material';
 import {
   Edit, Save, Cancel, Person, Email, Phone, Factory, LocationOn,
-  Business, Assessment, Group, Security, Badge, Schedule, CheckCircle,
+  Business, Assessment, Group, Security, Badge, CheckCircle,
   AdminPanelSettings, AccountBalance, Shield
 } from '@mui/icons-material';
 import { accountService } from '../services/api';
@@ -81,8 +81,8 @@ export default function Profile() {
   const roleMeta = {
     admin: { label: 'Administrator', icon: <AdminPanelSettings />, color: '#1F4E79' },
     govt: { label: 'Government Officer', icon: <AccountBalance />, color: '#E67E22' },
-    industry: { label: 'Industry', icon: <Factory />, color: '#2E7D32' },
-  };
+    industry: { label: 'Industry', icon: <Factory />, color: '#2E7D32' }
+};
   const meta = roleMeta[role] || roleMeta.admin;
   const initial = (profile.companyName || profile.officerName || profile.name || profile.email || 'U').charAt(0).toUpperCase();
 
@@ -93,8 +93,8 @@ export default function Profile() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Avatar sx={{
             width: 64, height: 64, fontSize: '1.8rem', fontWeight: 800,
-            bgcolor: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)',
-          }}>
+            bgcolor: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)'
+}}>
             {initial}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 200 }}>

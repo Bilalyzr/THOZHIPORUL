@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, TextField, Button, Grid, IconButton, MenuItem,
-  Snackbar, Alert, CircularProgress, Chip, Divider, Tabs, Tab, Table,
+  Snackbar, Alert, CircularProgress, Chip, Tabs, Tab, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog,
   DialogTitle, DialogContent, DialogActions, InputLabel, FormControl, Select
 } from '@mui/material';
@@ -75,8 +75,8 @@ export default function MobileInspection() {
         outcome: form.outcome,
         findings: form.findings,
         latitude: form.latitude ? parseFloat(form.latitude) : null,
-        longitude: form.longitude ? parseFloat(form.longitude) : null,
-      });
+        longitude: form.longitude ? parseFloat(form.longitude) : null
+});
       setSnackbar({ open: true, message: `Inspection submitted. Outcome: ${form.outcome}.`, severity: 'success' });
       setForm({ industryId: '', inspectionType: 'environmental', outcome: 'compliant', findings: '', latitude: '', longitude: '' });
       // Refresh list
@@ -107,8 +107,8 @@ export default function MobileInspection() {
         industryId: parseInt(incentiveDialog.industryId),
         incentiveScheme: incentiveDialog.incentiveScheme,
         amountSanctioned: parseFloat(incentiveDialog.amountSanctioned),
-        inspectionId: incentiveDialog.inspectionId || null,
-      });
+        inspectionId: incentiveDialog.inspectionId || null
+});
       setSnackbar({ open: true, message: 'Incentive sanctioned + industry notified.', severity: 'success' });
       setIncentiveDialog(null);
       const r = await lifecycleService.getIncentives(); setIncentives(r.data || []);

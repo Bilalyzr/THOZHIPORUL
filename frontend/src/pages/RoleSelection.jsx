@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  Box, Container, Typography, Grid, Card, CardActionArea, CardContent,
-  Avatar, Stack, Chip, Button, Fade, Slide, Paper, Divider, Alert
+  Box, Container, Typography, Grid, Card, CardActionArea,
+  Avatar, Stack, Chip, Button, Fade, Slide, Divider, Alert
 } from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
@@ -31,8 +31,8 @@ const portalOptions = [
     icon: <AdminPanelSettingsIcon sx={{ fontSize: 48 }} />,
     color: '#1F4E79',
     gradient: 'linear-gradient(135deg, #1F4E79, #3A74A7)',
-    features: ['Real-time Monitoring', 'User Management', 'System Analytics', 'Compliance Oversight'],
-  },
+    features: ['Real-time Monitoring', 'User Management', 'System Analytics', 'Compliance Oversight']
+},
   {
     role: 'industry',
     title: 'Industry Portal',
@@ -40,8 +40,8 @@ const portalOptions = [
     icon: <FactoryIcon sx={{ fontSize: 48 }} />,
     color: '#2E7D32',
     gradient: 'linear-gradient(135deg, #2E7D32, #4CAF50)',
-    features: ['Data Submission', 'Compliance Tracking', 'Service Requests', 'Document Management'],
-  },
+    features: ['Data Submission', 'Compliance Tracking', 'Service Requests', 'Document Management']
+},
   {
     role: 'govt',
     title: 'Government Officer',
@@ -49,8 +49,8 @@ const portalOptions = [
     icon: <AccountBalanceIcon sx={{ fontSize: 48 }} />,
     color: '#E67E22',
     gradient: 'linear-gradient(135deg, #E67E22, #F5A623)',
-    features: ['Command Center', 'State Analytics', 'Compliance Engine', 'Report Generation'],
-  },
+    features: ['Command Center', 'State Analytics', 'Compliance Engine', 'Report Generation']
+},
 ];
 
 
@@ -73,8 +73,8 @@ export default function RoleSelection() {
       background: 'linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 50%, #CBD5E1 100%)',
       py: { xs: 6, md: 10 },
       position: 'relative', 
-      overflow: 'hidden',
-    }}>
+      overflow: 'hidden'
+}}>
       {/* Background decorations */}
       <Box sx={{
         position: 'absolute', 
@@ -84,8 +84,8 @@ export default function RoleSelection() {
         background: 'radial-gradient(circle, rgba(31, 78, 121, 0.08) 0%, transparent 70%)',
         top: -200, 
         right: -200,
-        pointerEvents: 'none',
-      }} />
+        pointerEvents: 'none'
+}} />
       <Box sx={{
         position: 'absolute', 
         width: 500, 
@@ -94,8 +94,8 @@ export default function RoleSelection() {
         background: 'radial-gradient(circle, rgba(46, 125, 50, 0.08) 0%, transparent 70%)',
         bottom: -150, 
         left: -150,
-        pointerEvents: 'none',
-      }} />
+        pointerEvents: 'none'
+}} />
       <Box sx={{
         position: 'absolute', 
         width: 400, 
@@ -104,8 +104,8 @@ export default function RoleSelection() {
         background: 'radial-gradient(circle, rgba(230, 126, 34, 0.05) 0%, transparent 70%)',
         top: '35%', 
         left: '40%',
-        pointerEvents: 'none',
-      }} />
+        pointerEvents: 'none'
+}} />
 
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
         {sessionExpired && (
@@ -125,8 +125,8 @@ export default function RoleSelection() {
               px: 2,
               py: 0.8,
               transition: 'all 0.2s',
-              '&:hover': { color: '#1F4E79', bgcolor: 'rgba(31, 78, 121, 0.06)' },
-            }}
+              '&:hover': { color: '#1F4E79', bgcolor: 'rgba(31, 78, 121, 0.06)' }
+}}
           >
             Back to Home
           </Button>
@@ -146,8 +146,8 @@ export default function RoleSelection() {
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.4)',
                 boxShadow: '0 8px 32px rgba(31, 78, 121, 0.08)',
-                animation: `${float} 6s ease-in-out infinite`,
-              }}>
+                animation: `${float} 6s ease-in-out infinite`
+}}>
                 <img src={logoTransparent} alt="THOZHIRPORUL Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
               </Box>
             </Box>
@@ -160,8 +160,8 @@ export default function RoleSelection() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               backgroundSize: '200% auto',
-              animation: `${shimmer} 6s linear infinite`,
-            }}>
+              animation: `${shimmer} 6s linear infinite`
+}}>
               Welcome to THOZHIRPORUL
             </Typography>
 
@@ -185,9 +185,9 @@ export default function RoleSelection() {
                   '&:hover': {
                     transform: 'translateY(-10px)',
                     boxShadow: `0 30px 60px ${option.color}18`,
-                    borderColor: option.color,
-                  },
-                }}>
+                    borderColor: option.color
+}
+}}>
                   <CardActionArea
                     onClick={() => navigate(`/login/${option.role}`)}
                     sx={{ 
@@ -200,11 +200,11 @@ export default function RoleSelection() {
                       alignItems: 'stretch',
                       '&:hover .role-avatar': {
                         transform: 'scale(1.08) rotate(5deg)',
-                        boxShadow: `0 16px 36px ${option.color}45`,
-                      },
+                        boxShadow: `0 16px 36px ${option.color}45`
+},
                       '&:hover .role-arrow': {
-                        transform: 'translateX(4px)',
-                      }
+                        transform: 'translateX(4px)'
+}
                     }}
                   >
                     <Box sx={{ flexGrow: 1 }}>
@@ -217,8 +217,8 @@ export default function RoleSelection() {
                           mb: 3.5,
                           background: option.gradient,
                           boxShadow: `0 12px 28px ${option.color}25`,
-                          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                        }}
+                          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+}}
                       >
                         {option.icon}
                       </Avatar>
@@ -234,8 +234,8 @@ export default function RoleSelection() {
                           bgcolor: `${option.color}08`,
                           color: option.color,
                           border: `1px solid ${option.color}18`,
-                          borderRadius: 1.5,
-                        }}
+                          borderRadius: 1.5
+}}
                       />
 
                       <Typography variant="h5" fontWeight={900} gutterBottom sx={{ color: option.color, fontSize: '1.35rem', mb: 1.5 }}>
@@ -264,8 +264,8 @@ export default function RoleSelection() {
                               '& .MuiChip-label': {
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 0.5,
-                              }
+                                gap: 0.5
+}
                             }}
                             icon={<span style={{ color: option.color, fontWeight: 900 }}>✓</span>}
                           />
@@ -292,8 +292,8 @@ export default function RoleSelection() {
                           background: option.gradient,
                           color: 'white',
                           boxShadow: `0 8px 20px ${option.color}25`,
-                          borderColor: 'transparent',
-                        }
+                          borderColor: 'transparent'
+}
                       }}
                     >
                       Access Portal

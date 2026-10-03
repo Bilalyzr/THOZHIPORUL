@@ -3,17 +3,16 @@ import {
   Box, Typography, Grid, Card, CardContent, Chip, Button, Tabs, Tab,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   CircularProgress, Tooltip, IconButton, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField, Snackbar, Alert, LinearProgress, Badge, Divider,
+  DialogActions, TextField, Snackbar, Alert, LinearProgress,
   FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import {
-  Memory, PlayArrow, CheckCircle, Cancel, Science, Assessment, Schedule,
+  Memory, CheckCircle, Cancel, Science, Schedule,
   Warning, ArrowForward, Refresh, Stop, ChevronRight, Terminal, Insights,
-  TrendingUp, Security, Bolt, Speed
+  TrendingUp, Bolt, Speed
 } from '@mui/icons-material';
-import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip,
-  ResponsiveContainer, AreaChart, Area, ReferenceLine, Legend
+import { Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip,
+  ResponsiveContainer, AreaChart, Area, Legend
 } from 'recharts';
 import { agentService, intelligenceService } from '../services/api';
 

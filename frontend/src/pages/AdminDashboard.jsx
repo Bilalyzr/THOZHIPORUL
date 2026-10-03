@@ -33,7 +33,6 @@ import {
   TableContainer, 
   TableHead, 
   TableRow, 
-  IconButton, 
   Snackbar
 } from '@mui/material';
 import { submissionService, grievanceService, complianceService } from '../services/api';
@@ -389,8 +388,8 @@ function AdminDashboard() {
               boxShadow: '0 4px 14px 0 rgba(31, 78, 121, 0.39)',
               '&:hover': {
                 background: 'linear-gradient(135deg, #1565C0 0%, #0D47A1 100%)',
-                boxShadow: '0 6px 20px rgba(31, 78, 121, 0.23)',
-              }
+                boxShadow: '0 6px 20px rgba(31, 78, 121, 0.23)'
+}
             }}
           >
             {isFetchingCloud ? 'Syncing Live Data...' : 'Sync Live Data'}
@@ -431,10 +430,10 @@ function AdminDashboard() {
                 borderTop: `4px solid ${kpi.color}`,
                 '&:hover': {
                   transform: 'translateY(-8px)',
-                  boxShadow: `0 16px 40px ${kpi.color}25`,
-                },
-                animation: isLoaded ? `fadeInUp 0.5s ease-out ${index * 0.1}s both` : 'none',
-              }}
+                  boxShadow: `0 16px 40px ${kpi.color}25`
+},
+                animation: isLoaded ? `fadeInUp 0.5s ease-out ${index * 0.1}s both` : 'none'
+}}
             >
               <CardContent sx={{ display: 'flex', alignItems: 'center', p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ flexGrow: 1 }}>
@@ -459,9 +458,9 @@ function AdminDashboard() {
                   '&:hover': {
                     transform: 'scale(1.1) rotate(5deg)',
                     bgcolor: kpi.color,
-                    '& svg': { color: 'white' },
-                  },
-                }}>
+                    '& svg': { color: 'white' }
+}
+}}>
                   {kpi.icon}
                 </Box>
               </CardContent>
@@ -529,9 +528,9 @@ function AdminDashboard() {
               transition: 'all 0.3s ease',
               '&:hover': {
                 boxShadow: '0 12px 32px rgba(245, 124, 0, 0.2)',
-                transform: 'translateY(-4px)',
-              },
-            }}
+                transform: 'translateY(-4px)'
+}
+}}
           >
             {/* Live Indicator */}
             <Box sx={{ position: 'absolute', top: 16, right: 16, display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -592,8 +591,8 @@ function AdminDashboard() {
                       width: `${(utilityData.electricity.currentFlow / 500) * 100}%`,
                       bgcolor: utilityData.electricity.currentFlow > 480 ? 'error.main' : utilityData.electricity.currentFlow > 450 ? 'warning.main' : 'success.main',
                       transition: 'all 0.5s ease',
-                      borderRadius: 3,
-                    }} />
+                      borderRadius: 3
+}} />
                   </Box>
                 </Box>
               </Grid>
@@ -620,9 +619,9 @@ function AdminDashboard() {
               transition: 'all 0.3s ease',
               '&:hover': {
                 boxShadow: '0 12px 32px rgba(2, 136, 209, 0.2)',
-                transform: 'translateY(-4px)',
-              },
-            }}
+                transform: 'translateY(-4px)'
+}
+}}
           >
             {/* Live Indicator */}
             <Box sx={{ position: 'absolute', top: 16, right: 16, display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -683,8 +682,8 @@ function AdminDashboard() {
                       width: `${(utilityData.water.currentFlow / 160) * 100}%`,
                       bgcolor: utilityData.water.currentFlow > 140 ? 'error.main' : utilityData.water.currentFlow > 125 ? 'warning.main' : 'info.main',
                       transition: 'all 0.5s ease',
-                      borderRadius: 3,
-                    }} />
+                      borderRadius: 3
+}} />
                   </Box>
                 </Box>
               </Grid>
@@ -712,9 +711,9 @@ function AdminDashboard() {
               transition: 'all 0.3s ease',
               '&:hover': {
                 boxShadow: '0 12px 32px rgba(156, 39, 176, 0.2)',
-                transform: 'translateY(-4px)',
-              },
-            }}
+                transform: 'translateY(-4px)'
+}
+}}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -748,8 +747,8 @@ function AdminDashboard() {
                       bgcolor: task.type === 'critical' ? '#FFEBEE' : '#E8F5E9',
                       borderRadius: 2, mb: 1, flexDirection: 'column', alignItems: 'flex-start',
                       transition: 'all 0.2s ease',
-                      '&:hover': { transform: 'translateX(4px)' },
-                    }}
+                      '&:hover': { transform: 'translateX(4px)' }
+}}
                   >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', mb: 0.5 }}>
                       <Typography variant="subtitle2" fontWeight={700} color={task.type === 'critical' ? 'error' : 'success.main'}>{task.title}</Typography>
@@ -773,8 +772,8 @@ function AdminDashboard() {
                           disabled={task.type === 'success' && autoActionsEnabled}
                           sx={{
                             fontSize: '0.7rem', px: 1.5, py: 0.5, fontWeight: 600,
-                            '&:hover': { transform: 'translateY(-2px)' },
-                          }}
+                            '&:hover': { transform: 'translateY(-2px)' }
+}}
                         >
                           {action}
                         </Button>
@@ -805,9 +804,9 @@ function AdminDashboard() {
               transition: 'all 0.3s ease',
               '&:hover': {
                 boxShadow: '0 12px 32px rgba(0, 172, 193, 0.2)',
-                transform: 'translateY(-4px)',
-              },
-            }}
+                transform: 'translateY(-4px)'
+}
+}}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -855,8 +854,8 @@ function AdminDashboard() {
                   sx={{
                     px: 0, py: 0.5,
                     transition: 'all 0.2s ease',
-                    '&:hover': { bgcolor: 'rgba(0, 172, 193, 0.05)', borderRadius: 1 },
-                  }}
+                    '&:hover': { bgcolor: 'rgba(0, 172, 193, 0.05)', borderRadius: 1 }
+}}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     <Typography variant="body2" fontWeight={500}>{rule.name}</Typography>
@@ -892,8 +891,8 @@ function AdminDashboard() {
           borderTop: '4px solid #1F4E79',
           background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(244, 247, 250, 0.9) 100%)',
           backdropFilter: 'blur(10px)',
-          borderRadius: 2,
-        }}
+          borderRadius: 2
+}}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Box sx={{ bgcolor: '#1F4E7915', p: 1, borderRadius: 1.5, mr: 1.5 }}>
@@ -951,8 +950,8 @@ function AdminDashboard() {
                             isPending ? '#FFF3E0' : '#FFEBEE',
                           color:
                             isGood ? '#2E7D32' :
-                            isPending ? '#F57C00' : '#C62828',
-                        }}
+                            isPending ? '#F57C00' : '#C62828'
+}}
                       />
                     </TableCell>
                     <TableCell align="center">
@@ -1005,8 +1004,8 @@ function AdminDashboard() {
           borderTop: '4px solid #b38f00',
           background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255, 253, 240, 0.9) 100%)',
           backdropFilter: 'blur(10px)',
-          borderRadius: 2,
-        }}
+          borderRadius: 2
+}}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Box sx={{ bgcolor: '#b38f0015', p: 1, borderRadius: 1.5, mr: 1.5 }}>
@@ -1069,8 +1068,8 @@ function AdminDashboard() {
                             griv.status === 'In Progress' ? '#E3F2FD' : '#FFEBEE',
                           color:
                             griv.status === 'Resolved' ? '#2E7D32' :
-                            griv.status === 'In Progress' ? '#1976D2' : '#C62828',
-                        }}
+                            griv.status === 'In Progress' ? '#1976D2' : '#C62828'
+}}
                       />
                     </TableCell>
                     <TableCell align="center">

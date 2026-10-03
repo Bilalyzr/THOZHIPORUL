@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Box, Container, Typography, Grid, Paper, TextField, Button, Stack,
-  Chip, Card, CardContent, Snackbar, Alert, Fade, Divider
+  Box, Container, Typography, Grid, TextField, Button, Stack,
+  Chip, Card, CardContent, Snackbar, Alert, Fade
 } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -38,7 +38,7 @@ const slideInRight = keyframes`
 
 const sectionPattern = {
   backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)',
-  backgroundSize: '28px 28px',
+  backgroundSize: '28px 28px'
 };
 
 const contactInfo = [
@@ -103,8 +103,8 @@ export default function Contact() {
                           boxShadow: '0 2px 16px rgba(0,0,0,0.04)',
                           transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
                           animation: `${fadeInUp} 0.6s ease-out ${idx * 0.12}s both`,
-                          '&:hover': { transform: 'translateX(8px)', boxShadow: `0 12px 32px ${item.color}18`, borderColor: `${item.color}40` },
-                        }}
+                          '&:hover': { transform: 'translateX(8px)', boxShadow: `0 12px 32px ${item.color}18`, borderColor: `${item.color}40` }
+}}
                       >
                         <CardContent sx={{ display: 'flex', gap: 3, p: 3 }}>
                           <Box sx={{
@@ -149,8 +149,8 @@ export default function Contact() {
                     border: '1px solid #e2e8f0',
                     boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
                     transition: 'all 0.3s ease',
-                    '&:hover': { boxShadow: '0 16px 56px rgba(0,0,0,0.1)' },
-                  }}
+                    '&:hover': { boxShadow: '0 16px 56px rgba(0,0,0,0.1)' }
+}}
                 >
                   <Grid container spacing={3}>
                     {[
@@ -211,8 +211,8 @@ export default function Contact() {
                           borderRadius: 3, fontSize: '1rem',
                           boxShadow: '0 8px 24px rgba(31,78,121,0.35)',
                           transition: 'all 0.3s ease',
-                          '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 16px 40px rgba(46,125,50,0.45)' },
-                        }}
+                          '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 16px 40px rgba(46,125,50,0.45)' }
+}}
                       >
                         Submit Inquiry
                       </Button>
@@ -230,8 +230,8 @@ export default function Contact() {
         <Box sx={{
           position: 'absolute', inset: 0,
           background: 'radial-gradient(ellipse at 20% 50%, rgba(46,125,50,0.06) 0%, transparent 55%), radial-gradient(ellipse at 80% 50%, rgba(31,78,121,0.06) 0%, transparent 55%)',
-          pointerEvents: 'none',
-        }} />
+          pointerEvents: 'none'
+}} />
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Card
             elevation={0}
@@ -243,8 +243,8 @@ export default function Contact() {
               boxShadow: '0 8px 40px rgba(0,0,0,0.07)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               flexWrap: 'wrap', gap: 4,
-              animation: `${fadeInUp} 0.8s ease-out`,
-            }}
+              animation: `${fadeInUp} 0.8s ease-out`
+}}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <Box sx={{ width: 60, height: 60, borderRadius: 3, background: 'linear-gradient(135deg, rgba(31,78,121,0.12), rgba(31,78,121,0.06))', color: '#1F4E79', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -266,8 +266,8 @@ export default function Contact() {
       <Box sx={{
         py: 16,
         background: 'linear-gradient(135deg, #060d1a 0%, #0a1e14 40%, #0d2435 100%)',
-        color: 'white', textAlign: 'center', position: 'relative', overflow: 'hidden',
-      }}>
+        color: 'white', textAlign: 'center', position: 'relative', overflow: 'hidden'
+}}>
         <Box sx={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 30% 70%, rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.6, pointerEvents: 'none' }} />
         <Box sx={{ position: 'absolute', top: '20%', right: '8%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(46,125,50,0.3) 0%, transparent 65%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
         <Box sx={{ position: 'absolute', bottom: '10%', left: '5%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(31,78,121,0.35) 0%, transparent 65%)', filter: 'blur(55px)', pointerEvents: 'none' }} />
@@ -290,8 +290,8 @@ export default function Contact() {
                 bgcolor: 'white', color: '#2E7D32',
                 borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
                 transition: 'all 0.3s ease',
-                '&:hover': { bgcolor: '#f1f8f2', transform: 'translateY(-4px)', boxShadow: '0 16px 48px rgba(0,0,0,0.4)' },
-              }}
+                '&:hover': { bgcolor: '#f1f8f2', transform: 'translateY(-4px)', boxShadow: '0 16px 48px rgba(0,0,0,0.4)' }
+}}
             >
               Email Support
             </Button>
@@ -304,8 +304,8 @@ export default function Contact() {
                 borderColor: 'rgba(255,255,255,0.6)', color: 'white',
                 borderRadius: 3, borderWidth: 2,
                 transition: 'all 0.3s ease',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', transform: 'translateY(-4px)', borderColor: 'white' },
-              }}
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', transform: 'translateY(-4px)', borderColor: 'white' }
+}}
             >
               Call Helpline
             </Button>

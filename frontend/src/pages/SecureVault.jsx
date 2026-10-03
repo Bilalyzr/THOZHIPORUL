@@ -7,9 +7,9 @@ import {
 } from '@mui/material';
 import {
   Shield, Lock, FileDownload, DeleteOutline, CloudUpload,
-  Cached, LockOpenOutlined, VerifiedUserOutlined, CheckCircle,
-  Visibility, VisibilityOff, LockOutlined, AutoAwesome, InfoOutlined,
-  Key, Storage, Gavel
+  Cached, LockOpenOutlined, CheckCircle,
+  Visibility, VisibilityOff, LockOutlined, AutoAwesome,
+  Key, Storage
 } from '@mui/icons-material';
 import { workspaceService, paymentsService } from '../services/api';
 

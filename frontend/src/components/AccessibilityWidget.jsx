@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog, DialogContent,
-  Box, IconButton, Typography, Switch, Tooltip, Chip, Divider, Button,
+  Box, IconButton, Typography, Switch, Chip, Divider, Button,
   InputAdornment, TextField
 } from '@mui/material';
 import {
@@ -22,7 +22,7 @@ const CATEGORIES = [
 // ─── Preset profiles ────────────────────────────────────────────
 const PRESETS = {
   lowVision: ['biggerText', 'contrastMode', 'highlightLinks', 'largeCursor'],
-  adhdFocus: ['adhdMode', 'pauseAnimations', 'textSpacing', 'lineHeight'],
+  adhdFocus: ['adhdMode', 'pauseAnimations', 'textSpacing', 'lineHeight']
 };
 
 export default function AccessibilityWidget() {
@@ -43,8 +43,8 @@ export default function AccessibilityWidget() {
     textToSpeech:   localStorage.getItem('acc_textToSpeech') === 'true',
     largeCursor:    localStorage.getItem('acc_largeCursor') === 'true',
     pauseAnimations: localStorage.getItem('acc_pauseAnimations') === 'true',
-    hideImages:     localStorage.getItem('acc_hideImages') === 'true',
-  });
+    hideImages:     localStorage.getItem('acc_hideImages') === 'true'
+});
 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [search, setSearch] = useState('');
@@ -74,8 +74,8 @@ export default function AccessibilityWidget() {
     dyslexiaFriendly: 'acc-dyslexic', saturation: 'acc-grayscale',
     contrastMode: 'acc-contrast-dark', invertColors: 'acc-invert',
     highlightLinks: 'acc-highlight-links', largeCursor: 'acc-large-cursor',
-    pauseAnimations: 'acc-pause-animations', hideImages: 'acc-hide-images',
-  };
+    pauseAnimations: 'acc-pause-animations', hideImages: 'acc-hide-images'
+};
   useEffect(() => {
     Object.entries(classMap).forEach(([key, cls]) => {
       localStorage.setItem('acc_' + key, flags[key]);
@@ -155,8 +155,8 @@ export default function AccessibilityWidget() {
     ],
     audio: [
       { key: 'textToSpeech', icon: <VolumeUp sx={{ fontSize: 20 }} />, label: 'Text to Speech', hint: 'Hover to read aloud' },
-    ],
-  };
+    ]
+};
 
   const categoryIcon = { vision: <Visibility fontSize="small" />, cognitive: <Psychology fontSize="small" />, motor: <TouchApp fontSize="small" />, audio: <Hearing fontSize="small" /> };
 
@@ -185,8 +185,8 @@ export default function AccessibilityWidget() {
         fullWidth
         maxWidth="md"
         slotProps={{
-          paper: { className: 'acc-safe', sx: styles.dialogPaper },
-        }}
+          paper: { className: 'acc-safe', sx: styles.dialogPaper }
+}}
       >
         {/* ── Header ── */}
         <Box sx={styles.header}>
@@ -246,8 +246,8 @@ export default function AccessibilityWidget() {
                 <InputAdornment position="end" sx={{ cursor: 'pointer' }} onClick={() => setSearch('')}>
                   <Close sx={{ fontSize: 16, color: '#94a3b8' }} />
                 </InputAdornment>
-              ) : null,
-            }}
+              ) : null
+}}
           />
         </Box>
 
@@ -295,8 +295,8 @@ export default function AccessibilityWidget() {
                       sx={{
                         ...styles.optionCard,
                         ...(active ? styles.optionCardActive : {}),
-                        borderLeft: `3px solid ${active ? cat.color : 'transparent'}`,
-                      }}
+                        borderLeft: `3px solid ${active ? cat.color : 'transparent'}`
+}}
                     >
                       <Box sx={{ ...styles.optionIcon, ...(active ? { bgcolor: cat.color, color: '#fff' } : {}) }}>
                         {opt.icon}
@@ -306,8 +306,8 @@ export default function AccessibilityWidget() {
                           fontSize: '0.85rem', fontWeight: 700,
                           color: active ? cat.color : '#1e293b',
                           fontFamily: '"Outfit",sans-serif',
-                          lineHeight: 1.2,
-                        }}>
+                          lineHeight: 1.2
+}}>
                           {opt.label}
                         </Typography>
                         {opt.hint && (
@@ -362,8 +362,8 @@ export default function AccessibilityWidget() {
               transparent ${Math.max(0, mousePos.y - 100)}px,
               transparent ${Math.min(window.innerHeight, mousePos.y + 100)}px,
               rgba(0,0,0,0.65) ${Math.min(window.innerHeight, mousePos.y + 100)}px,
-              rgba(0,0,0,0.65) 100%)`,
-          }}
+              rgba(0,0,0,0.65) 100%)`
+}}
         />
       )}
     </>
@@ -377,44 +377,44 @@ const styles = {
     overflow: 'hidden',
     boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)',
     border: '1px solid #e2e8f0',
-    maxWidth: 720,
-  },
+    maxWidth: 720
+},
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     px: 3, py: 2,
     background: 'linear-gradient(135deg, #1F4E79 0%, #2c5f8a 100%)',
-    color: '#fff',
-  },
+    color: '#fff'
+},
   headerIcon: {
     width: 44, height: 44, borderRadius: '12px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     background: 'rgba(255,255,255,0.15)',
     backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(255,255,255,0.2)',
-  },
+    border: '1px solid rgba(255,255,255,0.2)'
+},
   headerTitle: {
     fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2,
-    fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.01em',
-  },
+    fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.01em'
+},
   headerSubtitle: {
-    fontSize: '0.75rem', opacity: 0.85, mt: 0.25, fontWeight: 500,
-  },
+    fontSize: '0.75rem', opacity: 0.85, mt: 0.25, fontWeight: 500
+},
   closeBtn: {
     color: '#fff',
     bgcolor: 'rgba(255,255,255,0.1)',
     '&:hover': { bgcolor: 'rgba(255,255,255,0.2)', transform: 'rotate(90deg)' },
-    transition: 'all 0.25s ease',
-  },
+    transition: 'all 0.25s ease'
+},
   presetBar: {
     display: 'flex', alignItems: 'center', gap: 1.5,
     px: 3, py: 1.5, flexWrap: 'wrap',
-    bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0',
-  },
+    bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0'
+},
   presetLabel: {
     fontSize: '0.7rem', fontWeight: 700, color: '#64748b',
     textTransform: 'uppercase', letterSpacing: '0.06em',
-    display: 'flex', alignItems: 'center',
-  },
+    display: 'flex', alignItems: 'center'
+},
   presetBtn: {
     textTransform: 'none', fontWeight: 600, fontSize: '0.78rem',
     borderRadius: '20px', px: 1.75, py: 0.5,
@@ -422,26 +422,26 @@ const styles = {
     bgcolor: '#fff',
     '&:hover': { bgcolor: '#f1f5f9', borderColor: '#cbd5e1', transform: 'translateY(-1px)' },
     transition: 'all 0.2s ease',
-    fontFamily: '"Outfit",sans-serif',
-  },
+    fontFamily: '"Outfit",sans-serif'
+},
   body: {
     px: { xs: 2, sm: 3 }, py: 3,
     bgcolor: '#ffffff',
     maxHeight: '58vh',
     '&::-webkit-scrollbar': { width: 8 },
     '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 4 },
-    '&::-webkit-scrollbar-track': { bgcolor: '#f1f5f9' },
-  },
+    '&::-webkit-scrollbar-track': { bgcolor: '#f1f5f9' }
+},
   catBadge: {
     width: 32, height: 32, borderRadius: '9px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
+    flexShrink: 0
+},
   optionGrid: {
     display: 'grid',
     gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-    gap: 1.25,
-  },
+    gap: 1.25
+},
   optionCard: {
     display: 'flex', alignItems: 'center', gap: 1.25,
     p: 1.75, borderRadius: '12px',
@@ -454,33 +454,33 @@ const styles = {
       bgcolor: '#f1f5f9',
       borderColor: '#cbd5e1',
       transform: 'translateY(-2px)',
-      boxShadow: '0 4px 12px rgba(15,23,42,0.06)',
-    },
+      boxShadow: '0 4px 12px rgba(15,23,42,0.06)'
+},
     '&:focus-visible': {
       outline: '2px solid #1F4E79',
-      outlineOffset: '2px',
-    },
-  },
+      outlineOffset: '2px'
+}
+},
   optionCardActive: {
     bgcolor: '#f0fdf4',
-    borderColor: '#bbf7d0',
-  },
+    borderColor: '#bbf7d0'
+},
   optionIcon: {
     width: 40, height: 40, borderRadius: '10px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     bgcolor: '#e2e8f0', color: '#64748b',
     flexShrink: 0,
-    transition: 'all 0.2s ease',
-  },
+    transition: 'all 0.2s ease'
+},
   switch: {
     '& .MuiSwitch-track': { borderRadius: 12, bgcolor: '#cbd5e1' },
-    '& .MuiSwitch-thumb': { bgcolor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' },
-  },
+    '& .MuiSwitch-thumb': { bgcolor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }
+},
   footer: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     px: 3, py: 2,
-    bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0',
-  },
+    bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0'
+},
   doneBtn: {
     borderRadius: '10px', px: 4, py: 0.95,
     fontWeight: 700, textTransform: 'none', fontSize: '0.85rem',
@@ -488,6 +488,6 @@ const styles = {
     background: 'linear-gradient(135deg, #1F4E79 0%, #143656 100%)',
     boxShadow: '0 3px 10px rgba(31,78,121,0.3)',
     '&:hover': { boxShadow: '0 5px 14px rgba(31,78,121,0.4)', transform: 'translateY(-1px)' },
-    transition: 'all 0.2s ease',
-  },
+    transition: 'all 0.2s ease'
+}
 };

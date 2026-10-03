@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, Chip, Button,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Select, MenuItem, FormControl, InputLabel, Tabs, Tab, IconButton,
+  Select, MenuItem, FormControl, InputLabel, Tabs, Tab,
   Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, CircularProgress
-, Skeleton
+  TextField, Skeleton
 } from '@mui/material';
 import {
   CheckCircle, Warning, Error as ErrorIcon, HelpOutline,
-  Send, Download, TrendingUp, Flag, Receipt, QuestionAnswer
+  Send, Download, TrendingUp, Receipt, QuestionAnswer
 } from '@mui/icons-material';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -59,8 +58,8 @@ export default function ComplianceEngine() {
   const [violations, setViolations] = useState([]);
   const [overview, setOverview] = useState({
     compliant: { count: 0, pct: 0 }, warning: { count: 0, pct: 0 },
-    violation: { count: 0, pct: 0 }, missing: { count: 0, pct: 0 },
-  });
+    violation: { count: 0, pct: 0 }, missing: { count: 0, pct: 0 }
+});
   const [trendData, setTrendData] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
   const [predictions, setPredictions] = useState([]);
@@ -80,8 +79,8 @@ export default function ComplianceEngine() {
     compliant: { count: o.compliant?.count || 0, pct: o.compliant?.percentage || 0 },
     warning: { count: o.warning?.count || 0, pct: o.warning?.percentage || 0 },
     violation: { count: o.violation?.count || 0, pct: o.violation?.percentage || 0 },
-    missing: { count: o.missing?.count || 0, pct: o.missing?.percentage || 0 },
-  };
+    missing: { count: o.missing?.count || 0, pct: o.missing?.percentage || 0 }
+};
   };
 
   const fetchViolations = async () => {
@@ -93,8 +92,8 @@ export default function ComplianceEngine() {
       rule_name: v.rule_name || v.description || '',
       severity: v.severity,
       status: v.status,
-      date: v.violation_date,
-    })));
+      date: v.violation_date
+})));
   };
 
   const fetchOverview = async () => {
@@ -234,8 +233,8 @@ export default function ComplianceEngine() {
 
   const severityDist = ['critical', 'high', 'medium', 'low'].map(sev => ({
     name: sev.charAt(0).toUpperCase() + sev.slice(1),
-    value: violations.filter(v => v.severity === sev).length,
-  }));
+    value: violations.filter(v => v.severity === sev).length
+}));
 
   const filteredViolations = violations.filter(v =>
     (severityFilter === 'all' || v.severity === severityFilter) &&

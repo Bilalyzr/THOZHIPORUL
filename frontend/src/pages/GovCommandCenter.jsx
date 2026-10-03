@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { analyticService, commandService, researchService, lifecycleService, aiDecisionService, intelligenceService } from '../services/api';
+import { complianceService, analyticService, commandService, researchService, lifecycleService, aiDecisionService, intelligenceService } from '../services/api';
 import { downloadGovernmentReport } from '../utils/reportGenerator';
 import { createDashboardStyles } from '../utils/dashboardStyles';
 
@@ -16,27 +16,27 @@ import {
 import {
   TrendingUp, TrendingDown, Warning, Error as ErrorIcon,
   Info, CheckCircle, Assessment, Map as MapIcon,
-  Flag, Business, People, CurrencyRupee, NotificationsActive,
-  SmartToy, ElectricBolt, Opacity, Close, Bolt, WaterDrop
+  Flag, People, CurrencyRupee, NotificationsActive,
+  SmartToy, ElectricBolt, Opacity, Close
 } from '@mui/icons-material';
 import { reducedMotionCSS } from '../utils/uiEnhancements';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
+  Tooltip, ResponsiveContainer
 } from 'recharts';
 
 const SEVERITY_COLORS = {
   critical: '#d32f2f',
   high: '#f57c00',
   medium: '#fbc02d',
-  low: '#2196f3',
+  low: '#2196f3'
 };
 
 const ALERT_ICONS = {
   critical: <ErrorIcon sx={{ color: '#d32f2f' }} />,
   high: <Warning sx={{ color: '#f57c00' }} />,
   medium: <Info sx={{ color: '#fbc02d' }} />,
-  low: <Info sx={{ color: '#2196f3' }} />,
+  low: <Info sx={{ color: '#2196f3' }} />
 };
 
 const KPICard = ({ title, value, unit, growth, icon, color }) => (
@@ -49,9 +49,9 @@ const KPICard = ({ title, value, unit, growth, icon, color }) => (
       backdropFilter: 'blur(10px)',
       '&:hover': {
         transform: 'translateY(-6px)',
-        boxShadow: `0 16px 40px ${color}25`,
-      },
-    }}
+        boxShadow: `0 16px 40px ${color}25`
+}
+}}
   >
     <CardContent>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -81,9 +81,9 @@ const KPICard = ({ title, value, unit, growth, icon, color }) => (
           '&:hover': {
             transform: 'scale(1.1) rotate(5deg)',
             bgcolor: color,
-            '& > svg': { color: 'white' },
-          },
-        }}>{icon}</Box>
+            '& > svg': { color: 'white' }
+}
+}}>{icon}</Box>
       </Box>
     </CardContent>
   </Card>
@@ -199,8 +199,8 @@ export default function GovCommandCenter() {
     total_revenue_cr: 0, revenue_growth_pct: null,
     direct_employment: 0, direct_growth_pct: null,
     indirect_employment: 0, indirect_growth_pct: null,
-    red_flags: 0, red_flags_change: null,
-  });
+    red_flags: 0, red_flags_change: null
+});
 
   // Reference tariffs (used by the drill-down dialog; also mirrored in the
   // backend utility-breakdown endpoint).
@@ -214,6 +214,7 @@ export default function GovCommandCenter() {
   const [investmentTrend, setInvestmentTrend] = useState([]);
   const [employmentTrend, setEmploymentTrend] = useState([]);
   const [activityFeed, setActivityFeed] = useState([]);
+  const [complianceData, setComplianceData] = useState([]);
   // T1.1 + T2.5 — realisation heatmap + MD escalations
   const [parkRealisation, setParkRealisation] = useState([]);
   const [mdEscalations, setMdEscalations] = useState([]);
@@ -284,6 +285,24 @@ export default function GovCommandCenter() {
     researchService.getParkRealisation()
       .then((res) => setParkRealisation((res.data.parks || []).filter(p => p.realisation_pct !== null)))
       .catch(() => {});
+    lifecycleService.getMdEscalations()
+      .then(res => setMdEscalations(res.data || []))
+      .catch(() => {});
+    // Compliance distribution for pie chart
+    complianceService.getOverview()
+      .then(r => {
+        const d = r.data;
+        if (d) {
+          setComplianceData([
+            { name: 'Compliant', value: d.compliant?.count || 0, color: '#2E7D32' },
+            { name: 'Warning', value: d.warning?.count || 0, color: '#F57C00' },
+            { name: 'Violation', value: d.violation?.count || 0, color: '#D32F2F' },
+            { name: 'Not Assessed', value: d.missing?.count || 0, color: '#9E9E9E' },
+          ]);
+        }
+      })
+      .catch(() => {});
+
     lifecycleService.getMdEscalations()
       .then((res) => setMdEscalations(res.data || []))
       .catch(() => {});
@@ -598,6 +617,35 @@ export default function GovCommandCenter() {
                 </Box>
               </Grid>
             </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Compliance Distribution */}
+      <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+            <Typography variant="h6" fontWeight={600} gutterBottom>Compliance Distribution</Typography>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={complianceData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={90}
+                  paddingAngle={3}
+                >
+                  {complianceData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
           </Paper>
         </Grid>
       </Grid>

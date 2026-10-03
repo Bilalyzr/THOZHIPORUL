@@ -6,12 +6,12 @@ import {
   TableContainer, TableHead, TableRow, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Select,
   FormControl, InputLabel, Stepper, Step, StepLabel, IconButton,
-  Tooltip as MuiTooltip, Snackbar, Alert, Divider
+  Tooltip as MuiTooltip, Snackbar, Alert
 , Skeleton
 } from '@mui/material';
 import {
   Add, ViewKanban, Timeline, TableChart, Visibility,
-  Schedule, Person, Flag, CheckCircle, HourglassEmpty,
+  Schedule, CheckCircle, HourglassEmpty,
   Assignment, Warning, Download, Map as MapIcon, SquareFoot,
   LocationOn, CropFree
 } from '@mui/icons-material';
@@ -134,8 +134,8 @@ export default function ServicesTracker() {
     const statusIdx = STATUS_FLOW.indexOf(req.current_status);
     return STATUS_FLOW.map((s, i) => ({
       stage: STATUS_LABELS[s],
-      status: i < statusIdx ? 'completed' : i === statusIdx ? 'in_progress' : 'pending',
-    }));
+      status: i < statusIdx ? 'completed' : i === statusIdx ? 'in_progress' : 'pending'
+}));
   };
 
   const statusCounts = STATUS_FLOW.reduce((acc, s) => {

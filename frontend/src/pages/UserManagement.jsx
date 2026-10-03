@@ -27,6 +27,7 @@ import {
   Tooltip,
   Divider,
   CircularProgress
+
 , Skeleton
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -40,6 +41,7 @@ import FactoryIcon from '@mui/icons-material/Factory';
 import { userService, authService, industryService } from '../services/api';
 
 function UserManagement() {
+  const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -115,10 +117,16 @@ function UserManagement() {
     let active = true;
     userService.getAll()
       .then(response => {
-        if (active) setUsers(Array.isArray(response.data) ? response.data : []);
+        if (active) {
+          setUsers(Array.isArray(response.data) ? response.data : []);
+          setLoading(false);
+        }
       })
       .catch(() => {
-        if (active) showSnackbar('Failed to fetch users', 'error');
+        if (active) {
+          showSnackbar('Failed to fetch users', 'error');
+          setLoading(false);
+        }
       });
     return () => { active = false; };
   }, []);
@@ -217,7 +225,15 @@ function UserManagement() {
       </Box>
 
       <Paper elevation={3} sx={{ width: '100%', borderRadius: 2 }}>
-        <TableContainer sx={{ overflowX: 'auto' }}>
+        {loading ? (
+          <Box sx={{ p: 3 }}>
+            {[0, 1, 2, 3, 4].map(i => (
+              <Skeleton key={i} variant="rounded" height={48} sx={{ mb: 1.5 }} />
+            ))}
+          </Box>
+        ) : (
+        <>
+      <TableContainer sx={{ overflowX: 'auto' }}>
           <Table aria-label="user management table">
             <TableHead sx={{ bgcolor: 'rgba(31, 78, 121, 0.05)' }}>
               <TableRow>
@@ -283,6 +299,8 @@ function UserManagement() {
             <DeleteIcon sx={{ mr: 1, fontSize: 'small' }} /> Delete User
           </MenuItem>
         </Menu>
+      </>
+        )}
       </Paper>
 
       {/* Add / Edit Dialog */}

@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Container, Typography, Grid, Card, CardContent, Button, Chip,
+  Box, Container, Typography, Grid, Button, Chip,
   Paper, TextField, InputAdornment, ToggleButton, ToggleButtonGroup,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   LinearProgress, Divider, Tooltip, Switch, FormControlLabel,
-  List, ListItemButton, ListItemIcon, ListItemText, ClickAwayListener, Popper, IconButton,
+  List, ListItemButton, ListItemIcon, ListItemText, ClickAwayListener, IconButton,
   CircularProgress, Select, MenuItem, FormControl
 } from '@mui/material';
 import UnifiedNav from '../components/UnifiedNav';
@@ -15,7 +15,7 @@ import { parkService } from '../services/api';
 import {
   Search, Map as MapIcon, TableChart, LocationOn,
   Water, Bolt, ArrowForwardIos, Explore, Layers,
-  SquareFoot, Factory, People, CurrencyRupee, MyLocation, Close, ArrowBack, Home, Lock as LockIcon
+  SquareFoot, Factory, People, CurrencyRupee, MyLocation, Close, Lock as LockIcon
 } from '@mui/icons-material';
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -26,7 +26,7 @@ import { reducedMotionCSS } from '../utils/uiEnhancements';
 const TYPE_BY_STATUS = {
   active: 'Operational Industrial Park',
   developing: 'Under Development',
-  proposed: 'Proposed Development',
+  proposed: 'Proposed Development'
 };
 
 // Map a raw API park record to the UI shape used throughout this page.
@@ -63,20 +63,20 @@ const mapPark = (p, maxWater, maxPower) => {
     // Relative infrastructure utilization: real capacity normalized to fleet max
     water_pct: maxWater > 0 ? Math.round((waterKl / maxWater) * 100) : 0,
     power_pct: maxPower > 0 ? Math.round((powerMw / maxPower) * 100) : 0,
-    developed_area: developedArea,
-  };
+    developed_area: developedArea
+};
 };
 
 const STATUS_CONFIG = {
   active: { color: '#2E7D32', label: 'Active', bg: '#e8f5e9' },
   developing: { color: '#F57C00', label: 'Under Development', bg: '#fff3e0' },
-  proposed: { color: '#1565C0', label: 'Proposed', bg: '#e3f2fd' },
+  proposed: { color: '#1565C0', label: 'Proposed', bg: '#e3f2fd' }
 };
 
 const TILE_LAYERS = {
   street: { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', name: 'Street' },
   satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', name: 'Satellite' },
-  terrain: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', name: 'Terrain' },
+  terrain: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', name: 'Terrain' }
 };
 
 const fadeInUp = keyframes`
@@ -210,8 +210,8 @@ export default function IndustrialParks() {
     area: parks.reduce((s, p) => s + p.total_area, 0),
     available: parks.reduce((s, p) => s + p.available_area, 0),
     industries: parks.reduce((s, p) => s + p.industries, 0),
-    employment: parks.reduce((s, p) => s + p.employment, 0),
-  }), [parks]);
+    employment: parks.reduce((s, p) => s + p.employment, 0)
+}), [parks]);
 
   const districtCount = useMemo(() => new Set(parks.map((p) => p.district)).size, [parks]);
 
@@ -250,8 +250,8 @@ export default function IndustrialParks() {
                   border: '1px solid rgba(255,255,255,0.2)',
                   transition: 'all 0.3s ease',
                   animation: `${fadeInUp} 0.5s ease-out ${i * 0.08}s both`,
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.18)', transform: 'translateY(-3px)' },
-                }}
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.18)', transform: 'translateY(-3px)' }
+}}
               >
                 <Box sx={{ color: '#81C784' }}>{kpi.icon}</Box>
                 <Box>
@@ -268,8 +268,8 @@ export default function IndustrialParks() {
           background: 'linear-gradient(135deg, #060d1a 0%, #0d2435 50%, #0a1e14 100%)',
           color: 'white',
           pt: { xs: 4, md: 6 }, pb: { xs: 6, md: 8 },
-          px: { xs: 2, md: 3 }, position: 'relative', overflow: 'hidden',
-        }}>
+          px: { xs: 2, md: 3 }, position: 'relative', overflow: 'hidden'
+}}>
           <Box sx={{ position: 'absolute', top: '-20%', right: '-5%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(46,125,50,0.25) 0%, transparent 65%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
           <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
             <Chip label="GIS PARKS EXPLORER" sx={{ mb: 2, bgcolor: 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.1em', px: 2, py: 1 }} />
@@ -318,8 +318,8 @@ export default function IndustrialParks() {
           bgcolor: 'rgba(255,255,255,0.85)',
           backdropFilter: 'blur(20px)',
           boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-          border: '1px solid rgba(255,255,255,0.9)',
-        }}>
+          border: '1px solid rgba(255,255,255,0.9)'
+}}>
           {/* Search with live dropdown */}
           <ClickAwayListener onClickAway={() => setSearchFocused(false)}>
             <Box sx={{ flex: 1, minWidth: 220, position: 'relative' }} ref={searchRef}>
@@ -336,8 +336,8 @@ export default function IndustrialParks() {
                         <Close sx={{ fontSize: 16 }} />
                       </IconButton>
                     </InputAdornment>
-                  ),
-                }}
+                  )
+}}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 3,
@@ -558,8 +558,8 @@ export default function IndustrialParks() {
                           color: isSelected ? '#F57C00' : 'white',
                           weight: isSelected ? 3 : 2,
                           fillColor: STATUS_CONFIG[park.status].color,
-                          fillOpacity: isSelected ? 1 : 0.85,
-                        }}
+                          fillOpacity: isSelected ? 1 : 0.85
+}}
                         eventHandlers={{ click: () => setSelectedPark(park) }}
                       >
                         <LeafletTooltip direction="top" offset={[0, -radius]} opacity={0.95} permanent={false}>
@@ -821,8 +821,8 @@ export default function IndustrialParks() {
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
                         '&:hover': {
-                          bgcolor: 'rgba(31, 78, 121, 0.03) !important',
-                        }
+                          bgcolor: 'rgba(31, 78, 121, 0.03) !important'
+}
                       }}>
                       <TableCell sx={{ py: 2.2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>

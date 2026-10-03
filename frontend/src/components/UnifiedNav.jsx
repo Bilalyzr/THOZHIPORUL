@@ -50,8 +50,8 @@ export default function UnifiedNav({ transparent = false }) {
           borderBottom: (scrolled || !transparent) ? '1px solid rgba(226, 232, 240, 0.8)' : 'none',
           boxShadow: (scrolled || !transparent) ? '0 4px 20px rgba(15, 23, 42, 0.04)' : 'none',
           transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          zIndex: 1100,
-        }}
+          zIndex: 1100
+}}
       >
         <Container maxWidth="xl">
           <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: 70 }}>
@@ -66,8 +66,8 @@ export default function UnifiedNav({ transparent = false }) {
                   height: 45,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                  justifyContent: 'center'
+}}
               >
                 <img
                   src={logoTransparent}
@@ -87,8 +87,8 @@ export default function UnifiedNav({ transparent = false }) {
                       : 'white',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: (scrolled || !transparent) ? 'transparent' : 'white',
-                    transition: 'all 0.3s',
-                  }}
+                    transition: 'all 0.3s'
+}}
                 >
                   THOZHIRPORUL
                 </Typography>
@@ -99,8 +99,8 @@ export default function UnifiedNav({ transparent = false }) {
                     fontWeight: 600,
                     letterSpacing: '0.08em',
                     color: (scrolled || !transparent) ? '#64748B' : 'rgba(255,255,255,0.75)',
-                    lineHeight: 1,
-                  }}
+                    lineHeight: 1
+}}
                 >
                   BY NEXORA
                 </Typography>
@@ -138,9 +138,9 @@ export default function UnifiedNav({ transparent = false }) {
                       '&:hover': {
                         color: scrolled || !transparent ? '#2E7D32' : '#81C784',
                         bgcolor: scrolled || !transparent ? 'rgba(46,125,50,0.04)' : 'rgba(255,255,255,0.1)',
-                        borderColor: scrolled || !transparent ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.15)',
-                      },
-                    }}
+                        borderColor: scrolled || !transparent ? 'rgba(46,125,50,0.08)' : 'rgba(255,255,255,0.15)'
+}
+}}
                   >
                     {item.label}
                   </Button>
@@ -175,11 +175,11 @@ export default function UnifiedNav({ transparent = false }) {
                   '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: '0 8px 24px rgba(31, 78, 121, 0.35)',
-                    background: 'linear-gradient(135deg, #2A6399 0%, #3B9B40 100%)',
-                  },
+                    background: 'linear-gradient(135deg, #2A6399 0%, #3B9B40 100%)'
+},
                   '&:active': {
-                    transform: 'scale(0.96) translateY(-1px)',
-                  }
+                    transform: 'scale(0.96) translateY(-1px)'
+}
                 }}
               >
                 Login
@@ -209,9 +209,9 @@ export default function UnifiedNav({ transparent = false }) {
             backdropFilter: 'blur(20px)',
             borderLeft: '1px solid rgba(226, 232, 240, 0.8)',
             borderTop: '6px solid',
-            borderImage: 'linear-gradient(135deg, #1F4E79, #2E7D32) 1',
-          },
-        }}
+            borderImage: 'linear-gradient(135deg, #1F4E79, #2E7D32) 1'
+}
+}}
       >
         <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -243,8 +243,8 @@ export default function UnifiedNav({ transparent = false }) {
                     bgcolor: 'rgba(46, 125, 50, 0.08)',
                     border: '1px solid rgba(46, 125, 50, 0.12)',
                     '&:hover': {
-                      bgcolor: 'rgba(46, 125, 50, 0.12)',
-                    },
+                      bgcolor: 'rgba(46, 125, 50, 0.12)'
+},
                     '&::before': {
                       content: '""',
                       position: 'absolute',
@@ -254,12 +254,12 @@ export default function UnifiedNav({ transparent = false }) {
                       width: 4,
                       height: 18,
                       bgcolor: '#2E7D32',
-                      borderRadius: 2,
-                    },
-                  },
+                      borderRadius: 2
+}
+},
                   '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.03)',
-                  }
+                    bgcolor: 'rgba(0, 0, 0, 0.03)'
+}
                 }}
               >
                 <ListItemText
@@ -309,11 +309,11 @@ export default function UnifiedNav({ transparent = false }) {
               '&:hover': { 
                 background: 'linear-gradient(135deg, #2A6399, #3B9B40)',
                 transform: 'translateY(-1px)',
-                boxShadow: '0 6px 16px rgba(31, 78, 121, 0.3)',
-              },
+                boxShadow: '0 6px 16px rgba(31, 78, 121, 0.3)'
+},
               '&:active': {
-                transform: 'scale(0.97)',
-              }
+                transform: 'scale(0.97)'
+}
             }}
           >
             <ListItemText primary="Login to THOZHIRPORUL" primaryTypographyProps={{ fontWeight: 800, textAlign: 'center', fontSize: '0.92rem' }} />
