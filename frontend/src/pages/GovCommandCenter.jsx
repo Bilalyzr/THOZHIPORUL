@@ -19,6 +19,7 @@ import {
   Flag, Business, People, CurrencyRupee, NotificationsActive,
   SmartToy, ElectricBolt, Opacity, Close, Bolt, WaterDrop
 } from '@mui/icons-material';
+import { reducedMotionCSS } from '../utils/uiEnhancements';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
@@ -378,7 +379,7 @@ export default function GovCommandCenter() {
   const closeUtilityDialog = () => setUtilityDialog(d => ({ ...d, open: false }));
 
   return (
-    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+    <Box css={reducedMotionCSS} sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header */}
       <Box sx={{ mb: { xs: 2, md: 3 }, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
         <Box>

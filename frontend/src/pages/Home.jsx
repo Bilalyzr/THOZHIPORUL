@@ -18,6 +18,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import UnifiedNav from '../components/UnifiedNav';
 import UnifiedFooter from '../components/UnifiedFooter';
 import { publicService } from '../services/api';
+import { reducedMotionCSS } from '../utils/uiEnhancements';
 
 // Animations
 const dashboardFloat = keyframes`
@@ -66,7 +67,7 @@ function AnimatedStat({ value, suffix, label, delay }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { const t = setTimeout(() => setVisible(true), delay); return () => clearTimeout(t); }, [delay]);
   return (
-    <Box sx={{ textAlign: 'center', animation: visible ? `${countUp} 0.6s ease-out` : 'none', opacity: visible ? 1 : 0 }}>
+    <Box css={reducedMotionCSS} sx={{ textAlign: 'center', animation: visible ? `${countUp} 0.6s ease-out` : 'none', opacity: visible ? 1 : 0 }}>
       <Typography variant="h2" sx={{ fontWeight: 900, fontSize: { xs: '2rem', md: '3.5rem' }, letterSpacing: '-0.03em', color: 'primary.main' }}>
         {value}<Box component="span" sx={{ color: 'secondary.main', fontSize: '0.45em', ml: 0.5 }}>{suffix}</Box>
       </Typography>

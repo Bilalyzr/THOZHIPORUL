@@ -837,7 +837,7 @@ export default function SecureVault() {
                                 size="small"
                                 sx={{ color: '#d32f2f', '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.08)' } }}
                                 onClick={() => {
-                                  if (confirm(`Are you absolutely sure you want to securely delete ${doc.file_name} from the encrypted storage? This action will permanently remove it from the vault.`)) {
+                                  if (window.confirm(`Delete ${doc.file_name}? This cannot be undone.`)) {
                                     handleDeleteSecure(doc.id, doc.file_name);
                                   }
                                 }}

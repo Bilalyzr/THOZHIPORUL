@@ -20,6 +20,7 @@ import {
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { keyframes } from '@emotion/react';
+import { reducedMotionCSS } from '../utils/uiEnhancements';
 
 // Fallback "type" label derived from park status (API does not provide a sector/type field)
 const TYPE_BY_STATUS = {
@@ -101,7 +102,7 @@ function FlyToMarker({ park }) {
 function ResetView() {
   const map = useMap();
   return (
-    <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
+    <Box css={reducedMotionCSS} sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
       <Button variant="contained" size="small" startIcon={<MyLocation />}
         sx={{ bgcolor: 'white', color: '#1F4E79', boxShadow: 2, '&:hover': { bgcolor: '#f0f4f8' } }}
         onClick={() => map.flyTo(TN_CENTER, TN_ZOOM, { duration: 0.8 })}>

@@ -3,6 +3,7 @@ import {
   Box, Button, Container, TextField, Typography, Paper, Link,
   InputAdornment, IconButton, Alert, Divider, Fade, Slide,
   Accordion, AccordionSummary, AccordionDetails, Chip
+, Snackbar
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Visibility from '@mui/icons-material/Visibility';
@@ -58,6 +59,7 @@ const ROLE_CONFIG = {
 export default function Login() {
   const navigate = useNavigate();
   const { role } = useParams();
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -558,7 +560,7 @@ export default function Login() {
                     type="button"
                     underline="hover"
                     sx={{ color: config.color, fontSize: '0.8rem', fontWeight: 600 }}
-                    onClick={() => alert('Password reset instructions have been sent to your registered email address.')}
+                    onClick={() => setSnackbar({ open: true, message: 'Password reset instructions sent to your registered email.', severity: 'info' })}
                   >
                     Forgot password?
                   </Link>
@@ -630,6 +632,9 @@ export default function Login() {
         </Container>
       </Box>
     </Box>
+    <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+      <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
+    </Snackbar>
     </>
   );
 }

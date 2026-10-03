@@ -34,7 +34,7 @@ import {
   TableHead, 
   TableRow, 
   IconButton, 
-  Snackbar 
+  Snackbar
 } from '@mui/material';
 import { submissionService, grievanceService, complianceService } from '../services/api';
 import { downloadAdminReport } from '../utils/reportGenerator';
@@ -43,6 +43,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 const ds = createDashboardStyles('admin');
 
+import { reducedMotionCSS } from '../utils/uiEnhancements';
 import {
   BarChart, Bar,
   LineChart, Line,
@@ -220,7 +221,7 @@ function AdminDashboard() {
     const newTasks = aiTasks.filter(t => t.id !== taskId);
     setAiTasks(newTasks);
     localStorage.setItem('aiTasks', JSON.stringify(newTasks));
-    alert(`AI Action Executed: ${actionName}`);
+    setSnackbar({ open: true, message: `AI Action Executed: ${actionName}`, severity: 'success' });
   };
 
   const [downloadingReport, setDownloadingReport] = useState(false);
@@ -346,7 +347,7 @@ function AdminDashboard() {
   ];
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
+    <Box css={reducedMotionCSS} sx={{ flexGrow: 1 }}>
       <Box sx={{
         mb: { xs: 2, md: 3 },
         display: 'flex',

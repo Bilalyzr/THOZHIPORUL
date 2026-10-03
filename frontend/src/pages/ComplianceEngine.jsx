@@ -5,6 +5,7 @@ import {
   Select, MenuItem, FormControl, InputLabel, Tabs, Tab, IconButton,
   Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, CircularProgress
+, Skeleton
 } from '@mui/material';
 import {
   CheckCircle, Warning, Error as ErrorIcon, HelpOutline,
@@ -50,6 +51,7 @@ const OverviewCard = ({ label, count, pct, color, icon }) => (
 
 export default function ComplianceEngine() {
   const [tab, setTab] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -121,6 +123,7 @@ export default function ComplianceEngine() {
         })));
         setMissingInfo(miss.data || { total: 0, missing: [], cycle_start: null });
         await fetchViolations();
+        setLoading(false);
       } catch (err) {
         console.error('Failed to load compliance data', err);
         setSnackbar({ open: true, message: 'Unable to load compliance data. Please sign in as an admin/govt user.', severity: 'error' });
@@ -260,6 +263,21 @@ export default function ComplianceEngine() {
         </Grid>
       </Grid>
 
+      {loading ? (
+        <Box sx={{ p: 3 }}>
+          <Grid container spacing={2}>
+            {[0, 1, 2, 3].map(i => (
+              <Grid key={i} size={{ xs: 6, sm: 3 }}>
+                <Skeleton variant="rounded" height={100} />
+              </Grid>
+            ))}
+            <Grid size={{ xs: 12 }}>
+              <Skeleton variant="rounded" height={400} />
+            </Grid>
+          </Grid>
+        </Box>
+      ) : (
+      <>
       <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" allowScrollButtonsMobile>
         <Tab label="Violations" />
         <Tab label="Filing Status" />
@@ -685,6 +703,8 @@ export default function ComplianceEngine() {
           <Button variant="contained" color="primary" startIcon={<Send />} onClick={handleRaiseQuery}>Raise Query & Notify</Button>
         </DialogActions>
       </Dialog>
+
+      </>)}
 
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
