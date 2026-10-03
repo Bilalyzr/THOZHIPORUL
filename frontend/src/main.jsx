@@ -38,6 +38,7 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const IndustryRegistration = lazy(() => import('./pages/IndustryRegistration'));
 const ComplianceMonitoring = lazy(() => import('./pages/ComplianceMonitoring'));
 const ReportsDashboard = lazy(() => import('./pages/ReportsDashboard'));
+const AgentCenter = lazy(() => import('./pages/AgentCenter'));
 const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const IndustryProfile = lazy(() => import('./pages/IndustryProfile'));
@@ -90,6 +91,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               {/* Industrial OS v2 Routes */}
               {/* Govt/Admin Pages */}
               <Route path="/command-center" element={<GovCommandCenter />} />
+              <Route path="/agent-center" element={<AgentCenter />} />
               <Route path="/compliance-engine" element={<ComplianceEngine />} />
               <Route path="/audit-logs" element={<AuditLogViewer />} />
               <Route path="/mobile-inspection" element={<MobileInspection />} />

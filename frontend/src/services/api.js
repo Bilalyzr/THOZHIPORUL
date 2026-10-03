@@ -135,6 +135,22 @@ export const assistantService = {
   getContext: () => api.get('/assistant/context'),
 };
 
+// Agentic AI layer — LangGraph workflows, approvals, NL query, audit
+export const agentService = {
+  startWorkflow: (input) => api.post('/agent/workflows', input),
+  getWorkflows: (params) => api.get('/agent/workflows', { params }),
+  getWorkflow: (id) => api.get(`/agent/workflows/${id}`),
+  getWorkflowSteps: (id) => api.get(`/agent/workflows/${id}/steps`),
+  approveWorkflow: (id, data) => api.post(`/agent/workflows/${id}/approve`, data),
+  rejectWorkflow: (id, data) => api.post(`/agent/workflows/${id}/reject`, data),
+  cancelWorkflow: (id) => api.post(`/agent/workflows/${id}/cancel`),
+  getTasks: () => api.get('/agent/tasks'),
+  query: (question) => api.post('/agent/query', { question }),
+  getAudit: (params) => api.get('/agent/audit', { params }),
+  getMetrics: () => api.get('/agent/metrics'),
+  getCapabilities: () => api.get('/agent/capabilities'),
+};
+
 // v7 report exports (9 types, real XLSX/CSV/PDF/JSON)
 export const reportExportService = {
   export: (type, format, params) =>

@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { notificationService, authService } from '../services/api';
 import MenuIcon from '@mui/icons-material/Menu';
+import MemoryIcon from '@mui/icons-material/Memory';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FactoryIcon from '@mui/icons-material/Factory';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -57,7 +58,8 @@ const ROLE_ROUTE_ACCESS = {
   '/command-center': ['admin', 'govt'],
   '/compliance-engine': ['admin', 'govt'],
   '/csr-dashboard': ['admin', 'govt'],
-  '/analytics': ['admin', 'govt'],
+  '/agent-center': ['admin', 'govt'],
+      '/analytics': ['admin', 'govt'],
   '/mobile-inspection': ['admin', 'govt'],
   '/workspace': ['industry'],
   '/submit-data': ['industry'],

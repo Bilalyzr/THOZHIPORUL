@@ -242,8 +242,12 @@ register({
                 data: { forecast: fc } } };
         }
         const out = await tools.execute('analytics.query', plan.spec, tc);
+        const prefix = plan.answerTemplate || '';
+        const totalRow = out.rows && out.rows.length > 0 && /total|sum|aggregate|overall/.test(String(state.input.question||'').toLowerCase())
+            ? ` (Total: ${out.rows.reduce((sum, r) => sum + (Number(Object.values(r).find(v => typeof v === 'string' && !isNaN(parseFloat(v)))) || 0), 0).toLocaleString('en-IN')})`
+            : '';
         return { agent: 'copilot', result: { status: 'ok',
-            summary: `${out.rowCount} row(s) from ${out.view}.`,
+            summary: `${prefix} ${out.rowCount} row(s) from ${out.view}.${totalRow}`,
             evidence: [{ source: out.citation }],
             data: { query: out } } };
     }
@@ -261,6 +265,44 @@ function planQuestion(q, ctx) {
         return { kind: 'forecast', spec: { metric: fcMetric, scope: ctx.industryId ? 'industry' : 'state',
             scopeId: ctx.industryId || null, horizon: 4 } };
     }
+    // ── NEW INTENTS (A1 upgrade) ──
+    if (/anomal|flag|finding|suspicious|unusual/.test(s)) {
+        return { kind: 'query', spec: { view: 'agent_v_compliance',
+            columns: ['company_name', 'overall_score', 'open_violations', 'open_flags'],
+            where: [], orderBy: { column: 'open_flags', dir: 'desc' }, limit: 20 },
+            answerTemplate: 'Industries with the most open flags/anomalies (sorted by flag count):' };
+    }
+    if (/how many parks|park count|list parks|total parks|number of parks/.test(s)) {
+        return { kind: 'query', spec: { view: 'agent_v_park_metrics',
+            columns: ['park_name', 'district', 'industries', 'operating_industries'],
+            where: [], orderBy: { column: 'industries', dir: 'desc' }, limit: 50 },
+            answerTemplate: 'Here are all industrial parks in the system:' };
+    }
+    if (/total investment|sum.*investment|aggregate.*investment|overall investment/.test(s)) {
+        return { kind: 'query', spec: { view: 'agent_v_industry_metrics',
+            columns: ['company_name', 'investment_amount'], where: [],
+            orderBy: { column: 'investment_amount', dir: 'desc' }, limit: 50 },
+            answerTemplate: 'Investment by industry (highest first):' };
+    }
+    if (/water (usage|consumption|demand)|water by park/.test(s)) {
+        return { kind: 'query', spec: { view: 'agent_v_resource_usage',
+            columns: ['company_name', 'period_year', 'period_quarter', 'water_consumption', 'water_allocated_kl'],
+            where: [], orderBy: { column: 'water_consumption', dir: 'desc' }, limit: 20 },
+            answerTemplate: 'Water consumption by industry (highest first):' };
+    }
+    if (/employment (by|in|per) park|jobs by park/.test(s)) {
+        return { kind: 'query', spec: { view: 'agent_v_industry_metrics',
+            columns: ['company_name', 'park_name', 'permanent_employees', 'contract_employees'],
+            where: [], orderBy: { column: 'permanent_employees', dir: 'desc' }, limit: 20 },
+            answerTemplate: 'Employment by industry and park (highest first):' };
+    }
+    if (/top performer|best indust|most compliant|highest score/.test(s)) {
+        return { kind: 'query', spec: { view: 'agent_v_compliance',
+            columns: ['company_name', 'overall_score', 'open_violations', 'open_flags'],
+            where: [], orderBy: { column: 'overall_score', dir: 'desc' }, limit: 10 },
+            answerTemplate: 'Top-performing industries by compliance score:' };
+    }
+    // ── END NEW INTENTS ──
     if (/missing|not (yet )?submitted|non.?filer/.test(s)) {
         return { kind: 'query', spec: { view: 'agent_v_filing_status',
             columns: ['company_name', 'period_year', 'period_quarter', 'due_on', 'submission_status'],
