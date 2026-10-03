@@ -994,37 +994,37 @@ export default function Home() {
               <Box component="span" sx={{ color: '#2E7D32' }}>Workspace Tiers</Box>
             </Typography>
             <Typography variant="h6" color="text.secondary" maxWidth={750} sx={{ mx: 'auto', fontWeight: 400, lineHeight: 1.7, fontSize: '1.05rem' }}>
-              Whether you are an MSME owner or a multinational conglomerate, choose a plan structured precisely around your compliance reporting and statutory storage requirements.
+              Every plan includes statutory filing with validation and versioned history. Higher tiers unlock forecasting, AI analytics, and agentic automation. Annual billing saves 2 months.
             </Typography>
           </Box>
 
           <Grid container spacing={4} alignItems="stretch">
             {[
               {
-                name: 'Compliance Starter',
-                price: '₹0',
-                period: 'Free Plan',
-                desc: 'Baseline digital forms and standard compliance tracker. Perfect for small businesses fulfilling statutory requirements.',
-                bullets: ['Unified submission forms', 'Overall compliance scoring', 'Standard Services NOC tracker', '10 MB Vault file limit'],
+                name: 'Starter',
+                price: '₹1,499',
+                period: '/ month',
+                desc: 'Digital filing made simple — all 8 data domains with server-side validation and versioned history.',
+                bullets: ['All 8 data domains, quarterly filing', 'Server-side validation + versioned history', 'Compliance score + reporting calendar', '50 MB document vault'],
                 color: '#1F4E79',
                 bg: 'white'
               },
               {
-                name: 'SME Professional',
+                name: 'Professional',
                 price: '₹4,999',
                 period: '/ month',
-                desc: 'Bulk uploads, manual Excel reports, statutory expiry alert automations, and consolidated compliance logs for growth factories.',
-                bullets: ['Bulk CSV & Excel uploads', 'Detailed category score breakdown', 'SLA timelines & Kanban alerts', '1 GB Vault storage + expiry alerts'],
+                desc: 'Quarterly forecasting, park benchmarking, AI assistant chat, and scoped API access for growing industries.',
+                bullets: ['Bulk CSV + API key (10K calls/mo)', 'Forecasting + park benchmarking', 'AI assistant chat (DB-backed)', '5 GB vault + PDF/XLSX export'],
                 color: '#2E7D32',
                 bg: 'white',
                 isPopular: true
               },
               {
-                name: 'Enterprise Suite',
+                name: 'Enterprise',
                 price: '₹24,999',
                 period: '/ month',
-                desc: 'Predictive economic modeling, live API feeds, automated AI OCR document scanning, and deep state-level compliance auditing.',
-                bullets: ['Direct API & ERP integrations', 'AI Compliance Mitigation engine', 'Scheduled automatic reporting', '100 GB Vault + Auto OCR scanning'],
+                desc: 'Full agentic AI workflows, Holt-Winters ETS forecasting, capacity planning, and natural-language query.',
+                bullets: ['Agentic workflows (LangGraph) + NL query', 'ETS forecasting + capacity planning', 'Document OCR + AI decision reports', '50 GB vault + unlimited API'],
                 color: '#1F4E79',
                 bg: 'white'
               }
