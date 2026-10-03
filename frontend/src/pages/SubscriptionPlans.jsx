@@ -40,8 +40,8 @@ const V2_PLANS = [
     key: 'free_starter',
     name: 'Starter',
     subtitle: 'Statutory compliance — free forever',
-    monthlyPrice: 'Free',
-    annualPrice: 'Free',
+    monthlyPrice: 0,
+    annualPrice: 0,
     badge: 'ALWAYS FREE',
     target: 'Small units (< 50 employees), new allottees',
     features: [
@@ -62,8 +62,8 @@ const V2_PLANS = [
     key: 'sme_pro',
     name: 'Professional',
     subtitle: 'For growing industries that need foresight',
-    monthlyPrice: '₹4,999',
-    annualPrice: '₹4,999',
+    monthlyPrice: 4999,
+    annualPrice: 49990,
     badge: 'RECOMMENDED',
     target: 'SMEs (50-500 employees), established units',
     features: [
@@ -86,8 +86,8 @@ const V2_PLANS = [
     key: 'enterprise_suite',
     name: 'Enterprise',
     subtitle: 'Full industrial intelligence for large operations',
-    monthlyPrice: '₹24,999',
-    annualPrice: '₹24,999',
+    monthlyPrice: 24999,
+    annualPrice: 249990,
     badge: 'PREMIUM',
     target: 'Large units (500+), multi-park operations',
     features: [
@@ -327,14 +327,44 @@ export default function SubscriptionPlans() {
                           {plan.target}
                         </Typography>
                       </Tooltip>
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-                        <Typography variant="h3" fontWeight={900} sx={{ fontSize: '2.5rem', background: plan.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                          {billingPeriod === 'annual' ? plan.annualPrice : plan.monthlyPrice}
-                        </Typography>
-                        {plan.monthlyPrice !== 'Free' && (
-                          <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                            /{billingPeriod === 'annual' ? 'year' : 'month'}
-                          </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+                        {typeof plan.monthlyPrice === 'number' ? (
+                          <>
+                            {billingPeriod === 'annual' && (
+                              <Typography component="span" sx={{ fontSize: '1.2rem', color: 'text.disabled', textDecoration: 'line-through', fontWeight: 500 }}>
+                                ₹{plan.monthlyPrice.toLocaleString('en-IN')}
+                              </Typography>
+                            )}
+                            <Typography variant="h3" fontWeight={900} sx={{ fontSize: '2.5rem', background: plan.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                              {billingPeriod === 'annual'
+                                ? `₹${Math.round(plan.annualPrice / 12).toLocaleString('en-IN')}`
+                                : `₹${plan.monthlyPrice.toLocaleString('en-IN')}`}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                              /mo
+                            </Typography>
+                            {billingPeriod === 'annual' && (
+                              <Chip
+                                label={`SAVE ₹${((plan.monthlyPrice * 12) - plan.annualPrice).toLocaleString('en-IN')}/yr`}
+                                size="small"
+                                sx={{ bgcolor: '#E8F5E9', color: '#2E7D32', fontWeight: 700, fontSize: '0.7rem' }}
+                              />
+                            )}
+                            <Typography variant="caption" color="text.disabled" sx={{ display: 'block', width: '100%', mt: 0.5 }}>
+                              {billingPeriod === 'annual'
+                                ? `Billed ₹${plan.annualPrice.toLocaleString('en-IN')} annually`
+                                : `Or ₹${plan.annualPrice.toLocaleString('en-IN')}/yr (2 months free)`}
+                            </Typography>
+                          </>
+                        ) : (
+                          <>
+                            <Typography variant="h3" fontWeight={900} sx={{ fontSize: '2.5rem', background: plan.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                              Free
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                              forever
+                            </Typography>
+                          </>
                         )}
                       </Box>
                     </Box>
