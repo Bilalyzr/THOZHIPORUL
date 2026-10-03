@@ -262,6 +262,7 @@ const applyV4bMigration = () => applyMigration('v4b real tenants', 'schema_v4b_r
 const applyV5Migration = () => applyMigration('v5 Tier 2 (allottee lifecycle)', 'schema_v5_tier2.sql');
 const applyV6Migration = () => applyMigration('v6 Tier 3 (strategic)', 'schema_v6_tier3.sql');
 const applyV7Migration = () => applyMigration('v7 intelligence & data reliability', 'schema_v7_intelligence.sql');
+const applyV8Migration = () => applyMigration('v8 agentic AI layer', 'schema_v8_agentic.sql');
 
 // Auth Routes
 const auth = require('./routes/auth');
@@ -319,6 +320,17 @@ app.use('/api/reporting-periods', require('./routes/reporting-periods'));
 app.use('/api/findings', require('./routes/findings'));
 app.use('/api/intelligence', require('./routes/intelligence'));
 
+// v8 Agentic Intelligence & Orchestration Layer (LangGraph supervisor,
+// specialist agents, tool registry, approval gates, full audit).
+app.use('/api/agent', require('./routes/agent'));
+require('./agentic/workflows/submissionWorkflow');
+require('./agentic/workflows/otherWorkflows');
+require('./agentic/agents/specialists');
+require('./agentic/tools/submissionTools');
+require('./agentic/tools/documentTools');
+require('./agentic/tools/analysisTools');
+require('./agentic/tools/actionTools');
+
 // Background scheduler — starts SLA escalation, doc-expiry reminders,
 // scheduled-report generation, subscription dunning, reporting-calendar
 // maintenance, filing reminders/escalations, compliance scoring and
@@ -367,11 +379,19 @@ app.listen(PORT, () => {
         //    scoring/lockout/API-key columns. Takes frozen backups of
         //    altered tables first — see the file header.
         await applyV7Migration();
+        // 6. v8 Agentic AI layer: agent_workflows/steps/tool_calls/approvals/
+        //    memory/events, ai_runs/ai_extractions, PRD views (ai_queries,
+        //    ml_forecasts, data_quality_flags, agent_v_* vetted views).
+        await applyV8Migration();
         // 6. After all migrations, backfill seed-doc files + users.name.
         ensureSeedDocuments();
         ensureUsersNameColumn();
         // 7. NOW the schema is guaranteed — start background jobs (their
         //    first tick runs immediately, so backing tables must exist).
         scheduler.start();
+        // 8. Agentic layer: recover workflows orphaned by a worker restart
+        //    (state is persisted — they resume, not restart).
+        require('./agentic/orchestrator/supervisor').recoverPending().catch(e =>
+            console.warn('[AGENT] recovery skipped:', e.message));
     }).catch(err => console.warn('[BOOT] Migration chain error:', err.message));
 });

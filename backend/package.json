@@ -7,13 +7,15 @@
     "dev": "nodemon index.js",
     "start": "node index.js",
     "test": "node --test",
-    "test:e2e": "node tests/e2e-live.mjs"
+    "test:e2e": "node tests/e2e-live.mjs",
+    "test:e2e:agent": "node tests/e2e-agent.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@langchain/langgraph": "^1.4.18",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
@@ -24,7 +26,8 @@
     "multer": "^2.2.0",
     "nodemailer": "^10.0.13",
     "pg": "^8.20.0",
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
