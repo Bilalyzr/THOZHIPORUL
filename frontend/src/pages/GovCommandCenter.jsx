@@ -22,7 +22,7 @@ import {
 import { reducedMotionCSS } from '../utils/uiEnhancements';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 
 const SEVERITY_COLORS = {
