@@ -43,18 +43,24 @@ const theme = createTheme({
     divider: '#E2E8F0',
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", sans-serif',
-    fontSize: 12,
-    htmlFontSize: 14,
-    h1: { fontFamily: '"Outfit", sans-serif', fontWeight: 900, letterSpacing: '-0.03em' },
-    h2: { fontFamily: '"Outfit", sans-serif', fontWeight: 800, letterSpacing: '-0.02em' },
-    h3: { fontFamily: '"Outfit", sans-serif', fontWeight: 800, letterSpacing: '-0.02em' },
-    h4: { fontFamily: '"Outfit", sans-serif', fontWeight: 700, letterSpacing: '-0.01em' },
-    h5: { fontFamily: '"Outfit", sans-serif', fontWeight: 700 },
-    h6: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
-    subtitle1: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
-    subtitle2: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
-    button: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
+    // Inter for body (clean, readable at small sizes) + Outfit for headings (geometric, modern)
+    fontFamily: '"Inter", "Roboto", "Helvetica Neue", sans-serif',
+    fontSize: 14,        // MUI standard — 12 was too small for readability
+    htmlFontSize: 16,    // Browser default — 14 was non-standard
+    // Outfit for all display/heading text
+    h1: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.08 },
+    h2: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 },
+    h3: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2 },
+    h4: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.25 },
+    h5: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 700, lineHeight: 1.3 },
+    h6: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 600, lineHeight: 1.35 },
+    subtitle1: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 600, lineHeight: 1.5 },
+    subtitle2: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 600, lineHeight: 1.45 },
+    button: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 600, textTransform: 'none', letterSpacing: '0.01em' },
+    body1: { fontFamily: '"Inter", "Roboto", sans-serif', fontSize: '0.9rem', lineHeight: 1.65 },
+    body2: { fontFamily: '"Inter", "Roboto", sans-serif', fontSize: '0.8rem', lineHeight: 1.55 },
+    caption: { fontFamily: '"Inter", "Roboto", sans-serif', fontSize: '0.72rem', lineHeight: 1.45 },
+    overline: { fontFamily: '"Outfit", "Inter", sans-serif', fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.68rem' },
   },
   shape: {
     borderRadius: 12,
@@ -69,6 +75,26 @@ const theme = createTheme({
     ...Array(20).fill('0 4px 6px -1px rgb(0 0 0 / 0.05)')
   ],
   components: {
+    // Styled asterisk for required fields — red, bold, properly spaced
+    MuiFormLabel: {
+      styleOverrides: {
+        root: {
+          '& .MuiFormLabel-asterisk': {
+            color: '#D32F2F',
+            fontWeight: 700,
+          },
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-input': {
+            fontSize: '0.875rem',
+          },
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: {
         html: {

@@ -419,8 +419,8 @@ export default function UnifiedDataSubmission() {
         return (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12 }}><Alert severity="info">Enter financial values in <strong>₹ Crores</strong> — stored canonically in INR.</Alert></Grid>
-            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Investment Amount (₹ Cr) *" type="number" value={formData.investmentAmount} onChange={handleChange('investmentAmount')} /></Grid>
-            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Annual Turnover (₹ Cr) *" type="number" value={formData.annualTurnover} onChange={handleChange('annualTurnover')} /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Investment Amount (₹ Cr)" required type="number" value={formData.investmentAmount} onChange={handleChange('investmentAmount')} /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Annual Turnover (₹ Cr)" required type="number" value={formData.annualTurnover} onChange={handleChange('annualTurnover')} /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Export Revenue (₹ Cr)" type="number" value={formData.exportRevenue} onChange={handleChange('exportRevenue')} /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="R&D Expenditure (₹ Cr)" type="number" value={formData.rdExpenditure} onChange={handleChange('rdExpenditure')} /></Grid>
           </Grid>
@@ -428,8 +428,8 @@ export default function UnifiedDataSubmission() {
       case 2:
         return (
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Permanent Employees *" type="number" value={formData.permanentEmployees} onChange={handleChange('permanentEmployees')} /></Grid>
-            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Contract Employees *" type="number" value={formData.contractEmployees} onChange={handleChange('contractEmployees')} /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Permanent Employees" required type="number" value={formData.permanentEmployees} onChange={handleChange('permanentEmployees')} /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Contract Employees" required type="number" value={formData.contractEmployees} onChange={handleChange('contractEmployees')} /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="SC/ST Employees" type="number" value={formData.scStEmployees} onChange={handleChange('scStEmployees')} /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Women Employees" type="number" value={formData.womenEmployees} onChange={handleChange('womenEmployees')} /></Grid>
           </Grid>
@@ -437,8 +437,8 @@ export default function UnifiedDataSubmission() {
       case 3:
         return (
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Water Consumption (KL) *" type="number" value={formData.waterConsumption} onChange={handleChange('waterConsumption')} /></Grid>
-            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Power Usage (kWh) *" type="number" value={formData.powerUsage} onChange={handleChange('powerUsage')} /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Water Consumption (KL)" required type="number" value={formData.waterConsumption} onChange={handleChange('waterConsumption')} /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Power Usage (kWh)" required type="number" value={formData.powerUsage} onChange={handleChange('powerUsage')} /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Waste Generated (MT)" type="number" value={formData.wasteGenerated} onChange={handleChange('wasteGenerated')} /></Grid>
             <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Waste Recycled (%)" type="number" value={formData.wasteRecycledPct} onChange={handleChange('wasteRecycledPct')} /></Grid>
           </Grid>
@@ -519,7 +519,7 @@ export default function UnifiedDataSubmission() {
               {proofError && <Alert severity="error" sx={{ mt: 1 }}>{proofError}</Alert>}
             </Box>
             {amendingApproved && (
-              <TextField fullWidth multiline rows={2} label="Amendment reason (required) *" value={formData.amendmentReason}
+              <TextField fullWidth multiline rows={2} label="Amendment reason (required for approved filings)" required value={formData.amendmentReason}
                 onChange={handleChange('amendmentReason')} sx={{ mb: 2 }}
                 helperText={`e.g. "Corrected employment figure after payroll audit for Q${formData.periodQuarter}"`} />
             )}
