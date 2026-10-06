@@ -44,6 +44,10 @@ function financialYear(date = new Date()) {
 
 async function nextInvoiceSeq(client) {
     const fy = financialYear();
+    // Advisory lock serializes invoice numbering per financial year — the old
+    // COUNT(*)+1 under READ COMMITTED let two concurrent creates pick the
+    // same GST invoice number. Lock is held until the transaction commits.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [`tzp_invoice_${fy}`]);
     const { rows } = await client.query(
         `SELECT COUNT(*)::int + 1 AS seq FROM invoices WHERE invoice_no LIKE $1`,
         [`TZP/${fy}/%`]);

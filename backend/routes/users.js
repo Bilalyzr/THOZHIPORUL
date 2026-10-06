@@ -10,29 +10,31 @@ const { requireRole } = require('./auth');
 router.get('/', requireRole(['admin']), async (req, res) => {
     try {
         const { rows } = await db.query(`
-            SELECT 
-                u.id, 
-                u.email as "rootEmail", 
-                u.role, 
-                u.status, 
-                COALESCE(i.company_name, u.email) as name
+            SELECT
+                u.id,
+                u.email as "rootEmail",
+                u.role,
+                u.status,
+                COALESCE(u.name, i.company_name, u.email) as name,
+                i.id AS industry_id
             FROM users u
             LEFT JOIN industry_profiles i ON i.user_id = u.id
             ORDER BY u.id ASC
         `);
-        
+
         // Map role casing for frontend compatibility
         const mappedUsers = rows.map(user => {
             let mappedRole = 'Industry';
             if (user.role === 'admin') mappedRole = 'Admin';
             if (user.role === 'govt') mappedRole = 'Govt';
-            
+
             return {
                 id: user.id,
                 name: user.name,
                 rootEmail: user.rootEmail,
                 role: mappedRole,
-                status: user.status
+                status: user.status,
+                industry_id: user.industry_id || null
             };
         });
         

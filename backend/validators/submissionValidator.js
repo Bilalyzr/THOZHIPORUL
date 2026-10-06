@@ -141,6 +141,41 @@ async function validateSubmission(payload, opts = {}) {
         normalized.csrActivities = null;
     }
 
+    // ---- CSR structured fields (Section 135 / Schedule VII) --
+    // Text fields: trimmed, length-capped, or null. Cr-denominated
+    // numerics pass through as numbers. SDG goals arrive as an array
+    // of ints or a "3,4,13" string and are stored as INTEGER[].
+    const csrText = [
+        ['csrPillar', 40], ['csrPartner', 255], ['csrCsr1No', 50], ['csrLocation', 255]
+    ];
+    for (const [field, max] of csrText) {
+        const v = payload[field];
+        normalized[field] = (v === undefined || v === null || v === '') ? null : String(v).trim().slice(0, max) || null;
+    }
+    for (const field of ['csrPatBaseline', 'csrMandatedSpend', 'csrActualSpend']) {
+        const r = toNumber(payload[field]);
+        if (!r.ok) {
+            errors.push(err(field, `${field} must be numeric (in ₹ Crore).`, 'NOT_NUMERIC'));
+            normalized[field] = null;
+        } else {
+            normalized[field] = r.value; // Cr as entered — columns are *_cr
+        }
+    }
+    normalized.csrSdgGoals = null;
+    if (payload.csrSdgGoals !== undefined && payload.csrSdgGoals !== null && payload.csrSdgGoals !== '') {
+        const rawArr = Array.isArray(payload.csrSdgGoals)
+            ? payload.csrSdgGoals
+            : String(payload.csrSdgGoals).split(',');
+        const goals = rawArr.map(g => parseInt(g, 10)).filter(g => Number.isInteger(g));
+        if (rawArr.length && goals.length !== rawArr.length) {
+            errors.push(err('csrSdgGoals', 'SDG goals must be numbers between 1 and 17.', 'INVALID'));
+        } else {
+            const bad = goals.filter(g => g < 1 || g > 17);
+            if (bad.length) errors.push(err('csrSdgGoals', 'SDG goals must be between 1 and 17.', 'INVALID'));
+            else normalized.csrSdgGoals = goals;
+        }
+    }
+
     // ---- Operational status --------------------------------
     if (payload.operationalStatus !== undefined && payload.operationalStatus !== null && payload.operationalStatus !== '') {
         const s = String(payload.operationalStatus).toUpperCase();

@@ -48,10 +48,15 @@ const severityFor = (violationSeverity) => {
 // ============================================================
 router.get('/', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
-        // If the caller is an industry user we can scope alerts to their own
+        // If the caller is an industry user we scope alerts to their own
         // industry_profiles.id (carried in the token as profile_id). Admin/Govt
-        // callers, or any caller without a resolvable industry, get system-wide.
+        // callers get system-wide. An industry token WITHOUT a profile_id must
+        // fail CLOSED (403) — treating it as "no filter" leaked every
+        // company's violations, filings and service requests.
         const industryId = req.user && req.user.role === 'industry' ? req.user.profile_id : null;
+        if (req.user.role === 'industry' && !industryId) {
+            return res.status(403).json({ error: 'No industry profile linked to this account. Contact support.' });
+        }
         const scoped = !!industryId;
         const idParam = scoped ? [industryId] : [];
         // Reusable "$1 filter or nothing" fragment builder.

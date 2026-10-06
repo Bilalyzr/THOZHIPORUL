@@ -47,7 +47,9 @@ function AIInsightsPanel() {
     setAnswer(null);
     try {
       const res = await agentService.query(query);
-      setAnswer(res);
+      // axios response → the payload lives on .data (storing the response
+      // object itself made every answer render as an empty "Answer" card).
+      setAnswer(res.data);
       setHistory(prev => [{ q: query, at: new Date().toISOString() }, ...prev.slice(0, 4)]);
     } catch (err) {
       setAnswer({ error: err.response?.data?.error || 'Query failed' });

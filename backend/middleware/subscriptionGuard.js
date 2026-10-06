@@ -99,8 +99,12 @@ function requireFeature(featureKey) {
 
             // Grace-period check: if past_due, allow for GRACE_PERIOD_DAYS
             // after the last payment, then hard-gate with BILLING_FAILED.
-            if (status === 'past_due' && lastPaymentDate) {
-                const daysSince = (Date.now() - new Date(lastPaymentDate).getTime()) / (1000 * 60 * 60 * 24);
+            // A NULL last_payment_date gets NO grace (fail closed) — the old
+            // `&& lastPaymentDate` guard skipped the gate entirely.
+            if (status === 'past_due') {
+                const daysSince = lastPaymentDate
+                    ? (Date.now() - new Date(lastPaymentDate).getTime()) / (1000 * 60 * 60 * 24)
+                    : Infinity;
                 if (daysSince > GRACE_PERIOD_DAYS) {
                     return res.status(402).json({
                         code: 'BILLING_FAILED',

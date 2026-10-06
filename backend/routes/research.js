@@ -133,6 +133,11 @@ router.get('/park-realisation', cache.middleware(120_000), requireRole(['admin',
 // ============================================================
 router.get('/csr-dashboard', cache.middleware(120_000), requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
+        // Fail CLOSED for an industry token without profile_id — unscoped
+        // would return every company's CSR spend records.
+        if (req.user.role === 'industry' && !req.user.profile_id) {
+            return res.status(403).json({ error: 'No industry profile linked to this account. Contact support.' });
+        }
         const scoped = req.user.role === 'industry' && req.user.profile_id;
         const filter = scoped ? `AND ip.id = $1` : '';
         const params = scoped ? [req.user.profile_id] : [];

@@ -27,7 +27,10 @@ const SNAPSHOT_FIELDS = [
     'investmentAmount', 'annualTurnover', 'exportRevenue', 'rdExpenditure',
     'permanentEmployees', 'contractEmployees', 'scStEmployees', 'womenEmployees',
     'waterConsumption', 'powerUsage', 'wasteGenerated', 'wasteRecycledPct',
-    'csrActivities', 'csrSpent', 'csrBeneficiaries'
+    'csrActivities', 'csrSpent', 'csrBeneficiaries',
+    // Structured CSR (Section 135 / Schedule VII) — Cr numerics + text + SDG list
+    'csrPillar', 'csrPatBaseline', 'csrMandatedSpend', 'csrActualSpend',
+    'csrPartner', 'csrCsr1No', 'csrSdgGoals', 'csrLocation'
 ];
 
 // ------------------------------------------------------------
@@ -43,7 +46,10 @@ async function getSubmissionPayload(runner, submissionId) {
                f.investment_amount, f.annual_turnover, f.export_revenue, f.rd_expenditure,
                e.permanent_employees, e.contract_employees, e.sc_st_employees, e.women_employees,
                r.water_consumption, r.power_usage, r.waste_generated, r.waste_recycled_pct,
-               c.description AS csr_activities, c.amount_spent AS csr_spent, c.beneficiary_count AS csr_beneficiaries
+               c.description AS csr_activities, c.amount_spent AS csr_spent, c.beneficiary_count AS csr_beneficiaries,
+               c.pillar AS csr_pillar, c.pat_baseline_cr AS csr_pat_baseline, c.mandated_spend_cr AS csr_mandated_spend,
+               c.actual_spend_cr AS csr_actual_spend, c.implementing_partner AS csr_partner,
+               c.csr1_registration_no AS csr_csr1_no, c.sdg_goals AS csr_sdg_goals, c.location_benefited AS csr_location
           FROM data_submissions ds
           JOIN industry_profiles ip ON ip.id = ds.industry_id
      LEFT JOIN financial_data f ON f.submission_id = ds.id
@@ -69,7 +75,10 @@ async function getSubmissionPayload(runner, submissionId) {
         scStEmployees: row.sc_st_employees, womenEmployees: row.women_employees,
         waterConsumption: row.water_consumption, powerUsage: row.power_usage,
         wasteGenerated: row.waste_generated, wasteRecycledPct: row.waste_recycled_pct,
-        csrActivities: row.csr_activities, csrSpent: row.csr_spent, csrBeneficiaries: row.csr_beneficiaries
+        csrActivities: row.csr_activities, csrSpent: row.csr_spent, csrBeneficiaries: row.csr_beneficiaries,
+        csrPillar: row.csr_pillar, csrPatBaseline: row.csr_pat_baseline, csrMandatedSpend: row.csr_mandated_spend,
+        csrActualSpend: row.csr_actual_spend, csrPartner: row.csr_partner,
+        csrCsr1No: row.csr_csr1_no, csrSdgGoals: row.csr_sdg_goals, csrLocation: row.csr_location
     };
     for (const k of SNAPSHOT_FIELDS) payload[k] = map[k] === undefined ? null : map[k];
     payload.productionItems = prod.rows.map(p => ({
@@ -238,13 +247,28 @@ async function fileSubmission(opts) {
                waste_generated=EXCLUDED.waste_generated, waste_recycled_pct=EXCLUDED.waste_recycled_pct`,
             [submissionId, n(p.waterConsumption), n(p.powerUsage), n(p.wasteGenerated), n(p.wasteRecycledPct)]
         );
-        if (p.csrActivities !== null || p.csrSpent !== null || p.csrBeneficiaries !== null) {
+        if (p.csrActivities !== null || p.csrSpent !== null || p.csrBeneficiaries !== null ||
+            p.csrPillar || p.csrPatBaseline !== null || p.csrMandatedSpend !== null ||
+            p.csrActualSpend !== null || p.csrPartner || p.csrCsr1No || p.csrSdgGoals || p.csrLocation) {
             await client.query(
-                `INSERT INTO csr_activities (submission_id, description, amount_spent, beneficiary_count)
-                 VALUES ($1,$2,$3,$4)
+                `INSERT INTO csr_activities
+                    (submission_id, description, amount_spent, beneficiary_count,
+                     pillar, pat_baseline_cr, mandated_spend_cr, actual_spend_cr,
+                     implementing_partner, csr1_registration_no, sdg_goals, location_benefited)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::int[],$12)
                  ON CONFLICT (submission_id) DO UPDATE SET
-                   description=EXCLUDED.description, amount_spent=EXCLUDED.amount_spent, beneficiary_count=EXCLUDED.beneficiary_count`,
-                [submissionId, n(p.csrActivities), n(p.csrSpent), n(p.csrBeneficiaries)]
+                   description=EXCLUDED.description, amount_spent=EXCLUDED.amount_spent,
+                   beneficiary_count=EXCLUDED.beneficiary_count,
+                   pillar=EXCLUDED.pillar, pat_baseline_cr=EXCLUDED.pat_baseline_cr,
+                   mandated_spend_cr=EXCLUDED.mandated_spend_cr, actual_spend_cr=EXCLUDED.actual_spend_cr,
+                   implementing_partner=EXCLUDED.implementing_partner,
+                   csr1_registration_no=EXCLUDED.csr1_registration_no,
+                   sdg_goals=EXCLUDED.sdg_goals, location_benefited=EXCLUDED.location_benefited`,
+                [submissionId, n(p.csrActivities), n(p.csrSpent), n(p.csrBeneficiaries),
+                 n(p.csrPillar), n(p.csrPatBaseline), n(p.csrMandatedSpend), n(p.csrActualSpend),
+                 n(p.csrPartner), n(p.csrCsr1No),
+                 p.csrSdgGoals && p.csrSdgGoals.length ? p.csrSdgGoals : null,
+                 n(p.csrLocation)]
             );
         }
 

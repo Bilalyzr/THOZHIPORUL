@@ -360,9 +360,12 @@ router.put('/:id/status', requireRole(['admin', 'govt']), async (req, res) => {
 });
 
 // @route   POST /api/services/:id/allot
-// @desc    Approve and Allot Plot (Admin only)
-// @access  Private (Admin)
-router.post('/:id/allot', requireRole(['admin']), async (req, res) => {
+// @desc    Approve and Allot Plot. Admin and Govt officers both process
+//          service requests in this product (the UI offers the action to
+//          both roles) — previously govt officers got a 403 from this
+//          endpoint while the frontend showed them the button.
+// @access  Private (Admin, Govt)
+router.post('/:id/allot', requireRole(['admin', 'govt']), async (req, res) => {
     const client = await db.pool.connect();
     try {
         const { plotId } = req.body;
@@ -401,6 +404,38 @@ router.post('/:id/allot', requireRole(['admin']), async (req, res) => {
         res.status(500).json({ error: err.message });
     } finally {
         client.release();
+    }
+});
+
+// @route   PUT /api/services/:id/withdraw
+// @desc    Industry withdraws its own service request. Only allowed while
+//          the request is still in progress — an approved/completed/
+//          rejected request is final. The ServicesTracker UI has had a
+//          Withdraw button since launch; this is the endpoint behind it.
+// @access  Private (Industry owner)
+router.put('/:id/withdraw', requireRole(['industry']), async (req, res) => {
+    try {
+        const owner = await db.query('SELECT industry_id, current_status FROM service_requests WHERE id = $1', [req.params.id]);
+        if (!owner.rows.length) return res.status(404).json({ error: 'Request not found' });
+        if (owner.rows[0].industry_id !== req.user.profile_id) {
+            return res.status(403).json({ error: 'You can only withdraw your own requests.' });
+        }
+        const finalStates = ['approved', 'completed', 'rejected', 'Withdrawn'];
+        if (finalStates.includes(owner.rows[0].current_status)) {
+            return res.status(409).json({ error: `A ${owner.rows[0].current_status} request can no longer be withdrawn.` });
+        }
+        const upd = await db.query(
+            `UPDATE service_requests
+                SET current_status = 'Withdrawn',
+                    remarks = COALESCE($1, 'Withdrawn by industry'),
+                    updated_at = CURRENT_TIMESTAMP
+              WHERE id = $2 RETURNING *`,
+            [req.body.reason || null, req.params.id]
+        );
+        res.json({ msg: 'Request withdrawn', request: upd.rows[0] });
+    } catch (err) {
+        console.error('Withdraw Error:', err.message);
+        res.status(500).send('Server Error');
     }
 });
 

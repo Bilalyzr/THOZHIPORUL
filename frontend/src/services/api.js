@@ -20,15 +20,19 @@ api.interceptors.request.use((config) => {
 
 // Expired/invalid session → clear stale credentials and return to the
 // login entry point (instead of generic "Error loading data" snackbars).
-// Skipped for the login endpoint itself so bad credentials show their
-// own message, and only fires when a token HAD been stored.
+// Skipped for: the login endpoints themselves; and authenticated endpoints
+// that legitimately answer 401 for a WRONG CREDENTIAL on an action (vault
+// passphrase, current password, MFA code) — a typo there must show the
+// page's own error UI, not force a logout.
+const CREDENTIAL_401_URLS = ['/auth/login', '/auth/verify-mfa', '/workspace/verify-vault', '/account/password', '/security/mfa'];
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response && error.response.status;
     const url = (error.config && error.config.url) || '';
     const hadToken = !!localStorage.getItem('token');
-    if (status === 401 && hadToken && !url.includes('/auth/login') && !url.includes('/auth/verify-mfa')) {
+    const isCredentialCheck = CREDENTIAL_401_URLS.some(u => url.includes(u));
+    if (status === 401 && hadToken && !isCredentialCheck) {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('userName');
@@ -72,6 +76,11 @@ export const authService = {
     localStorage.removeItem('sipcot_submissions');
     localStorage.removeItem('sipcot_violations');
     localStorage.removeItem('savedReportConfig');
+    // Impersonation remnants — leaving these behind showed the
+    // "impersonating" banner on the next unrelated login session.
+    localStorage.removeItem('impersonating');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('readNotifIds');
   },
 };
 
@@ -203,6 +212,7 @@ export const serviceRequestService = {
   create: (data) => api.post('/services', data),
   updateStatus: (id, data) => api.put(`/services/${id}/status`, data),
   allotPlot: (id, plotId) => api.post(`/services/${id}/allot`, { plotId }),
+  withdraw: (id, reason) => api.put(`/services/${id}/withdraw`, { reason }),
   getBottlenecks: () => api.get('/services/bottlenecks'),
 };
 

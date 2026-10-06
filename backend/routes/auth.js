@@ -137,6 +137,23 @@ router.post('/register/govt', async (req, res) => {
 const { promisify } = require('util');
 const signToken = promisify(jwt.sign);
 
+// Issue a session token that is TRACKED in user_sessions (token_jti), so the
+// security page's "revoke session" actually invalidates it — requireRole
+// checks the revoked flag for every tracked token. Best-effort: if the row
+// can't be written, the token still works (pre-tracking tokens do too).
+async function issueSessionToken(payload, req, expiresIn = '8h') {
+    const jti = crypto.randomBytes(16).toString('hex');
+    const token = await signToken(payload, JWT_SECRET, { expiresIn, jwtid: jti });
+    db.query(
+        `INSERT INTO user_sessions (user_id, token_jti, device, ip_address)
+         VALUES ($1,$2,$3,$4) ON CONFLICT (token_jti) DO NOTHING`,
+        [payload.user.id, jti,
+         req.headers && req.headers['user-agent'] ? String(req.headers['user-agent']).slice(0, 250) : null,
+         req.ip || null]
+    ).catch(() => { /* session tracking must not block login */ });
+    return token;
+}
+
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -218,36 +235,27 @@ router.post('/login', async (req, res) => {
             }
         };
 
-        // Sign token
-        const token = await signToken(payload, JWT_SECRET, { expiresIn: '8h' });
-
-        // ---- 2FA HARD GATE (admin only) ----
-        // 2FA is MANDATORY for admins. Two outcomes:
-        //   1. Admin has MFA enabled  → return mfa_required (must enter code)
-        //   2. Admin has NO MFA       → return mfa_setup_required (must enroll
-        //      before they can access the dashboard at all)
-        // In BOTH cases, NO session token is issued — the admin cannot
-        // proceed without 2FA.
-        if (user.role === 'admin') {
-            // Fail CLOSED: the only permitted fallback is "table doesn't exist
-            // yet" (pre-migration install), which forces the enrollment
-            // challenge below. Any other DB error blocks the login entirely —
-            // an admin session token is never issued on a failed 2FA lookup.
-            let mfaEnabled = false;
-            try {
-                const mfaRow = await db.query('SELECT enabled FROM user_mfa WHERE user_id = $1', [user.id]);
-                mfaEnabled = !!(mfaRow.rows.length && mfaRow.rows[0].enabled);
-            } catch (err) {
-                if (err.code === '42P01') {
-                    // user_mfa table absent (pre-migration) → treat as "not
-                    // enrolled"; the setup challenge below still gates access.
-                    mfaEnabled = false;
-                } else {
-                    console.error('[AUTH] MFA gate DB error — failing closed:', err.message);
-                    return res.status(500).json({ error: 'Unable to verify 2FA status. Please try again later.' });
-                }
+        // ---- 2FA GATE (all roles) ----
+        // Admins: 2FA is MANDATORY (enroll-then-enter, no token before that).
+        // Govt/industry: if they have ENABLED 2FA in Settings, login must
+        // challenge them — previously the second factor was never consulted
+        // for non-admins, making their enrollment decorative.
+        // Fail CLOSED: the only permitted fallback is "table doesn't exist
+        // yet" (pre-migration install). Any other DB error blocks the login.
+        let mfaEnabled = false;
+        try {
+            const mfaRow = await db.query('SELECT enabled FROM user_mfa WHERE user_id = $1', [user.id]);
+            mfaEnabled = !!(mfaRow.rows.length && mfaRow.rows[0].enabled);
+        } catch (err) {
+            if (err.code === '42P01') {
+                mfaEnabled = false; // pre-migration: nobody has MFA configured
+            } else {
+                console.error('[AUTH] MFA gate DB error — failing closed:', err.message);
+                return res.status(500).json({ error: 'Unable to verify 2FA status. Please try again later.' });
             }
+        }
 
+        if (user.role === 'admin' || mfaEnabled) {
             // Issue a short-lived challenge token (5 min) so the
             // verify-mfa / mfa-setup endpoints can identify the user.
             const challengeToken = jwt.sign(
@@ -257,7 +265,7 @@ router.post('/login', async (req, res) => {
             );
 
             if (mfaEnabled) {
-                // Case 1: MFA is ON — admin must enter the TOTP code.
+                // MFA is ON — user must enter the TOTP code.
                 return res.json({
                     mfa_required: true,
                     challenge_token: challengeToken,
@@ -265,8 +273,8 @@ router.post('/login', async (req, res) => {
                     msg: 'Enter the 6-digit code from Microsoft Authenticator.'
                 });
             } else {
-                // Case 2: MFA NOT set up — admin must enroll NOW.
-                // No dashboard access until 2FA is configured + verified.
+                // Admin with MFA NOT set up must enroll NOW. No dashboard
+                // access until 2FA is configured + verified.
                 return res.json({
                     mfa_setup_required: true,
                     challenge_token: challengeToken,
@@ -286,6 +294,9 @@ router.post('/login', async (req, res) => {
                 payload: { role: user.role, email: user.email }
             });
         } catch (_) { /* audit must not block login */ }
+
+        // Tracked session token (revocable via /api/security/sessions).
+        const token = await issueSessionToken(payload, req);
 
         res.json({
             token,
@@ -328,17 +339,20 @@ router.post('/verify-mfa', async (req, res) => {
         const { challengeToken, code } = req.body;
         if (!challengeToken || !code) return res.status(400).json({ error: 'challengeToken and code required.' });
 
-        // Rate-limit by challenge token (prevents brute-forcing the 6-digit space).
-        const rl = checkLoginMfaRateLimit(challengeToken);
-        if (rl.blocked) return res.status(429).json({ error: `Too many attempts. Try again in ${rl.retryAfterSec}s.` });
-
-        // Verify the challenge token.
+        // Verify the challenge token FIRST so the rate limiter can key on the
+        // USER, not the token string. Keying on the token string let an
+        // attacker reset their 5-attempt window by simply logging in again
+        // (each login mints a fresh challenge token).
         let decoded;
         try { decoded = jwt.verify(challengeToken, JWT_SECRET); }
         catch { return res.status(401).json({ error: 'Challenge token expired or invalid. Please log in again.' }); }
         if (!decoded.mfa_challenge) return res.status(400).json({ error: 'Invalid challenge token.' });
 
         const userId = decoded.user_id;
+
+        // Per-user rate limit — survives re-login and token rotation.
+        const rl = checkLoginMfaRateLimit(userId);
+        if (rl.blocked) return res.status(429).json({ error: `Too many attempts. Try again in ${rl.retryAfterSec}s.` });
 
         // Fetch the MFA secret (encrypted at rest — enc:v1:; legacy
         // plaintext values still verify until re-enrolled).
@@ -357,8 +371,8 @@ router.post('/verify-mfa', async (req, res) => {
         const valid = verifyTotp(secret, String(code));
         if (!valid) return res.status(401).json({ error: 'Invalid verification code. Check Microsoft Authenticator and try again.' });
 
-        // Success — clear rate limiter + issue the real login token.
-        _loginMfaAttempts.delete(challengeToken);
+        // Success — clear rate limiter + issue the tracked login token.
+        _loginMfaAttempts.delete(userId);
         const userResult = await db.query(
             `SELECT u.*, ip.id AS profile_id, ip.company_name, gp.officer_name
                FROM users u
@@ -367,9 +381,10 @@ router.post('/verify-mfa', async (req, res) => {
               WHERE u.id = $1`, [userId]);
         const user = userResult.rows[0];
         const name = user.role === 'industry' ? user.company_name : user.role === 'govt' ? user.officer_name : 'Admin';
-        const token = await signToken({ user: { id: user.id, role: user.role, name, ...(user.profile_id && { profile_id: user.profile_id }) } }, JWT_SECRET, { expiresIn: '8h' });
+        const payload = { user: { id: user.id, role: user.role, name, ...(user.profile_id && { profile_id: user.profile_id }) } };
+        const token = await issueSessionToken(payload, req);
 
-        db.query('INSERT INTO audit_logs (user_id, action, severity) VALUES ($1,$2,$3)', [userId, 'USER_LOGIN (2FA verified) — admin portal', 'warning']).catch(() => {});
+        db.query('INSERT INTO audit_logs (user_id, action, severity) VALUES ($1,$2,$3)', [userId, `USER_LOGIN (2FA verified) — ${user.role} portal`, 'warning']).catch(() => {});
 
         res.json({ token, role: user.role, name, email: user.email });
     } catch (err) {
@@ -379,9 +394,9 @@ router.post('/verify-mfa', async (req, res) => {
 });
 
 // ============================================================
-// MIDDLEWARE - Role Protection
+// MIDDLEWARE - Role Protection (+ session revocation check)
 // ============================================================
-const requireRole = (allowedRoles) => (req, res, next) => {
+const requireRole = (allowedRoles) => async (req, res, next) => {
     const token = req.header('x-auth-token');
     if (!token) {
         return res.status(401).json({ msg: 'No token, authorization denied' });
@@ -389,6 +404,26 @@ const requireRole = (allowedRoles) => (req, res, next) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded.user;
+
+        // Session revocation: tokens issued with a jti are tracked in
+        // user_sessions; if that session was revoked (user forced logout),
+        // reject even though the JWT itself hasn't expired. Tokens without a
+        // jti (issued before tracking) keep working. A missing table is
+        // tolerated (pre-migration); other lookup errors fail the request.
+        if (decoded.jti) {
+            try {
+                const sess = await db.query('SELECT revoked FROM user_sessions WHERE token_jti = $1', [decoded.jti]);
+                if (sess.rows.length && sess.rows[0].revoked) {
+                    return res.status(401).json({ msg: 'Session revoked. Please log in again.' });
+                }
+            } catch (err) {
+                if (err.code !== '42P01') {
+                    console.error('[AUTH] Session check error:', err.message);
+                    return res.status(500).json({ msg: 'Session check failed. Please try again.' });
+                }
+            }
+        }
+
         if (allowedRoles && !allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ msg: 'Access Denied: You do not have the required permissions.' });
         }
@@ -438,7 +473,7 @@ router.post('/impersonate/:industryId', requireRole(['admin']), async (req, res)
         };
         // Impersonation tokens expire in 1 HOUR (shorter than the normal 8h
         // session) to limit the blast radius if an admin session is compromised.
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+        const token = await issueSessionToken(payload, req, '1h');
 
         // Audit the impersonation start.
         db.query(
@@ -475,4 +510,4 @@ router.post('/impersonate/end', requireRole(['admin', 'industry']), async (req, 
     res.json({ msg: 'Impersonation ended.' });
 });
 
-module.exports = { router, requireRole };
+module.exports = { router, requireRole, issueSessionToken };

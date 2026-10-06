@@ -313,8 +313,10 @@ export default function ReportExportCenter() {
                     <TableCell align="right">{row.investment}</TableCell>
                     <TableCell align="right">{row.employment}</TableCell>
                     <TableCell align="right">
-                      <Chip label={`${row.compliance}/100`} size="small"
-                        color={row.compliance >= 80 ? 'success' : row.compliance >= 60 ? 'warning' : 'error'} />
+                      {typeof row.compliance === 'number'
+                        ? <Chip label={`${row.compliance}/100`} size="small"
+                            color={row.compliance >= 80 ? 'success' : row.compliance >= 60 ? 'warning' : 'error'} />
+                        : <Chip label={String(row.compliance)} size="small" variant="outlined" />}
                     </TableCell>
                   </TableRow>
                 ))}

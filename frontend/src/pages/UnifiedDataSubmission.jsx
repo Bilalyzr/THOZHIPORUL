@@ -117,6 +117,17 @@ export default function UnifiedDataSubmission() {
     csrActivities: formData.csrActivities || null,
     csrSpent: toInr(formData.csrSpent ? formData.csrSpent : (formData.csrActualSpend ? Number(formData.csrActualSpend) : '')),
     csrBeneficiaries: formData.csrBeneficiaries === '' ? null : Number(formData.csrBeneficiaries),
+    // Structured Section-135 CSR fields — Cr values stay in Cr (DB columns are *_cr).
+    csrPillar: formData.csrPillar || null,
+    csrPatBaseline: formData.csrPatBaseline === '' ? null : Number(formData.csrPatBaseline),
+    csrMandatedSpend: formData.csrMandatedSpend === '' ? null : Number(formData.csrMandatedSpend),
+    csrActualSpend: formData.csrActualSpend === '' ? null : Number(formData.csrActualSpend),
+    csrPartner: formData.csrPartner || null,
+    csrCsr1No: formData.csrCsr1No || null,
+    csrSdgGoals: formData.csrSdgGoals
+      ? formData.csrSdgGoals.split(',').map(s => parseInt(s.trim(), 10)).filter(Number.isInteger)
+      : null,
+    csrLocation: formData.csrLocation || null,
     productionItems: formData.productionItems.length
       ? formData.productionItems.map(p => ({
           productName: p.productName,
@@ -202,6 +213,14 @@ export default function UnifiedDataSubmission() {
       csrActivities: d.csrActivities ?? '',
       csrSpent: d.csrSpent != null ? String(Number(d.csrSpent) / CR) : '',
       csrBeneficiaries: d.csrBeneficiaries ?? '',
+      csrPillar: d.csrPillar || 'education_skills',
+      csrPatBaseline: d.csrPatBaseline != null ? String(d.csrPatBaseline) : '',
+      csrMandatedSpend: d.csrMandatedSpend != null ? String(d.csrMandatedSpend) : '',
+      csrActualSpend: d.csrActualSpend != null ? String(d.csrActualSpend) : '',
+      csrPartner: d.csrPartner ?? '',
+      csrCsr1No: d.csrCsr1No ?? '',
+      csrSdgGoals: Array.isArray(d.csrSdgGoals) ? d.csrSdgGoals.join(',') : (d.csrSdgGoals || ''),
+      csrLocation: d.csrLocation ?? '',
       productionItems: (d.productionItems || []).map(p => ({ ...p, productionValue: p.productionValue != null ? String(Number(p.productionValue) / CR) : '' }))
 });
     setEditingId(entry.id);
@@ -233,6 +252,14 @@ export default function UnifiedDataSubmission() {
         wasteRecycledPct: p.waste_recycled_pct ?? f.wasteRecycledPct,
         csrActivities: p.csr_activities || f.csrActivities,
         csrSpent: p.csr_spent != null ? String(Number(p.csr_spent) / CR) : f.csrSpent,
+        csrPillar: p.csr_pillar || f.csrPillar,
+        csrPatBaseline: p.csr_pat_baseline != null ? String(p.csr_pat_baseline) : f.csrPatBaseline,
+        csrMandatedSpend: p.csr_mandated_spend != null ? String(p.csr_mandated_spend) : f.csrMandatedSpend,
+        csrActualSpend: p.csr_actual_spend != null ? String(p.csr_actual_spend) : f.csrActualSpend,
+        csrPartner: p.csr_partner || f.csrPartner,
+        csrCsr1No: p.csr_csr1_no || f.csrCsr1No,
+        csrSdgGoals: Array.isArray(p.csr_sdg_goals) ? p.csr_sdg_goals.join(',') : (p.csr_sdg_goals || f.csrSdgGoals),
+        csrLocation: p.csr_location || f.csrLocation,
         productionItems: (p.production_items || []).map(x => ({ ...x, productionValue: x.production_value != null ? String(Number(x.production_value) / CR) : '' }))
 }));
       setSnackbar({ open: true, message: `Prefilled from your last filing (${p.period_year}-Q${p.period_quarter ?? 'FY'}).`, severity: 'success' });

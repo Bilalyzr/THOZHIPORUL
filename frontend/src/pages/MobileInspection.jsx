@@ -30,6 +30,9 @@ export default function MobileInspection() {
     industryId: '', inspectionType: 'environmental', outcome: 'compliant',
     findings: '', latitude: '', longitude: ''
   });
+  // Evidence file names captured via the (previously dead) file inputs —
+  // sent as photoPaths refs with the inspection.
+  const [evidence, setEvidence] = useState([]);
   // HO forwarding dialog
   const [hoDialog, setHoDialog] = useState(null); // { inspection, statusReport }
   // Incentive dialog
@@ -57,6 +60,12 @@ export default function MobileInspection() {
 
   const handleChange = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
+  const handleEvidence = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length) setEvidence(prev => [...prev, ...files.map(f => f.name)].slice(0, 6));
+    e.target.value = ''; // allow re-selecting the same file after removal
+  };
+
   const captureLocation = () => {
     if (!navigator.geolocation) return setSnackbar({ open: true, message: 'Geolocation not available.', severity: 'warning' });
     navigator.geolocation.getCurrentPosition(
@@ -75,10 +84,12 @@ export default function MobileInspection() {
         outcome: form.outcome,
         findings: form.findings,
         latitude: form.latitude ? parseFloat(form.latitude) : null,
-        longitude: form.longitude ? parseFloat(form.longitude) : null
+        longitude: form.longitude ? parseFloat(form.longitude) : null,
+        photoPaths: evidence.length ? evidence : null
 });
       setSnackbar({ open: true, message: `Inspection submitted. Outcome: ${form.outcome}.`, severity: 'success' });
       setForm({ industryId: '', inspectionType: 'environmental', outcome: 'compliant', findings: '', latitude: '', longitude: '' });
+      setEvidence([]);
       // Refresh list
       const inspRes = await inspectionService.getAll();
       setInspections(Array.isArray(inspRes.data) ? inspRes.data : []);
@@ -172,9 +183,16 @@ export default function MobileInspection() {
           <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>Evidence Upload (geo-tagged photos)</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-              <IconButton color="primary" component="label" sx={{ border: '1px solid', p: 2 }}><input hidden accept="image/*" type="file" /><PhotoCamera fontSize="large" /></IconButton>
-              <IconButton color="secondary" component="label" sx={{ border: '1px solid', p: 2 }}><input hidden accept="application/pdf" type="file" /><UploadFile fontSize="large" /></IconButton>
+              <IconButton color="primary" component="label" sx={{ border: '1px solid', p: 2 }}><input hidden accept="image/*" type="file" multiple onChange={handleEvidence} /><PhotoCamera fontSize="large" /></IconButton>
+              <IconButton color="secondary" component="label" sx={{ border: '1px solid', p: 2 }}><input hidden accept="application/pdf" type="file" multiple onChange={handleEvidence} /><UploadFile fontSize="large" /></IconButton>
             </Box>
+            {evidence.length > 0 && (
+              <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5, justifyContent: 'center' }}>
+                {evidence.map((name, i) => (
+                  <Chip key={`${name}-${i}`} size="small" label={name} onDelete={() => setEvidence(evidence.filter((_, j) => j !== i))} />
+                ))}
+              </Box>
+            )}
           </Box>
 
           <Button variant="contained" fullWidth size="large" sx={{ mt: 3 }} disabled={submitting} startIcon={submitting ? <CircularProgress size={18} /> : <Send />} onClick={handleSubmit}>

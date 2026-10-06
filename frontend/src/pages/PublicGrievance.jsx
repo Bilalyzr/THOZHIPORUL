@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Paper, TextField, Button, Grid, Card, CardContent, Container, Chip, Stack, Fade
+  Box, Typography, Paper, TextField, Button, Grid, Card, CardContent, Container, Chip, Stack, Fade, Alert
 } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import {
@@ -40,8 +40,11 @@ export default function PublicGrievance() {
     return () => { active = false; };
   }, []);
 
+  const [submitError, setSubmitError] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitError('');
     try {
       const title = form.description.substring(0, 50) + (form.description.length > 50 ? '...' : '');
       const response = await grievanceService.create({
@@ -50,11 +53,15 @@ export default function PublicGrievance() {
         name: form.name,
         description: `Phone: ${form.phone}. Details: ${form.description}`
       });
-      setRefId(`GRV-${response.data.id || Math.floor(Math.random() * 10000)}`);
+      // The server-issued reference_number is the ONLY credential that the
+      // public tracking + feedback endpoints accept — never fabricate one
+      // from the DB id (it can't track anything).
+      setRefId(response.data.reference_number || null);
       setSubmitted(true);
       setForm({ name: '', phone: '', location: '', description: '' });
     } catch (err) {
       console.error('Failed to submit grievance:', err);
+      setSubmitError(err.response?.data?.error || 'Failed to submit your grievance. Please try again.');
     }
   };
 
@@ -192,6 +199,9 @@ export default function PublicGrievance() {
                       </Box>
                     ) : (
                       <form onSubmit={handleSubmit}>
+                        {submitError && (
+                          <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{submitError}</Alert>
+                        )}
                         <Grid container spacing={3}>
                           <Grid size={12}>
                             <TextField

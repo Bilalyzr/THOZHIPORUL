@@ -40,6 +40,19 @@ async function resolveIndustryId(req) {
     return isNaN(id) ? null : id;
 }
 
+// Fail-closed guard for industry callers: an industry token WITHOUT a
+// profile_id (e.g. bulk-imported user with no industry_profiles row) must
+// never fall through to the unscoped/admin view — that leaked every
+// company's billing, incentives and queries. Returns true if the response
+// was sent (caller must return immediately).
+function rejectUnscopedIndustry(req, res, industryId) {
+    if (req.user.role === 'industry' && !industryId) {
+        res.status(403).json({ error: 'No industry profile linked to this account. Contact support.' });
+        return true;
+    }
+    return false;
+}
+
 // ============================================================
 // T2.1 — LEASE & UTILITY BILLING
 // ============================================================
@@ -51,6 +64,7 @@ router.get('/billing', requireRole(['admin', 'govt', 'industry']), async (req, r
     try {
         if (!(await tableExists('lease_billing'))) return res.json([]);
         const industryId = await resolveIndustryId(req);
+        if (rejectUnscopedIndustry(req, res, industryId)) return;
         const where = industryId ? 'WHERE b.industry_id = $1' : '';
         const params = industryId ? [industryId] : [];
         const { rows } = await db.query(`
@@ -75,6 +89,7 @@ router.get('/billing/summary', requireRole(['admin', 'govt', 'industry']), async
     try {
         if (!(await tableExists('lease_billing'))) return res.json({ available: false });
         const industryId = await resolveIndustryId(req);
+        if (rejectUnscopedIndustry(req, res, industryId)) return;
         const where = industryId ? 'WHERE industry_id = $1' : '';
         const params = industryId ? [industryId] : [];
         const { rows } = await db.query(`
@@ -169,17 +184,18 @@ router.post('/billing/generate', requireRole(['admin', 'govt']), async (req, res
 });
 
 // @route  POST /api/lifecycle/billing/:id/pay
-// @desc   Mark a billing statement as paid (full payment).
-// @access Private (Industry owner, Admin)
-router.post('/billing/:id/pay', requireRole(['admin', 'industry']), async (req, res) => {
+// @desc   Mark a billing statement as paid (full payment). Officer action —
+//         an industry user recording their OWN payment as paid with no proof
+//         would make arrears enforcement self-service defeatable, so this is
+//         admin/govt only (payments are reconciled offline / via gateway).
+// @access Private (Admin, Govt)
+router.post('/billing/:id/pay', requireRole(['admin', 'govt']), async (req, res) => {
     try {
-        const ownership = req.user.role === 'industry' ? ' AND industry_id = $2' : '';
-        const params = req.user.role === 'industry' ? [req.params.id, req.user.profile_id] : [req.params.id];
         const result = await db.query(
             `UPDATE lease_billing
                 SET status = 'paid', amount_paid = total_amount, balance_due = 0, paid_at = NOW()
-              WHERE id = $1${ownership} RETURNING *`, params);
-        if (!result.rows.length) return res.status(404).json({ error: 'Statement not found or not yours.' });
+              WHERE id = $1 RETURNING *`, [req.params.id]);
+        if (!result.rows.length) return res.status(404).json({ error: 'Statement not found.' });
         res.json({ msg: 'Payment recorded', statement: result.rows[0] });
     } catch (err) {
         console.error('Billing Pay Error:', err.message);
@@ -365,6 +381,7 @@ router.get('/incentives', requireRole(['admin', 'govt', 'industry']), async (req
     try {
         if (!(await tableExists('incentive_disbursements'))) return res.json([]);
         const industryId = await resolveIndustryId(req);
+        if (rejectUnscopedIndustry(req, res, industryId)) return;
         const where = industryId ? 'WHERE d.industry_id = $1' : '';
         const params = industryId ? [industryId] : [];
         const { rows } = await db.query(`

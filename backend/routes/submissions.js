@@ -300,7 +300,10 @@ router.get('/prefill', requireRole(['industry']), async (req, res) => {
                    f.investment_amount, f.annual_turnover, f.export_revenue, f.rd_expenditure,
                    e.permanent_employees, e.contract_employees, e.sc_st_employees, e.women_employees,
                    r.water_consumption, r.power_usage, r.waste_generated, r.waste_recycled_pct,
-                   c.description AS csr_activities, c.amount_spent AS csr_spent, c.beneficiary_count AS csr_beneficiaries
+                   c.description AS csr_activities, c.amount_spent AS csr_spent, c.beneficiary_count AS csr_beneficiaries,
+                   c.pillar AS csr_pillar, c.pat_baseline_cr AS csr_pat_baseline, c.mandated_spend_cr AS csr_mandated_spend,
+                   c.actual_spend_cr AS csr_actual_spend, c.implementing_partner AS csr_partner,
+                   c.csr1_registration_no AS csr_csr1_no, c.sdg_goals AS csr_sdg_goals, c.location_benefited AS csr_location
               FROM data_submissions ds
               JOIN industry_profiles ip ON ip.id = ds.industry_id
          LEFT JOIN financial_data f ON f.submission_id = ds.id

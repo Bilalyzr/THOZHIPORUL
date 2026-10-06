@@ -79,9 +79,15 @@ function UserManagement() {
     setViewDetails(null);
     setViewLoading(true);
     try {
-      // The users table row carries industry_id / profileId linking to
-      // industry_profiles. Fall back to id if the join key isn't present.
-      const profileId = user.industry_id || user.profileId || user.id;
+      // GET /users now returns industry_id (the industry_profiles.id from
+      // the LEFT JOIN). Only fall back to user.id when there is no linked
+      // profile — using user.id directly loaded a DIFFERENT company's row.
+      const profileId = user.industry_id || user.profileId;
+      if (!profileId) {
+        setSnackbar({ open: true, message: 'This account has no linked industry profile.', severity: 'info' });
+        setViewLoading(false);
+        return;
+      }
       const res = await industryService.getById(profileId);
       setViewDetails(res.data);
     } catch {

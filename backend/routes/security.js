@@ -105,7 +105,9 @@ router.delete('/sessions/:id', requireRole(['admin', 'govt', 'industry']), async
 });
 
 // @route   DELETE /api/security/sessions-all
-// @desc    Revoke ALL other sessions (revoke everything except the current one).
+// @desc    Revoke ALL sessions for the caller — including the current one.
+//          The frontend should route the user to login afterwards. Tokens
+//          issued with a jti are rejected by requireRole once revoked.
 router.delete('/sessions-all', requireRole(['admin', 'govt', 'industry']), async (req, res) => {
     try {
         const r = await db.query(
@@ -274,10 +276,11 @@ router.post('/mfa/verify', mfaFlexibleAuth, async (req, res) => {
                   WHERE u.id = $1`, [req.user.id]);
             if (u.rows.length) {
                 const user = u.rows[0];
-                const name = user.role === 'industry' ? user.company_name : 'Admin';
-                const realToken = jwtLib.sign(
-                    { user: { id: user.id, role: user.role, name } },
-                    process.env.JWT_SECRET, { expiresIn: '8h' }
+                const name = user.role === 'industry' ? user.company_name : (user.officer_name || 'Admin');
+                const { issueSessionToken } = require('./auth');
+                const realToken = await issueSessionToken(
+                    { user: { id: user.id, role: user.role, name, ...(user.profile_id && { profile_id: user.profile_id }) } },
+                    req
                 );
                 return res.json({
                     msg: 'MFA enabled',
@@ -363,9 +366,19 @@ router.post('/import', requireRole(['admin']), async (req, res) => {
                 const exists = await db.query('SELECT 1 FROM users WHERE email=$1', [u.email]);
                 if (exists.rows.length) throw new Error('email already exists');
                 const hash = await bcrypt.hash(u.password, 10);
-                await db.query(
-                    'INSERT INTO users (email, password_hash, role, status) VALUES ($1,$2,$3,$4)',
-                    [u.email, hash, u.role || req.body.role || 'industry', 'Active']);
+                const role = u.role || req.body.role || 'industry';
+                const ins = await db.query(
+                    'INSERT INTO users (email, password_hash, role, status) VALUES ($1,$2,$3,$4) RETURNING id',
+                    [u.email, hash, role, 'Active']);
+                // An imported INDUSTRY user MUST get an industry_profiles row.
+                // Profile-less industry users log in without a profile_id in
+                // their token, which every tenant-scoped endpoint treats as
+                // "unscoped" — that used to expose all companies' data.
+                if (role === 'industry') {
+                    await db.query(
+                        "INSERT INTO industry_profiles (user_id, company_name, industry_type, location) VALUES ($1,$2,'Other','Pending')",
+                        [ins.rows[0].id, u.name || u.companyName || u.email]);
+                }
                 succeeded++;
             } catch (e) {
                 failed++;

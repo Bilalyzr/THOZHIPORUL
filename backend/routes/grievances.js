@@ -1,8 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { requireRole } = require('./auth');
+
+// Dedicated limiter for the public write endpoints — the global 300/5min
+// cap still allowed tens of thousands of junk grievances/day per IP into
+// the government review queue.
+const publicWriteLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many submissions from this address. Please try again later.' }
+});
 
 // ============================================================
 // @route   GET /api/grievances
@@ -26,9 +38,9 @@ router.get('/', requireRole(['admin', 'govt']), async (req, res) => {
 // ============================================================
 // @route   POST /api/grievances
 // @desc    Submit a new grievance
-// @access  Public (citizens submit grievances)
+// @access  Public (citizens submit grievances; rate-limited)
 // ============================================================
-router.post('/', async (req, res) => {
+router.post('/', publicWriteLimiter, async (req, res) => {
     try {
         // Extract only allowed fields to prevent mass assignment vulnerability
         const { title, location, name, description } = req.body;
@@ -165,7 +177,7 @@ router.put('/:id/assign', requireRole(['admin', 'govt']), async (req, res) => {
 //          proof of knowledge — ids are sequential, so without this
 //          anyone could spam/overwrite any grievance's rating.
 // ============================================================
-router.post('/:id/feedback', async (req, res) => {
+router.post('/:id/feedback', publicWriteLimiter, async (req, res) => {
     try {
         const { rating, comment, reference } = req.body;
         if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'rating (1-5) required' });

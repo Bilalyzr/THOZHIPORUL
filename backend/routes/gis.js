@@ -78,6 +78,17 @@ router.get('/plots/:id', requireRole(['admin', 'govt', 'industry']), async (req,
         if (!rows.length) return res.status(404).json({ error: 'Plot not found' });
 
         const r = rows[0];
+        // Tenant privacy: commercial lease terms and the allottee's identity
+        // are visible only to admin/govt or the plot's OWN allottee — other
+        // industry users must not read a competitor's rent and lease dates.
+        if (req.user.role === 'industry' && r.industry_id !== req.user.profile_id) {
+            r.allottee = null;
+            r.industry_id = null;
+            r.monthly_lease_amount = null;
+            r.lease_start_date = null;
+            r.lease_end_date = null;
+            r.allotment_date = null;
+        }
         // "Plug-and-play" readiness score: simple composite from available infra.
         const readiness = [
             r.water_capacity_kl > 0, r.power_capacity_mw > 0, r.road_connectivity_km > 0

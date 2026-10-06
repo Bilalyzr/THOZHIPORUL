@@ -466,26 +466,58 @@ router.post('/documents', requireRole(['industry']), upload.single('file'), asyn
         // Form fields (sent alongside the file in the FormData payload).
         const category = req.body.category;
         const expiryDate = req.body.expiryDate || null;
-        // Display name defaults to the original uploaded filename.
-        const fileName = req.body.fileName || req.file.originalname;
 
         if (!category) {
             fs.unlink(req.file.path, () => {});
             return res.status(400).json({ error: 'Category is required.' });
         }
+        // Light validation: category is a short label, expiry (if given)
+        // must be a real date — invalid dates used to 500 on INSERT.
+        const safeCategory = String(category).trim().slice(0, 60);
+        let safeExpiry = null;
+        if (expiryDate) {
+            const d = new Date(expiryDate);
+            if (isNaN(d.getTime())) {
+                fs.unlink(req.file.path, () => {});
+                return res.status(400).json({ error: 'expiryDate must be a valid date.' });
+            }
+            safeExpiry = d.toISOString().slice(0, 10);
+        }
 
-        // file_path is the URL the static handler serves (see index.js).
-        const filePath = `/uploads/${req.file.filename}`;
+        const fileName = String(req.body.fileName || req.file.originalname).slice(0, 255);
+
+        // Server-side storage quota per subscription tier (mirrors the
+        // frontend display) — previously only the 25MB/file cap existed, so
+        // a free-tier account could store unbounded data.
+        const { STORAGE_LIMITS_MB } = require('../middleware/subscriptionGuard');
+        const tierRow = await db.query('SELECT subscription_tier FROM industry_profiles WHERE id = $1', [industryId]);
+        const tier = (tierRow.rows[0] && tierRow.rows[0].subscription_tier) || 'free_starter';
+        const limitKb = (STORAGE_LIMITS_MB[tier] || STORAGE_LIMITS_MB.free_starter) * 1024;
+        const used = await db.query(
+            'SELECT COALESCE(SUM(file_size_kb), 0)::bigint AS kb FROM documents WHERE industry_id = $1',
+            [industryId]
+        );
+        const usedKb = parseInt(used.rows[0].kb, 10) || 0;
         const sizeKb = Math.max(1, Math.round(req.file.size / 1024));
+        if (usedKb + sizeKb > limitKb) {
+            fs.unlink(req.file.path, () => {});
+            return res.status(402).json({
+                code: 'STORAGE_QUOTA_EXCEEDED',
+                error: `Storage quota exceeded for the ${tier} plan (${STORAGE_LIMITS_MB[tier]} MB). Delete old documents or upgrade your subscription.`
+            });
+        }
+
+        // file_path is the URL the authenticated download route serves.
+        const filePath = `/uploads/${req.file.filename}`;
 
         const docInsert = await db.query(
             `INSERT INTO documents (industry_id, uploaded_by, category, file_name, file_path, file_size_kb, mime_type, expiry_date, verified)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
              RETURNING id`,
-            [industryId, userId, category, fileName, filePath, sizeKb, req.file.mimetype, expiryDate]
+            [industryId, userId, safeCategory, fileName, filePath, sizeKb, req.file.mimetype, safeExpiry]
         );
 
-        console.log(`[VAULT] Document uploaded to disk: ${req.file.filename} (${category}, ${sizeKb} KB) for industry ID ${industryId}`);
+        console.log(`[VAULT] Document uploaded to disk: ${req.file.filename} (${safeCategory}, ${sizeKb} KB) for industry ID ${industryId}`);
         res.status(201).json({ msg: 'Document uploaded successfully', id: docInsert.rows[0].id });
     } catch (err) {
         // Best-effort cleanup of the partial file on failure.

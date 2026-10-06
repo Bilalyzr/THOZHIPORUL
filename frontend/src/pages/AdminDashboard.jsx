@@ -127,7 +127,9 @@ function AdminDashboard() {
       fetchDashboardData();
     } catch (err) {
       console.error("Failed to approve submission", err);
-      setSnackbar({ open: true, message: 'Failed to approve submission.', severity: 'error' });
+      // Surface the server's reason (e.g. open deficiency queries block
+      // approval) instead of a generic failure.
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to approve submission.', severity: 'error' });
     }
   };
 

@@ -226,11 +226,17 @@ export default function ServicesTracker() {
     }
   };
 
-  // WITHDRAW request (industry)
-  const handleWithdraw = () => {
-    setRequests(requests.filter(r => r.id !== selectedRequest.id));
-    setSelectedRequest(null);
-    setSnackbar({ open: true, message: 'Service request withdrawn successfully.', severity: 'warning' });
+  // WITHDRAW request (industry) — calls the real endpoint; previously this
+  // only removed the row locally, so the request reappeared on refresh.
+  const handleWithdraw = async () => {
+    try {
+      await serviceRequestService.withdraw(selectedRequest.id);
+      fetchData();
+      setSelectedRequest(null);
+      setSnackbar({ open: true, message: 'Service request withdrawn successfully.', severity: 'warning' });
+    } catch (err) {
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to withdraw request.', severity: 'error' });
+    }
   };
 
   // ALLOT PLOT (admin)
@@ -507,7 +513,7 @@ export default function ServicesTracker() {
                 </Box>
               </Box>
 
-              {selectedRequest.expected_completion < new Date().toISOString().split('T')[0] && selectedRequest.current_status !== 'completed' && selectedRequest.current_status !== 'approved' && (
+              {selectedRequest.expected_completion && selectedRequest.expected_completion < new Date().toISOString().split('T')[0] && selectedRequest.current_status !== 'completed' && selectedRequest.current_status !== 'approved' && (
                 <Box sx={{ p: 2, bgcolor: '#fff3e0', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1, mt: 2, border: '1px solid #ffcc80' }}>
                   <Warning color="warning" />
                   <Typography variant="body2" color="warning.dark">Bottleneck Alert: This request has exceeded the expected completion date.</Typography>

@@ -112,8 +112,16 @@ router.put('/profile', requireRole(['admin', 'govt', 'industry']), async (req, r
                   WHERE user_id = $5`,
                 [officerName, designation || null, department || null, jurisdiction || null, req.user.id]
             );
+        } else if (role === 'admin') {
+            // Admins have no profile row — their editable field is the
+            // display name on users. Previously this was a silent no-op while
+            // the UI toasted "Profile updated successfully".
+            const { name } = req.body;
+            if (!name || !String(name).trim()) {
+                return res.status(400).json({ error: 'Name is required.' });
+            }
+            await db.query('UPDATE users SET name = $1 WHERE id = $2', [String(name).trim().slice(0, 120), req.user.id]);
         }
-        // admin: no editable profile fields beyond email (handled by a password-change flow elsewhere).
 
         try {
             await db.query('INSERT INTO audit_logs (user_id, action) VALUES ($1, $2)', [req.user.id, 'Updated own profile']);

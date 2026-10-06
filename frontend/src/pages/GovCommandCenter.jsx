@@ -63,9 +63,9 @@ const KPICard = ({ title, value, unit, growth, icon, color }) => (
           </Typography>
           <Chip
             size="small"
-            icon={growth >= 0 ? <TrendingUp /> : <TrendingDown />}
-            label={`${growth >= 0 ? '+' : ''}${growth}%`}
-            color={growth >= 0 ? 'success' : 'error'}
+            icon={growth == null ? null : growth >= 0 ? <TrendingUp /> : <TrendingDown />}
+            label={growth == null ? '—' : `${growth >= 0 ? '+' : ''}${growth}%`}
+            color={growth == null ? 'default' : growth >= 0 ? 'success' : 'error'}
             variant="outlined"
             sx={{ fontWeight: 700 }}
           />
@@ -315,7 +315,9 @@ export default function GovCommandCenter() {
         // Already-dismissed task ids are kept off the list.
         setAiTasks((current) => {
           if (current.length) return current; // keep dismissed state if user interacted
-          const dismissed = new Set((JSON.parse(localStorage.getItem('aiTasks') || '[]')).map(t => t.title));
+          let stored = [];
+          try { stored = JSON.parse(localStorage.getItem('aiTasks') || '[]'); } catch { stored = []; }
+          const dismissed = new Set((stored || []).map(t => t.title));
           const tasks = [];
           if ((risk.critical || 0) > 0) {
             tasks.push({
